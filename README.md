@@ -97,4 +97,3 @@ This project is private to Jacroney and collaborators.
 
 ---
 
-> Built with ❤️ for fraternity treasurers who want clarity and control over their chapter's finances.
