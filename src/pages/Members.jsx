@@ -1,16 +1,38 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Papa from 'papaparse';
 import { MemberService } from '../services/memberService';
+import { useChapter } from '../context/ChapterContext';
 
 const Members = () => {
+  const { currentChapter } = useChapter();
   const [members, setMembers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedSemester, setSelectedSemester] = useState('Fall 2025');
+  const [selectedSemester, setSelectedSemester] = useState('Winter 2025');
   const [showImportModal, setShowImportModal] = useState(false);
   const [importData, setImportData] = useState('');
   const [importError, setImportError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [notification, setNotification] = useState({ show: false, message: '', type: '' });
+
+  // Load members on component mount and when chapter changes
+  useEffect(() => {
+    const loadMembers = async () => {
+      if (currentChapter) {
+        try {
+          setIsLoading(true);
+          const memberList = await MemberService.getMembers(currentChapter.id);
+          setMembers(memberList);
+        } catch (error) {
+          console.error('Failed to load members:', error);
+          showNotification('Failed to load members', 'error');
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadMembers();
+  }, [currentChapter]);
 
   // Show notification
   const showNotification = (message, type = 'success') => {
@@ -52,24 +74,44 @@ const Members = () => {
         complete: async (results) => {
           if (results.data && results.data.length > 0) {
             const errors = [];
-            const formattedMembers = results.data
+            // Check if first row is header
+            const hasHeader = results.data[0] &&
+              (results.data[0][0]?.toLowerCase().includes('name') ||
+               results.data[0][1]?.toLowerCase().includes('email'));
+
+            const dataRows = hasHeader ? results.data.slice(1) : results.data;
+
+            const formattedMembers = dataRows
               .filter(row => row[0] && row[1]) // Filter out empty rows
-              .map((row) => {
-                const name = sanitizeInput(row[0] || '');
-                const email = row[1] || '';
-                
+              .map((row, index) => {
+                const name = sanitizeInput(row[0] || '').trim();
+                const email = (row[1] || '').trim().toLowerCase();
+                const status = row[2] ? sanitizeInput(row[2]).trim() : 'Active';
+                const year = row[3] ? sanitizeInput(row[3]).trim() : null;
+                const duesPaid = row[4] ? row[4].toLowerCase() === 'yes' || row[4].toLowerCase() === 'true' : false;
+
                 if (!isValidEmail(email)) {
-                  errors.push(`Invalid email format for ${name}`);
+                  errors.push(`Row ${index + 1}: Invalid email format for ${name}`);
                   return null;
                 }
 
+                // Validate status
+                const validStatuses = ['Active', 'Inactive', 'Pledge', 'Alumni'];
+                const finalStatus = validStatuses.includes(status) ? status : 'Active';
+
+                // Validate year
+                const validYears = ['Freshman', 'Sophomore', 'Junior', 'Senior', 'Graduate', 'Alumni'];
+                const finalYear = validYears.includes(year) ? year : null;
+
                 return {
                   id: crypto.randomUUID(),
+                  chapter_id: currentChapter?.id || '11111111-1111-1111-1111-111111111111',
                   name,
                   email,
-                  status: 'Active',
-                  duesPaid: false,
-                  paymentDate: null,
+                  status: finalStatus,
+                  year: finalYear,
+                  duesPaid,
+                  paymentDate: duesPaid ? new Date().toISOString() : null,
                   semester: selectedSemester,
                   lastUpdated: new Date().toISOString()
                 };
@@ -80,11 +122,13 @@ const Members = () => {
               setImportError(errors.join('\n'));
             } else {
               try {
-                await MemberService.saveMembers(formattedMembers);
-                setMembers(formattedMembers);
+                const importedMembers = await MemberService.importMembers(formattedMembers);
+                // Reload all members from database to get fresh data
+                const allMembers = await MemberService.getMembers(currentChapter?.id);
+                setMembers(allMembers);
                 setShowImportModal(false);
                 setImportError('');
-                showNotification('Members imported successfully!');
+                showNotification(`${importedMembers.length} members imported successfully!`);
               } catch (error) {
                 setImportError('Failed to save members. Please try again.');
               }
@@ -108,11 +152,12 @@ const Members = () => {
       setIsLoading(true);
       const rows = importData.split('\n').filter(row => row.trim());
       const errors = [];
-      
+
       const formattedMembers = rows
         .map((row, index) => {
-          const [name, email] = row.split(',').map(item => sanitizeInput(item.trim()));
-          
+          const parts = row.split(',').map(item => sanitizeInput(item.trim()));
+          const [name, email, status, year] = parts;
+
           if (!name || !email) {
             errors.push(`Row ${index + 1}: Missing name or email`);
             return null;
@@ -123,11 +168,21 @@ const Members = () => {
             return null;
           }
 
+          // Validate status
+          const validStatuses = ['Active', 'Inactive', 'Pledge', 'Alumni'];
+          const finalStatus = status && validStatuses.includes(status) ? status : 'Active';
+
+          // Validate year
+          const validYears = ['Freshman', 'Sophomore', 'Junior', 'Senior', 'Graduate', 'Alumni'];
+          const finalYear = year && validYears.includes(year) ? year : null;
+
           return {
             id: crypto.randomUUID(),
+            chapter_id: currentChapter?.id || '11111111-1111-1111-1111-111111111111',
             name,
-            email,
-            status: 'Active',
+            email: email.toLowerCase(),
+            status: finalStatus,
+            year: finalYear,
             duesPaid: false,
             paymentDate: null,
             semester: selectedSemester,
@@ -140,12 +195,14 @@ const Members = () => {
         setImportError(errors.join('\n'));
       } else {
         try {
-          await MemberService.saveMembers(formattedMembers);
-          setMembers(formattedMembers);
+          const importedMembers = await MemberService.importMembers(formattedMembers);
+          // Reload all members from database to get fresh data
+          const allMembers = await MemberService.getMembers(currentChapter?.id);
+          setMembers(allMembers);
           setShowImportModal(false);
           setImportData('');
           setImportError('');
-          showNotification('Members imported successfully!');
+          showNotification(`${importedMembers.length} members imported successfully!`);
         } catch (error) {
           setImportError('Failed to save members. Please try again.');
         }

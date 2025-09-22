@@ -60,7 +60,8 @@ export interface Member {
   chapter_id: string;
   name: string;
   email: string;
-  status: 'Active' | 'Inactive';
+  status: 'Active' | 'Inactive' | 'Pledge' | 'Alumni';
+  year: 'Freshman' | 'Sophomore' | 'Junior' | 'Senior' | 'Graduate' | 'Alumni' | null;
   duesPaid: boolean;
   paymentDate: string | null;
   semester: string;

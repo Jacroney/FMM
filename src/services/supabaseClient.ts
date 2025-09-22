@@ -47,7 +47,8 @@ export interface Database {
           chapter_id: string;
           name: string;
           email: string;
-          status: 'Active' | 'Inactive' | 'Alumni';
+          status: 'Active' | 'Inactive' | 'Pledge' | 'Alumni';
+          year: string | null;
           dues_paid: boolean;
           payment_date: string | null;
           semester: string;

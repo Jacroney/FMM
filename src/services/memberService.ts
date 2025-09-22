@@ -23,7 +23,8 @@ export class MemberService {
         chapter_id: member.chapter_id,
         name: member.name,
         email: member.email,
-        status: member.status as 'Active' | 'Inactive',
+        status: member.status as 'Active' | 'Inactive' | 'Pledge' | 'Alumni',
+        year: member.year,
         duesPaid: member.dues_paid,
         paymentDate: member.payment_date,
         semester: member.semester,
@@ -45,6 +46,7 @@ export class MemberService {
           name: member.name,
           email: member.email,
           status: member.status,
+          year: member.year,
           dues_paid: member.duesPaid,
           payment_date: member.paymentDate,
           semester: member.semester,
@@ -60,7 +62,8 @@ export class MemberService {
         chapter_id: data.chapter_id,
         name: data.name,
         email: data.email,
-        status: data.status as 'Active' | 'Inactive',
+        status: data.status as 'Active' | 'Inactive' | 'Pledge' | 'Alumni',
+        year: data.year,
         duesPaid: data.dues_paid,
         paymentDate: data.payment_date,
         semester: data.semester,
@@ -100,6 +103,7 @@ export class MemberService {
         name: updates.name,
         email: updates.email,
         status: updates.status,
+        year: updates.year,
         dues_paid: updates.duesPaid,
         payment_date: updates.paymentDate,
         semester: updates.semester,
@@ -125,7 +129,8 @@ export class MemberService {
         chapter_id: data.chapter_id,
         name: data.name,
         email: data.email,
-        status: data.status as 'Active' | 'Inactive',
+        status: data.status as 'Active' | 'Inactive' | 'Pledge' | 'Alumni',
+        year: data.year,
         duesPaid: data.dues_paid,
         paymentDate: data.payment_date,
         semester: data.semester,
@@ -154,11 +159,12 @@ export class MemberService {
 
   // Export members to CSV
   static exportToCSV(members: Member[]): string {
-    const headers = ['Name', 'Email', 'Status', 'Dues Paid', 'Payment Date', 'Semester'];
+    const headers = ['Name', 'Email', 'Status', 'Year', 'Dues Paid', 'Payment Date', 'Semester'];
     const rows = members.map(member => [
       member.name,
       member.email,
       member.status,
+      member.year || '',
       member.duesPaid ? 'Yes' : 'No',
       member.paymentDate || '',
       member.semester
@@ -178,11 +184,35 @@ export class MemberService {
       name: member.name,
       email: member.email,
       status: member.status,
+      year: member.year,
       duesStatus: member.duesPaid ? 'PAID' : 'UNPAID',
       paymentDate: member.paymentDate,
       semester: member.semester
     }));
 
     return JSON.stringify(gcmData, null, 2);
+  }
+
+  // Batch import members (for CSV import)
+  static async importMembers(members: Omit<Member, 'id'>[]): Promise<Member[]> {
+    try {
+      const results: Member[] = [];
+
+      // Import members one by one to get proper error handling
+      for (const member of members) {
+        try {
+          const savedMember = await this.addMember(member);
+          results.push(savedMember);
+        } catch (error) {
+          console.error(`Failed to import member ${member.name}:`, error);
+          // Continue with other members even if one fails
+        }
+      }
+
+      return results;
+    } catch (error) {
+      console.error('Batch import failed:', error);
+      throw error;
+    }
   }
 } 
