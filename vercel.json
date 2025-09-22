@@ -1,14 +1,4 @@
 {
-  "build": {
-    "env": {
-      "VITE_APP_PASSWORD": "@vite_app_password"
-    }
-  },
-  "functions": {
-    "app/api/**": {
-      "runtime": "nodejs18.x"
-    }
-  },
   "rewrites": [
     {
       "source": "/(.*)",
