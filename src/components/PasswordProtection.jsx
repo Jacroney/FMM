@@ -15,15 +15,19 @@ const PasswordProtection = ({ children }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    // Set your password here - change this to your desired password
-    const correctPassword = import.meta.env.VITE_APP_PASSWORD || 'your-secret-password-2025';
+    // Simple hardcoded password - always use "fmm"
+    const correctPassword = 'fmm';
 
-    if (password === correctPassword) {
+    console.log('Entered password:', password);
+    console.log('Expected password:', correctPassword);
+    console.log('Environment password:', import.meta.env.VITE_APP_PASSWORD);
+
+    if (password.trim().toLowerCase() === correctPassword) {
       setIsAuthenticated(true);
       localStorage.setItem('fmm_authenticated', 'true');
       setError('');
     } else {
-      setError('Incorrect password');
+      setError('Incorrect password. Please enter: fmm');
       setPassword('');
     }
   };
