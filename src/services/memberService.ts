@@ -1,48 +1,64 @@
+import { supabase } from './supabaseClient';
 import { Member } from './types';
 
 export class MemberService {
-  private static readonly API_BASE_URL = process.env.REACT_APP_API_URL;
-  private static readonly API_KEY = process.env.REACT_APP_API_KEY;
-
-  // Get all members
+  // Fetch all members
   static async getMembers(): Promise<Member[]> {
     try {
-      const response = await fetch(`${this.API_BASE_URL}/members`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${this.API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      const { data, error } = await supabase
+        .from('members')
+        .select('*')
+        .order('name', { ascending: true });
 
-      if (!response.ok) {
-        throw new Error(`API error: ${response.statusText}`);
-      }
+      if (error) throw error;
 
-      return await response.json();
+      return (data || []).map(member => ({
+        id: member.id,
+        name: member.name,
+        email: member.email,
+        status: member.status as 'Active' | 'Inactive',
+        duesPaid: member.duesPaid,
+        paymentDate: member.paymentDate,
+        semester: member.semester,
+        lastUpdated: member.lastUpdated
+      }));
     } catch (error) {
       console.error('Error fetching members:', error);
       throw error;
     }
   }
 
-  // Save members
-  static async saveMembers(members: Member[]): Promise<void> {
+  // Add a new member
+  static async addMember(member: Omit<Member, 'id'>): Promise<Member> {
     try {
-      const response = await fetch(`${this.API_BASE_URL}/members`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(members),
-      });
+      const { data, error } = await supabase
+        .from('members')
+        .insert({
+          name: member.name,
+          email: member.email,
+          status: member.status,
+          duesPaid: member.duesPaid,
+          paymentDate: member.paymentDate,
+          semester: member.semester,
+          lastUpdated: new Date().toISOString()
+        })
+        .select()
+        .single();
 
-      if (!response.ok) {
-        throw new Error(`API error: ${response.statusText}`);
-      }
+      if (error) throw error;
+
+      return {
+        id: data.id,
+        name: data.name,
+        email: data.email,
+        status: data.status as 'Active' | 'Inactive',
+        duesPaid: data.duesPaid,
+        paymentDate: data.paymentDate,
+        semester: data.semester,
+        lastUpdated: data.lastUpdated
+      };
     } catch (error) {
-      console.error('Error saving members:', error);
+      console.error('Error adding member:', error);
       throw error;
     }
   }
@@ -50,24 +66,68 @@ export class MemberService {
   // Update member payment status
   static async updatePaymentStatus(memberId: string, duesPaid: boolean): Promise<void> {
     try {
-      const response = await fetch(`${this.API_BASE_URL}/members/${memberId}/payment`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${this.API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          duesPaid,
-          paymentDate: duesPaid ? new Date().toISOString() : null,
-          lastUpdated: new Date().toISOString()
-        }),
-      });
+      const updateData = {
+        duesPaid,
+        paymentDate: duesPaid ? new Date().toISOString() : null,
+        lastUpdated: new Date().toISOString()
+      };
 
-      if (!response.ok) {
-        throw new Error(`API error: ${response.statusText}`);
-      }
+      const { error } = await supabase
+        .from('members')
+        .update(updateData)
+        .eq('id', memberId);
+
+      if (error) throw error;
     } catch (error) {
       console.error('Error updating payment status:', error);
+      throw error;
+    }
+  }
+
+  // Update a member
+  static async updateMember(id: string, updates: Partial<Omit<Member, 'id'>>): Promise<Member> {
+    try {
+      const updateData: any = {
+        ...updates,
+        lastUpdated: new Date().toISOString()
+      };
+
+      const { data, error } = await supabase
+        .from('members')
+        .update(updateData)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return {
+        id: data.id,
+        name: data.name,
+        email: data.email,
+        status: data.status as 'Active' | 'Inactive',
+        duesPaid: data.duesPaid,
+        paymentDate: data.paymentDate,
+        semester: data.semester,
+        lastUpdated: data.lastUpdated
+      };
+    } catch (error) {
+      console.error('Error updating member:', error);
+      throw error;
+    }
+  }
+
+  // Delete a member
+  static async deleteMember(id: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('members')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error deleting member:', error);
       throw error;
     }
   }

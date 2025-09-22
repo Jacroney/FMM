@@ -14,7 +14,7 @@ export interface Budget {
   amount: number;
   spent: number;
   category: string;
-  period: 'MONTHLY' | 'QUARTERLY' | 'YEARLY';
+  period: 'QUARTERLY' | 'YEARLY';
   startDate: Date;
   endDate: Date;
 }

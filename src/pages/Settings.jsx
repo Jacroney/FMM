@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
+import { SupabaseConnectionTest } from '../components/SupabaseConnectionTest';
 
 const Settings = () => {
   const [settings, setSettings] = useState({
     organization: {
       name: 'KSIG Treasurer',
-      fiscalYearStart: '2024-01-01',
+      fiscalYearStart: '2025-09-01',
       currency: 'USD',
       timezone: 'America/New_York'
     },
@@ -110,8 +111,8 @@ const Settings = () => {
       case 'notifications':
         return (
           <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex-1">
                 <h3 className="text-sm font-medium text-gray-700">Email Notifications</h3>
                 <p className="text-sm text-gray-500">Receive email updates about your account</p>
               </div>
@@ -125,8 +126,8 @@ const Settings = () => {
                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
               </label>
             </div>
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex-1">
                 <h3 className="text-sm font-medium text-gray-700">Low Balance Alerts</h3>
                 <p className="text-sm text-gray-500">Get notified when your balance is low</p>
               </div>
@@ -140,8 +141,8 @@ const Settings = () => {
                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
               </label>
             </div>
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex-1">
                 <h3 className="text-sm font-medium text-gray-700">Budget Alerts</h3>
                 <p className="text-sm text-gray-500">Get notified about budget updates</p>
               </div>
@@ -155,8 +156,8 @@ const Settings = () => {
                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
               </label>
             </div>
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex-1">
                 <h3 className="text-sm font-medium text-gray-700">Transaction Alerts</h3>
                 <p className="text-sm text-gray-500">Get notified about new transactions</p>
               </div>
@@ -206,8 +207,8 @@ const Settings = () => {
       case 'security':
         return (
           <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex-1">
                 <h3 className="text-sm font-medium text-gray-700">Two-Factor Authentication</h3>
                 <p className="text-sm text-gray-500">Add an extra layer of security to your account</p>
               </div>
@@ -235,8 +236,8 @@ const Settings = () => {
                 <option value="120">2 hours</option>
               </select>
             </div>
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex-1">
                 <h3 className="text-sm font-medium text-gray-700">Require Approval for Large Transactions</h3>
                 <p className="text-sm text-gray-500">Get approval for transactions above a certain amount</p>
               </div>
@@ -253,6 +254,9 @@ const Settings = () => {
           </div>
         );
 
+      case 'database':
+        return <SupabaseConnectionTest />;
+
       default:
         return null;
     }
@@ -260,7 +264,7 @@ const Settings = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Settings</h1>
           <p className="text-sm text-gray-500 mt-1">Configure your account settings</p>
@@ -268,13 +272,13 @@ const Settings = () => {
         <button
           onClick={handleSave}
           disabled={isSaving}
-          className={`px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center ${
+          className={`px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center text-sm sm:text-base ${
             isSaving ? 'opacity-50 cursor-not-allowed' : ''
           }`}
         >
           {isSaving ? (
             <>
-              <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <svg className="animate-spin -ml-1 mr-3 h-4 w-4 sm:h-5 sm:w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
@@ -297,25 +301,54 @@ const Settings = () => {
 
       {/* Tabs */}
       <div className="border-b border-gray-200">
-        <nav className="-mb-px flex space-x-8">
-          {['organization', 'notifications', 'display', 'security'].map((tab) => (
+        {/* Mobile: Dropdown selector */}
+        <div className="sm:hidden mb-4">
+          <select
+            value={activeTab}
+            onChange={(e) => setActiveTab(e.target.value)}
+            className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          >
+            {[
+              { key: 'organization', label: 'Organization' },
+              { key: 'notifications', label: 'Notifications' },
+              { key: 'display', label: 'Display' },
+              { key: 'security', label: 'Security' },
+              { key: 'database', label: 'Database' }
+            ].map((tab) => (
+              <option key={tab.key} value={tab.key}>
+                {tab.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        
+        {/* Desktop: Tab navigation */}
+        <nav className="hidden sm:flex -mb-px space-x-4 lg:space-x-8 overflow-x-auto">
+          {[
+            { key: 'organization', label: 'Organization', icon: '🏢' },
+            { key: 'notifications', label: 'Notifications', icon: '🔔' },
+            { key: 'display', label: 'Display', icon: '🎨' },
+            { key: 'security', label: 'Security', icon: '🔐' },
+            { key: 'database', label: 'Database', icon: '🗄️' }
+          ].map((tab) => (
             <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
               className={`${
-                activeTab === tab
+                activeTab === tab.key
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm capitalize`}
+              } flex items-center whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors`}
             >
-              {tab}
+              <span className="mr-2">{tab.icon}</span>
+              {tab.label}
             </button>
           ))}
         </nav>
       </div>
 
       {/* Tab Content */}
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-white rounded-lg shadow p-4 sm:p-6">
         {renderTabContent()}
       </div>
     </div>

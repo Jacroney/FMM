@@ -5,7 +5,7 @@ import { MemberService } from '../services/memberService';
 const Members = () => {
   const [members, setMembers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedSemester, setSelectedSemester] = useState('Spring 2024');
+  const [selectedSemester, setSelectedSemester] = useState('Fall 2025');
   const [showImportModal, setShowImportModal] = useState(false);
   const [importData, setImportData] = useState('');
   const [importError, setImportError] = useState('');
@@ -54,7 +54,7 @@ const Members = () => {
             const errors = [];
             const formattedMembers = results.data
               .filter(row => row[0] && row[1]) // Filter out empty rows
-              .map((row, index) => {
+              .map((row) => {
                 const name = sanitizeInput(row[0] || '');
                 const email = row[1] || '';
                 
@@ -231,9 +231,10 @@ const Members = () => {
             onChange={(e) => setSelectedSemester(e.target.value)}
             className="rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <option value="Spring 2024">Spring 2024</option>
-            <option value="Fall 2024">Fall 2024</option>
-            <option value="Spring 2025">Spring 2025</option>
+            <option value="Fall 2025">Fall 2025</option>
+            <option value="Winter 2026">Winter 2026</option>
+            <option value="Spring 2026">Spring 2026</option>
+            <option value="Summer 2026">Summer 2026</option>
           </select>
           <button
             onClick={() => setShowImportModal(true)}
@@ -279,7 +280,7 @@ const Members = () => {
         <div className="bg-white rounded-lg shadow p-6 transform hover:scale-105 transition-transform">
           <h3 className="text-lg font-semibold text-gray-700">Total Members</h3>
           <p className="text-3xl font-bold text-blue-600">{paymentStats.total}</p>
-          <p className="text-sm text-gray-500 mt-2">Active members this semester</p>
+          <p className="text-sm text-gray-500 mt-2">Active members this quarter</p>
         </div>
         <div className="bg-white rounded-lg shadow p-6 transform hover:scale-105 transition-transform">
           <h3 className="text-lg font-semibold text-gray-700">Dues Paid</h3>
