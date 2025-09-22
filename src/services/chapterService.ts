@@ -152,7 +152,7 @@ export class ChapterService {
           .from('members')
           .select('*', { count: 'exact', head: true })
           .eq('chapter_id', chapterId)
-          .eq('duesPaid', true)
+          .eq('dues_paid', true)
       ]);
 
       return {

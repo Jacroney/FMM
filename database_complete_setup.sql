@@ -46,17 +46,17 @@ CREATE TABLE IF NOT EXISTS members (
   name TEXT NOT NULL,
   email TEXT NOT NULL,
   status TEXT CHECK (status IN ('Active', 'Inactive', 'Alumni')) NOT NULL,
-  "duesPaid" BOOLEAN DEFAULT FALSE,
-  "paymentDate" DATE,
+  dues_paid BOOLEAN DEFAULT FALSE,
+  payment_date DATE,
   semester TEXT NOT NULL,
-  "lastUpdated" TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW()),
+  last_updated TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW()),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW()),
   UNIQUE(email, chapter_id)  -- Email must be unique within a chapter
 );
 
 -- Create indexes for members
 CREATE INDEX IF NOT EXISTS idx_members_status ON members(status);
-CREATE INDEX IF NOT EXISTS idx_members_dues ON members("duesPaid");
+CREATE INDEX IF NOT EXISTS idx_members_dues ON members(dues_paid);
 CREATE INDEX IF NOT EXISTS idx_members_chapter ON members(chapter_id);
 
 -- 5. Create budget_categories table
@@ -241,7 +241,7 @@ BEGIN
     ON CONFLICT DO NOTHING;
 
     -- Insert sample members
-    INSERT INTO members (chapter_id, name, email, status, "duesPaid", semester)
+    INSERT INTO members (chapter_id, name, email, status, dues_paid, semester)
     VALUES
         (default_chapter_id, 'John Doe', 'john@example.com', 'Active', true, 'Winter 2025'),
         (default_chapter_id, 'Jane Smith', 'jane@example.com', 'Active', false, 'Winter 2025'),

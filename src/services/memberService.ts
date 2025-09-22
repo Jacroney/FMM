@@ -24,10 +24,10 @@ export class MemberService {
         name: member.name,
         email: member.email,
         status: member.status as 'Active' | 'Inactive',
-        duesPaid: member.duesPaid,
-        paymentDate: member.paymentDate,
+        duesPaid: member.dues_paid,
+        paymentDate: member.payment_date,
         semester: member.semester,
-        lastUpdated: member.lastUpdated
+        lastUpdated: member.last_updated
       }));
     } catch (error) {
       console.error('Error fetching members:', error);
@@ -45,10 +45,10 @@ export class MemberService {
           name: member.name,
           email: member.email,
           status: member.status,
-          duesPaid: member.duesPaid,
-          paymentDate: member.paymentDate,
+          dues_paid: member.duesPaid,
+          payment_date: member.paymentDate,
           semester: member.semester,
-          lastUpdated: new Date().toISOString()
+          last_updated: new Date().toISOString()
         })
         .select()
         .single();
@@ -61,10 +61,10 @@ export class MemberService {
         name: data.name,
         email: data.email,
         status: data.status as 'Active' | 'Inactive',
-        duesPaid: data.duesPaid,
-        paymentDate: data.paymentDate,
+        duesPaid: data.dues_paid,
+        paymentDate: data.payment_date,
         semester: data.semester,
-        lastUpdated: data.lastUpdated
+        lastUpdated: data.last_updated
       };
     } catch (error) {
       console.error('Error adding member:', error);
@@ -76,9 +76,9 @@ export class MemberService {
   static async updatePaymentStatus(memberId: string, duesPaid: boolean): Promise<void> {
     try {
       const updateData = {
-        duesPaid,
-        paymentDate: duesPaid ? new Date().toISOString() : null,
-        lastUpdated: new Date().toISOString()
+        dues_paid: duesPaid,
+        payment_date: duesPaid ? new Date().toISOString() : null,
+        last_updated: new Date().toISOString()
       };
 
       const { error } = await supabase
@@ -97,9 +97,19 @@ export class MemberService {
   static async updateMember(id: string, updates: Partial<Omit<Member, 'id'>>): Promise<Member> {
     try {
       const updateData: any = {
-        ...updates,
-        lastUpdated: new Date().toISOString()
+        name: updates.name,
+        email: updates.email,
+        status: updates.status,
+        dues_paid: updates.duesPaid,
+        payment_date: updates.paymentDate,
+        semester: updates.semester,
+        last_updated: new Date().toISOString()
       };
+
+      // Remove undefined values
+      Object.keys(updateData).forEach(key =>
+        updateData[key] === undefined && delete updateData[key]
+      );
 
       const { data, error } = await supabase
         .from('members')
@@ -116,10 +126,10 @@ export class MemberService {
         name: data.name,
         email: data.email,
         status: data.status as 'Active' | 'Inactive',
-        duesPaid: data.duesPaid,
-        paymentDate: data.paymentDate,
+        duesPaid: data.dues_paid,
+        paymentDate: data.payment_date,
         semester: data.semester,
-        lastUpdated: data.lastUpdated
+        lastUpdated: data.last_updated
       };
     } catch (error) {
       console.error('Error updating member:', error);

@@ -48,10 +48,10 @@ export interface Database {
           name: string;
           email: string;
           status: 'Active' | 'Inactive' | 'Alumni';
-          duesPaid: boolean;
-          paymentDate: string | null;
+          dues_paid: boolean;
+          payment_date: string | null;
           semester: string;
-          lastUpdated: string;
+          last_updated: string;
           created_at?: string;
         };
         Insert: Omit<Database['public']['Tables']['members']['Row'], 'id' | 'created_at'>;
