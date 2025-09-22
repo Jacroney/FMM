@@ -27,7 +27,7 @@ const PasswordProtection = ({ children }) => {
       localStorage.setItem('fmm_authenticated', 'true');
       setError('');
     } else {
-      setError('Incorrect password. Please enter: fmm');
+      setError('Incorrect password. Please enter: password');
       setPassword('');
     }
   };
