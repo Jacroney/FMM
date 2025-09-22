@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { FinancialProvider } from './context/FinancialContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { ChapterProvider } from './context/ChapterContext';
 import PasswordProtection from './components/PasswordProtection';
 import MainLayout from './layouts/MainLayout';
 import { Dashboard } from './components/Dashboard';
@@ -19,7 +20,8 @@ function App() {
     <ThemeProvider>
       <PasswordProtection>
         <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-          <FinancialProvider>
+          <ChapterProvider>
+            <FinancialProvider>
             <Routes>
               <Route path="/" element={<MainLayout />}>
                 <Route index element={<Dashboard />} />
@@ -56,6 +58,7 @@ function App() {
               }}
             />
           </FinancialProvider>
+          </ChapterProvider>
         </Router>
       </PasswordProtection>
     </ThemeProvider>

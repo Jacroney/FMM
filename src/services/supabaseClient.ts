@@ -13,9 +13,23 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 export interface Database {
   public: {
     Tables: {
+      chapters: {
+        Row: {
+          id: string;
+          name: string;
+          school: string;
+          member_count: number;
+          fraternity_name: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Insert: Omit<Database['public']['Tables']['chapters']['Row'], 'id' | 'created_at' | 'updated_at'>;
+        Update: Partial<Database['public']['Tables']['chapters']['Insert']>;
+      };
       transactions: {
         Row: {
           id: string;
+          chapter_id: string;
           date: string;
           amount: number;
           description: string;
@@ -30,6 +44,7 @@ export interface Database {
       members: {
         Row: {
           id: string;
+          chapter_id: string;
           name: string;
           email: string;
           status: 'Active' | 'Inactive' | 'Alumni';
@@ -45,6 +60,7 @@ export interface Database {
       budget_categories: {
         Row: {
           id: string;
+          chapter_id: string;
           name: string;
           type: 'Fixed Costs' | 'Operational Costs' | 'Event Costs';
           description: string | null;
@@ -58,6 +74,7 @@ export interface Database {
       budget_periods: {
         Row: {
           id: string;
+          chapter_id: string;
           name: string;
           type: 'Quarter' | 'Semester' | 'Year';
           start_date: string;
@@ -72,6 +89,7 @@ export interface Database {
       budgets: {
         Row: {
           id: string;
+          chapter_id: string;
           category_id: string;
           period_id: string;
           allocated: number;
@@ -85,6 +103,7 @@ export interface Database {
       expenses: {
         Row: {
           id: string;
+          chapter_id: string;
           budget_id: string | null;
           category_id: string;
           period_id: string;

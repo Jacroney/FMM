@@ -1,5 +1,6 @@
 export interface Transaction {
   id: string;
+  chapter_id: string;
   date: Date;
   amount: number;
   description: string;
@@ -10,6 +11,7 @@ export interface Transaction {
 
 export interface Budget {
   id: string;
+  chapter_id: string;
   name: string;
   amount: number;
   spent: number;
@@ -43,8 +45,19 @@ export interface SwitchTransaction {
   status: string;
 }
 
+export interface Chapter {
+  id: string;
+  name: string;
+  school: string;
+  member_count: number;
+  fraternity_name: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface Member {
   id: string;
+  chapter_id: string;
   name: string;
   email: string;
   status: 'Active' | 'Inactive';

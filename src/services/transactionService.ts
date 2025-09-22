@@ -2,19 +2,26 @@ import { supabase } from './supabaseClient';
 import { Transaction } from './types';
 
 export class TransactionService {
-  // Fetch all transactions
-  static async fetchTransactions(): Promise<Transaction[]> {
+  // Fetch all transactions for a specific chapter
+  static async fetchTransactions(chapterId?: string): Promise<Transaction[]> {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('transactions')
         .select('*')
         .order('date', { ascending: false });
+
+      if (chapterId) {
+        query = query.eq('chapter_id', chapterId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
       // Convert database format to app format
       return (data || []).map(tx => ({
         id: tx.id,
+        chapter_id: tx.chapter_id,
         date: new Date(tx.date),
         amount: tx.amount,
         description: tx.description,
@@ -28,20 +35,27 @@ export class TransactionService {
     }
   }
 
-  // Fetch transactions by date range
-  static async fetchTransactionsByDateRange(startDate: Date, endDate: Date): Promise<Transaction[]> {
+  // Fetch transactions by date range for a specific chapter
+  static async fetchTransactionsByDateRange(startDate: Date, endDate: Date, chapterId?: string): Promise<Transaction[]> {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('transactions')
         .select('*')
         .gte('date', startDate.toISOString())
         .lte('date', endDate.toISOString())
         .order('date', { ascending: false });
 
+      if (chapterId) {
+        query = query.eq('chapter_id', chapterId);
+      }
+
+      const { data, error } = await query;
+
       if (error) throw error;
 
       return (data || []).map(tx => ({
         id: tx.id,
+        chapter_id: tx.chapter_id,
         date: new Date(tx.date),
         amount: tx.amount,
         description: tx.description,
@@ -61,6 +75,7 @@ export class TransactionService {
       const { data, error } = await supabase
         .from('transactions')
         .insert({
+          chapter_id: transaction.chapter_id,
           date: transaction.date.toISOString(),
           amount: transaction.amount,
           description: transaction.description,

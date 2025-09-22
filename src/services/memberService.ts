@@ -2,18 +2,25 @@ import { supabase } from './supabaseClient';
 import { Member } from './types';
 
 export class MemberService {
-  // Fetch all members
-  static async getMembers(): Promise<Member[]> {
+  // Fetch all members for a specific chapter
+  static async getMembers(chapterId?: string): Promise<Member[]> {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('members')
         .select('*')
         .order('name', { ascending: true });
+
+      if (chapterId) {
+        query = query.eq('chapter_id', chapterId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
       return (data || []).map(member => ({
         id: member.id,
+        chapter_id: member.chapter_id,
         name: member.name,
         email: member.email,
         status: member.status as 'Active' | 'Inactive',
@@ -34,6 +41,7 @@ export class MemberService {
       const { data, error } = await supabase
         .from('members')
         .insert({
+          chapter_id: member.chapter_id,
           name: member.name,
           email: member.email,
           status: member.status,
@@ -49,6 +57,7 @@ export class MemberService {
 
       return {
         id: data.id,
+        chapter_id: data.chapter_id,
         name: data.name,
         email: data.email,
         status: data.status as 'Active' | 'Inactive',
@@ -103,6 +112,7 @@ export class MemberService {
 
       return {
         id: data.id,
+        chapter_id: data.chapter_id,
         name: data.name,
         email: data.email,
         status: data.status as 'Active' | 'Inactive',

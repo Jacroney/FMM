@@ -1,0 +1,197 @@
+import React, { useState } from 'react';
+import { useChapter } from '../context/ChapterContext';
+import { ChapterService } from '../services/chapterService';
+import { Chapter } from '../services/types';
+import {
+  CheckIcon,
+  ChevronUpDownIcon,
+  PlusIcon,
+  BuildingOfficeIcon,
+  UserGroupIcon,
+  AcademicCapIcon
+} from '@heroicons/react/24/outline';
+
+export const ChapterSelector: React.FC = () => {
+  const { chapters, currentChapter, setCurrentChapter, refreshChapters } = useChapter();
+  const [isOpen, setIsOpen] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [newChapter, setNewChapter] = useState({
+    name: '',
+    school: '',
+    member_count: 0,
+    fraternity_name: 'Kappa Sigma'
+  });
+
+  const handleCreateChapter = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const created = await ChapterService.createChapter(newChapter);
+      setCurrentChapter(created);
+      await refreshChapters();
+      setShowCreateForm(false);
+      setNewChapter({
+        name: '',
+        school: '',
+        member_count: 0,
+        fraternity_name: 'Kappa Sigma'
+      });
+    } catch (error) {
+      console.error('Failed to create chapter:', error);
+    }
+  };
+
+  if (showCreateForm) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Create New Chapter</h3>
+        <form onSubmit={handleCreateChapter} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Chapter Name
+            </label>
+            <input
+              type="text"
+              required
+              value={newChapter.name}
+              onChange={(e) => setNewChapter({ ...newChapter, name: e.target.value })}
+              placeholder="e.g., Alpha Beta"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              School/University
+            </label>
+            <input
+              type="text"
+              required
+              value={newChapter.school}
+              onChange={(e) => setNewChapter({ ...newChapter, school: e.target.value })}
+              placeholder="e.g., University of California"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Initial Member Count
+            </label>
+            <input
+              type="number"
+              min="0"
+              value={newChapter.member_count}
+              onChange={(e) => setNewChapter({ ...newChapter, member_count: parseInt(e.target.value) || 0 })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Fraternity
+            </label>
+            <select
+              value={newChapter.fraternity_name}
+              onChange={(e) => setNewChapter({ ...newChapter, fraternity_name: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="Kappa Sigma">Kappa Sigma</option>
+              <option value="Sigma Alpha Epsilon">Sigma Alpha Epsilon</option>
+              <option value="Phi Delta Theta">Phi Delta Theta</option>
+              <option value="Beta Theta Pi">Beta Theta Pi</option>
+              <option value="Sigma Chi">Sigma Chi</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div className="flex space-x-3">
+            <button
+              type="submit"
+              className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-medium"
+            >
+              Create Chapter
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowCreateForm(false)}
+              className="flex-1 bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400 font-medium"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        className="relative w-full cursor-default rounded-md bg-white py-2 pl-3 pr-10 text-left text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 sm:text-sm"
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        {currentChapter ? (
+          <div className="flex items-center">
+            <BuildingOfficeIcon className="h-5 w-5 text-gray-400 mr-2" />
+            <div className="min-w-0 flex-1">
+              <span className="font-medium">{currentChapter.name}</span>
+              <span className="text-gray-500 ml-2">- {currentChapter.school}</span>
+            </div>
+          </div>
+        ) : (
+          <span className="text-gray-500">Select a chapter...</span>
+        )}
+        <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
+          <ChevronUpDownIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
+        </span>
+      </button>
+
+      {isOpen && (
+        <div className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
+          {chapters.map((chapter) => (
+            <div
+              key={chapter.id}
+              className={`relative cursor-default select-none py-2 pl-10 pr-4 hover:bg-gray-50 ${
+                currentChapter?.id === chapter.id ? 'bg-blue-50' : ''
+              }`}
+              onClick={() => {
+                setCurrentChapter(chapter);
+                setIsOpen(false);
+              }}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="font-medium text-gray-900">{chapter.name}</span>
+                  <div className="text-sm text-gray-500 flex items-center space-x-3">
+                    <span className="flex items-center">
+                      <AcademicCapIcon className="h-4 w-4 mr-1" />
+                      {chapter.school}
+                    </span>
+                    <span className="flex items-center">
+                      <UserGroupIcon className="h-4 w-4 mr-1" />
+                      {chapter.member_count} members
+                    </span>
+                  </div>
+                </div>
+              </div>
+              {currentChapter?.id === chapter.id && (
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-blue-600">
+                  <CheckIcon className="h-5 w-5" aria-hidden="true" />
+                </span>
+              )}
+            </div>
+          ))}
+          <div
+            className="relative cursor-default select-none py-2 pl-10 pr-4 text-blue-600 hover:bg-blue-50"
+            onClick={() => {
+              setShowCreateForm(true);
+              setIsOpen(false);
+            }}
+          >
+            <div className="flex items-center">
+              <PlusIcon className="h-5 w-5 mr-2" />
+              <span className="font-medium">Create New Chapter</span>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
