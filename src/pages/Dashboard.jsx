@@ -5,7 +5,7 @@ import {
 
 const stats = [
   {
-    name: 'Total Balance',
+    name: 'Total Balance (USD)',
     value: '--',
     icon: CurrencyDollarIcon,
   },
