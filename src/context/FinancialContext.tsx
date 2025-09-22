@@ -48,38 +48,20 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const loadInitialData = async () => {
     setIsLoading(true);
     setError(null);
-    console.log('🔄 Connecting to Supabase...');
-    
+
     try {
       const [txData, budgetData, memberData] = await Promise.all([
-        TransactionService.fetchTransactions(),
-        BudgetService.fetchBudgets(),
-        MemberService.getMembers()
+        TransactionService.fetchTransactions().catch(() => []),
+        BudgetService.fetchBudgets().catch(() => []),
+        MemberService.getMembers().catch(() => [])
       ]);
-      
+
       setTransactions(txData);
       setBudgets(budgetData);
       setMembers(memberData);
-      
-      console.log('✅ Successfully connected to Supabase!');
-      console.log(`📊 Loaded ${txData.length} transactions`);
-      console.log(`📈 Loaded ${budgetData.length} budgets`);
-      console.log(`👥 Loaded ${memberData.length} members`);
-      
-      // Log sample data to verify structure
-      if (txData.length > 0) {
-        console.log('Sample transaction:', txData[0]);
-      }
-      if (budgetData.length > 0) {
-        console.log('Sample budget:', budgetData[0]);
-      }
-      if (memberData.length > 0) {
-        console.log('Sample member:', memberData[0]);
-      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load data');
-      console.error('❌ Error connecting to Supabase:', err);
-      console.error('Make sure you have updated your .env file with correct Supabase credentials');
+      // This should rarely happen now since individual services handle their own errors
+      console.warn('Unexpected error in loadInitialData:', err);
     } finally {
       setIsLoading(false);
     }
@@ -246,15 +228,13 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     // Listen to transactions
     const transactionChannel = supabase
       .channel('transactions-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, 
-        async (payload) => {
-          console.log('Transaction change detected:', payload);
-          // Refetch transactions to keep data in sync
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' },
+        async () => {
           try {
             const updatedTransactions = await TransactionService.fetchTransactions();
             setTransactions(updatedTransactions);
           } catch (err) {
-            console.error('Error refetching transactions:', err);
+            console.warn('Error refetching transactions:', err);
           }
         }
       )
@@ -263,14 +243,13 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     // Listen to budgets
     const budgetChannel = supabase
       .channel('budgets-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'budgets' }, 
-        async (payload) => {
-          console.log('Budget change detected:', payload);
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'budgets' },
+        async () => {
           try {
             const updatedBudgets = await BudgetService.fetchBudgets();
             setBudgets(updatedBudgets);
           } catch (err) {
-            console.error('Error refetching budgets:', err);
+            console.warn('Budget table not available for realtime updates:', err);
           }
         }
       )
@@ -279,14 +258,13 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     // Listen to members
     const memberChannel = supabase
       .channel('members-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'members' }, 
-        async (payload) => {
-          console.log('Member change detected:', payload);
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'members' },
+        async () => {
           try {
             const updatedMembers = await MemberService.getMembers();
             setMembers(updatedMembers);
           } catch (err) {
-            console.error('Error refetching members:', err);
+            console.warn('Error refetching members:', err);
           }
         }
       )

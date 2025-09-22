@@ -40,12 +40,6 @@ const Members = () => {
     setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
   };
 
-  // Validate email format
-  const isValidEmail = (email) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  };
-
   // Sanitize input
   const sanitizeInput = (input) => {
     return input.replace(/[<>]/g, '');
@@ -76,42 +70,36 @@ const Members = () => {
             const errors = [];
             // Check if first row is header
             const hasHeader = results.data[0] &&
-              (results.data[0][0]?.toLowerCase().includes('name') ||
-               results.data[0][1]?.toLowerCase().includes('email'));
+              (results.data[0][0]?.toLowerCase().includes('first') ||
+               results.data[0][0]?.toLowerCase().includes('name') ||
+               results.data[0][1]?.toLowerCase().includes('last'));
 
             const dataRows = hasHeader ? results.data.slice(1) : results.data;
 
             const formattedMembers = dataRows
-              .filter(row => row[0] && row[1]) // Filter out empty rows
+              .filter(row => row[0] && row[1]) // Filter out empty rows (first and last name)
               .map((row, index) => {
-                const name = sanitizeInput(row[0] || '').trim();
-                const email = (row[1] || '').trim().toLowerCase();
-                const status = row[2] ? sanitizeInput(row[2]).trim() : 'Active';
-                const year = row[3] ? sanitizeInput(row[3]).trim() : null;
-                const duesPaid = row[4] ? row[4].toLowerCase() === 'yes' || row[4].toLowerCase() === 'true' : false;
+                const firstName = sanitizeInput(row[0] || '').trim();
+                const lastName = sanitizeInput(row[1] || '').trim();
+                const fullName = `${firstName} ${lastName}`;
 
-                if (!isValidEmail(email)) {
-                  errors.push(`Row ${index + 1}: Invalid email format for ${name}`);
+                if (!firstName || !lastName) {
+                  errors.push(`Row ${index + 1}: Missing first or last name`);
                   return null;
                 }
 
-                // Validate status
-                const validStatuses = ['Active', 'Inactive', 'Pledge', 'Alumni'];
-                const finalStatus = validStatuses.includes(status) ? status : 'Active';
-
-                // Validate year
-                const validYears = ['Freshman', 'Sophomore', 'Junior', 'Senior', 'Graduate', 'Alumni'];
-                const finalYear = validYears.includes(year) ? year : null;
+                // Generate email from name (can be updated later)
+                const email = `${firstName.toLowerCase()}.${lastName.toLowerCase()}@university.edu`;
 
                 return {
                   id: crypto.randomUUID(),
                   chapter_id: currentChapter?.id || '11111111-1111-1111-1111-111111111111',
-                  name,
-                  email,
-                  status: finalStatus,
-                  year: finalYear,
-                  duesPaid,
-                  paymentDate: duesPaid ? new Date().toISOString() : null,
+                  name: fullName,
+                  email: email,
+                  status: 'Active',
+                  year: null,
+                  duesPaid: false,
+                  paymentDate: null,
                   semester: selectedSemester,
                   lastUpdated: new Date().toISOString()
                 };
@@ -156,33 +144,24 @@ const Members = () => {
       const formattedMembers = rows
         .map((row, index) => {
           const parts = row.split(',').map(item => sanitizeInput(item.trim()));
-          const [name, email, status, year] = parts;
+          const [firstName, lastName] = parts;
 
-          if (!name || !email) {
-            errors.push(`Row ${index + 1}: Missing name or email`);
+          if (!firstName || !lastName) {
+            errors.push(`Row ${index + 1}: Missing first or last name`);
             return null;
           }
 
-          if (!isValidEmail(email)) {
-            errors.push(`Row ${index + 1}: Invalid email format for ${name}`);
-            return null;
-          }
-
-          // Validate status
-          const validStatuses = ['Active', 'Inactive', 'Pledge', 'Alumni'];
-          const finalStatus = status && validStatuses.includes(status) ? status : 'Active';
-
-          // Validate year
-          const validYears = ['Freshman', 'Sophomore', 'Junior', 'Senior', 'Graduate', 'Alumni'];
-          const finalYear = year && validYears.includes(year) ? year : null;
+          const fullName = `${firstName} ${lastName}`;
+          // Generate email from name (can be updated later)
+          const email = `${firstName.toLowerCase()}.${lastName.toLowerCase()}@university.edu`;
 
           return {
             id: crypto.randomUUID(),
             chapter_id: currentChapter?.id || '11111111-1111-1111-1111-111111111111',
-            name,
-            email: email.toLowerCase(),
-            status: finalStatus,
-            year: finalYear,
+            name: fullName,
+            email: email,
+            status: 'Active',
+            year: null,
             duesPaid: false,
             paymentDate: null,
             semester: selectedSemester,
@@ -209,7 +188,7 @@ const Members = () => {
       }
       setIsLoading(false);
     } catch (error) {
-      setImportError('Invalid format. Please use: Name, Email');
+      setImportError('Invalid format. Please use: FirstName, LastName');
       setIsLoading(false);
     }
   };

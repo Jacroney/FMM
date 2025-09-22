@@ -72,11 +72,16 @@ export class BudgetService {
         `)
         .order('created_at desc');
 
-      if (error) throw error;
+      // If table doesn't exist or other database error, return empty array
+      if (error) {
+        console.warn('Budget tables not available:', error.message);
+        return [];
+      }
 
       // Transform the data to match the Budget interface in types.ts
       const budgets = (data || []).map(item => ({
         id: item.id,
+        chapter_id: item.chapter_id,
         name: item.budget_categories?.name || 'Unknown',
         amount: item.allocated || 0,
         spent: 0, // This would need to be calculated from expenses
@@ -88,8 +93,8 @@ export class BudgetService {
 
       return budgets;
     } catch (error) {
-      console.error('Error fetching budgets:', error);
-      throw error;
+      console.warn('Error fetching budgets:', error);
+      return []; // Return empty array instead of throwing
     }
   }
 
@@ -106,11 +111,14 @@ export class BudgetService {
 
       const { data, error } = await query;
 
-      if (error) throw error;
+      if (error) {
+        console.warn('Budget summary view not available:', error.message);
+        return [];
+      }
       return data as BudgetSummary[];
     } catch (error) {
-      console.error('Error fetching budget summary:', error);
-      throw error;
+      console.warn('Error fetching budget summary:', error);
+      return [];
     }
   }
 
@@ -122,11 +130,14 @@ export class BudgetService {
         .eq('is_active', true)
         .order('type, name');
 
-      if (error) throw error;
+      if (error) {
+        console.warn('Budget categories table not available:', error.message);
+        return [];
+      }
       return data as BudgetCategory[];
     } catch (error) {
-      console.error('Error fetching budget categories:', error);
-      throw error;
+      console.warn('Error fetching budget categories:', error);
+      return [];
     }
   }
 
@@ -137,11 +148,14 @@ export class BudgetService {
         .select('*')
         .order('start_date', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.warn('Budget periods table not available:', error.message);
+        return [];
+      }
       return data as BudgetPeriod[];
     } catch (error) {
-      console.error('Error fetching budget periods:', error);
-      throw error;
+      console.warn('Error fetching budget periods:', error);
+      return [];
     }
   }
 
@@ -153,11 +167,14 @@ export class BudgetService {
         .eq('is_current', true)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.warn('Current period not available:', error.message);
+        return null;
+      }
       return data as BudgetPeriod;
     } catch (error) {
-      console.error('Error fetching current period:', error);
-      throw error;
+      console.warn('Error fetching current period:', error);
+      return null;
     }
   }
 
@@ -283,8 +300,13 @@ export class BudgetService {
 
       return totals;
     } catch (error) {
-      console.error('Error fetching totals by period:', error);
-      throw error;
+      console.warn('Error fetching totals by period:', error);
+      return {
+        'Fixed Costs': { allocated: 0, spent: 0, remaining: 0 },
+        'Operational Costs': { allocated: 0, spent: 0, remaining: 0 },
+        'Event Costs': { allocated: 0, spent: 0, remaining: 0 },
+        'Grand Total': { allocated: 0, spent: 0, remaining: 0 }
+      };
     }
   }
 }
