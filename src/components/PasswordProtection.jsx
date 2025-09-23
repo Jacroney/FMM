@@ -1,46 +1,35 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { LoginForm } from './auth/LoginForm';
+import { SignupForm } from './auth/SignupForm';
+import { LoadingSpinner } from './LoadingSpinner';
 
-const PasswordProtection = ({ children }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+const AuthProtection = ({ children }) => {
+  const { isAuthenticated, isLoading, signOut, profile } = useAuth();
+  const [authMode, setAuthMode] = useState('login'); // 'login' or 'signup'
 
-  // Check if already authenticated (stored in localStorage)
-  useEffect(() => {
-    const authStatus = localStorage.getItem('fmm_authenticated');
-    if (authStatus === 'true') {
-      setIsAuthenticated(true);
-    }
-  }, []);
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const correctPassword = 'fmm';
-
-    if (password.trim().toLowerCase() === correctPassword) {
-      setIsAuthenticated(true);
-      localStorage.setItem('fmm_authenticated', 'true');
-      setError('');
-    } else {
-      setError('Incorrect password. Please try again.');
-      setPassword('');
-    }
-  };
-
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-    localStorage.removeItem('fmm_authenticated');
-  };
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <LoadingSpinner />
+      </div>
+    );
+  }
 
   if (isAuthenticated) {
     return (
       <div>
-        <div className="fixed top-4 right-4 z-50">
+        <div className="fixed top-4 right-4 z-50 flex items-center gap-3">
+          {profile && (
+            <div className="hidden sm:block text-sm text-gray-600 dark:text-gray-300">
+              Welcome, {profile.full_name} ({profile.role})
+            </div>
+          )}
           <button
-            onClick={handleLogout}
-            className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700"
+            onClick={signOut}
+            className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 transition-colors"
           >
-            Logout
+            Sign Out
           </button>
         </div>
         {children}
@@ -49,47 +38,16 @@ const PasswordProtection = ({ children }) => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            KSIG Financial Management
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Please enter the access password
-          </p>
-        </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div>
-            <label htmlFor="password" className="sr-only">
-              Password
-            </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              required
-              className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-              placeholder="Access Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
-          {error && (
-            <div className="text-red-600 text-sm text-center">{error}</div>
-          )}
-          <div>
-            <button
-              type="submit"
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              Access Application
-            </button>
-          </div>
-        </form>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="w-full max-w-md space-y-8">
+        {authMode === 'login' ? (
+          <LoginForm onSwitchToSignup={() => setAuthMode('signup')} />
+        ) : (
+          <SignupForm onSwitchToLogin={() => setAuthMode('login')} />
+        )}
       </div>
     </div>
   );
 };
 
-export default PasswordProtection;
+export default AuthProtection;

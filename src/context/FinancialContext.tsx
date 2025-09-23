@@ -5,6 +5,7 @@ import { TransactionService } from '../services/transactionService';
 import { BudgetService } from '../services/budgetService';
 import { MemberService } from '../services/memberService';
 import { supabase } from '../services/supabaseClient';
+import { useChapter } from './ChapterContext';
 
 interface FinancialContextType {
   transactions: Transaction[];
@@ -30,6 +31,7 @@ interface FinancialContextType {
 const FinancialContext = createContext<FinancialContextType | undefined>(undefined);
 
 export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { currentChapter } = useChapter();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
@@ -40,20 +42,29 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   // Load initial data from Supabase and set up real-time listeners
   useEffect(() => {
-    loadInitialData();
-    setupRealtimeListeners();
+    if (currentChapter?.id) {
+      loadInitialData();
+      setupRealtimeListeners();
+    }
     return () => cleanupRealtimeListeners();
-  }, []);
+  }, [currentChapter?.id]);
 
   const loadInitialData = async () => {
+    if (!currentChapter?.id) {
+      setTransactions([]);
+      setBudgets([]);
+      setMembers([]);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
     try {
       const [txData, budgetData, memberData] = await Promise.all([
-        TransactionService.fetchTransactions().catch(() => []),
-        BudgetService.fetchBudgets().catch(() => []),
-        MemberService.getMembers().catch(() => [])
+        TransactionService.fetchTransactions(currentChapter.id).catch(() => []),
+        BudgetService.fetchBudgets(currentChapter.id).catch(() => []),
+        MemberService.getMembers(currentChapter.id).catch(() => [])
       ]);
 
       setTransactions(txData);
@@ -82,8 +93,14 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   // Transaction operations
   const addTransaction = async (transaction: Omit<Transaction, 'id'>) => {
+    if (!currentChapter?.id) {
+      toast.error('Please select a chapter first');
+      throw new Error('No chapter selected');
+    }
+
     try {
-      const newTransaction = await TransactionService.addTransaction(transaction);
+      const txWithChapter = { ...transaction, chapter_id: currentChapter.id };
+      const newTransaction = await TransactionService.addTransaction(txWithChapter);
       setTransactions(prev => [...prev, newTransaction]);
       toast.success('Transaction added successfully');
     } catch (err) {
@@ -95,8 +112,14 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const addTransactions = async (newTransactions: Omit<Transaction, 'id'>[]) => {
+    if (!currentChapter?.id) {
+      toast.error('Please select a chapter first');
+      throw new Error('No chapter selected');
+    }
+
     try {
-      const addedTransactions = await TransactionService.addTransactions(newTransactions);
+      const txsWithChapter = newTransactions.map(tx => ({ ...tx, chapter_id: currentChapter.id }));
+      const addedTransactions = await TransactionService.addTransactions(txsWithChapter);
       setTransactions(prev => [...prev, ...addedTransactions]);
       toast.success(`${addedTransactions.length} transactions added successfully`);
     } catch (err) {
@@ -137,8 +160,14 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   // Budget operations
   const addBudget = async (budget: Omit<Budget, 'id'>) => {
+    if (!currentChapter?.id) {
+      toast.error('Please select a chapter first');
+      throw new Error('No chapter selected');
+    }
+
     try {
-      const newBudget = await BudgetService.addBudget(budget);
+      const budgetWithChapter = { ...budget, chapter_id: currentChapter.id };
+      const newBudget = await BudgetService.addBudget(budgetWithChapter);
       setBudgets(prev => [...prev, newBudget]);
       toast.success('Budget added successfully');
     } catch (err) {
@@ -179,8 +208,14 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   // Member operations
   const addMember = async (member: Omit<Member, 'id'>) => {
+    if (!currentChapter?.id) {
+      toast.error('Please select a chapter first');
+      throw new Error('No chapter selected');
+    }
+
     try {
-      const newMember = await MemberService.addMember(member);
+      const memberWithChapter = { ...member, chapter_id: currentChapter.id };
+      const newMember = await MemberService.addMember(memberWithChapter);
       setMembers(prev => [...prev, newMember]);
       toast.success('Member added successfully');
     } catch (err) {
@@ -225,13 +260,20 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   // Real-time listeners
   const setupRealtimeListeners = useCallback(() => {
-    // Listen to transactions
+    if (!currentChapter?.id) return;
+
+    // Listen to transactions for this chapter
     const transactionChannel = supabase
-      .channel('transactions-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' },
+      .channel(`transactions-changes-${currentChapter.id}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'transactions',
+        filter: `chapter_id=eq.${currentChapter.id}`
+      },
         async () => {
           try {
-            const updatedTransactions = await TransactionService.fetchTransactions();
+            const updatedTransactions = await TransactionService.fetchTransactions(currentChapter.id);
             setTransactions(updatedTransactions);
           } catch (err) {
             console.warn('Error refetching transactions:', err);
@@ -240,13 +282,18 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       )
       .subscribe();
 
-    // Listen to budgets
+    // Listen to budgets for this chapter
     const budgetChannel = supabase
-      .channel('budgets-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'budgets' },
+      .channel(`budgets-changes-${currentChapter.id}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'budgets',
+        filter: `chapter_id=eq.${currentChapter.id}`
+      },
         async () => {
           try {
-            const updatedBudgets = await BudgetService.fetchBudgets();
+            const updatedBudgets = await BudgetService.fetchBudgets(currentChapter.id);
             setBudgets(updatedBudgets);
           } catch (err) {
             console.warn('Budget table not available for realtime updates:', err);
@@ -255,13 +302,18 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       )
       .subscribe();
 
-    // Listen to members
+    // Listen to members for this chapter
     const memberChannel = supabase
-      .channel('members-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'members' },
+      .channel(`members-changes-${currentChapter.id}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'members',
+        filter: `chapter_id=eq.${currentChapter.id}`
+      },
         async () => {
           try {
-            const updatedMembers = await MemberService.getMembers();
+            const updatedMembers = await MemberService.getMembers(currentChapter.id);
             setMembers(updatedMembers);
           } catch (err) {
             console.warn('Error refetching members:', err);
@@ -272,7 +324,7 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     // Store channels for cleanup
     (window as any).supabaseChannels = { transactionChannel, budgetChannel, memberChannel };
-  }, []);
+  }, [currentChapter?.id]);
 
   const cleanupRealtimeListeners = useCallback(() => {
     const channels = (window as any).supabaseChannels;

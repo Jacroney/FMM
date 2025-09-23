@@ -137,6 +137,7 @@ export class CSVService {
         }
 
         transactions.push({
+          chapter_id: '', // Will be filled by the caller
           date: parsedDate,
           amount: parsedAmount,
           description: String(descriptionValue).trim(),

@@ -3,18 +3,18 @@ import { Transaction } from './types';
 
 export class TransactionService {
   // Fetch all transactions for a specific chapter
-  static async fetchTransactions(chapterId?: string): Promise<Transaction[]> {
+  static async fetchTransactions(chapterId: string): Promise<Transaction[]> {
+    if (!chapterId) {
+      console.error('Chapter ID is required for fetchTransactions');
+      return [];
+    }
+
     try {
-      let query = supabase
+      const { data, error } = await supabase
         .from('transactions')
         .select('*')
+        .eq('chapter_id', chapterId)
         .order('date', { ascending: false });
-
-      if (chapterId) {
-        query = query.eq('chapter_id', chapterId);
-      }
-
-      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -36,20 +36,20 @@ export class TransactionService {
   }
 
   // Fetch transactions by date range for a specific chapter
-  static async fetchTransactionsByDateRange(startDate: Date, endDate: Date, chapterId?: string): Promise<Transaction[]> {
+  static async fetchTransactionsByDateRange(chapterId: string, startDate: Date, endDate: Date): Promise<Transaction[]> {
+    if (!chapterId) {
+      console.error('Chapter ID is required for fetchTransactionsByDateRange');
+      return [];
+    }
+
     try {
-      let query = supabase
+      const { data, error } = await supabase
         .from('transactions')
         .select('*')
+        .eq('chapter_id', chapterId)
         .gte('date', startDate.toISOString())
         .lte('date', endDate.toISOString())
         .order('date', { ascending: false });
-
-      if (chapterId) {
-        query = query.eq('chapter_id', chapterId);
-      }
-
-      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -107,6 +107,7 @@ export class TransactionService {
   static async addTransactions(transactions: Omit<Transaction, 'id'>[]): Promise<Transaction[]> {
     try {
       const transactionsToInsert = transactions.map(tx => ({
+        chapter_id: tx.chapter_id,
         date: tx.date.toISOString(),
         amount: tx.amount,
         description: tx.description,
@@ -204,11 +205,17 @@ export class TransactionService {
   }
 
   // Get transactions by category
-  static async getTransactionsByCategory(category: string): Promise<Transaction[]> {
+  static async getTransactionsByCategory(chapterId: string, category: string): Promise<Transaction[]> {
+    if (!chapterId) {
+      console.error('Chapter ID is required for getTransactionsByCategory');
+      return [];
+    }
+
     try {
       const { data, error } = await supabase
         .from('transactions')
         .select('*')
+        .eq('chapter_id', chapterId)
         .eq('category', category)
         .order('date', { ascending: false });
 
@@ -230,16 +237,22 @@ export class TransactionService {
   }
 
   // Get transaction statistics
-  static async getTransactionStats(): Promise<{
+  static async getTransactionStats(chapterId: string): Promise<{
     total: number;
     totalAmount: number;
     byCategory: Record<string, number>;
     bySource: Record<string, number>;
   }> {
+    if (!chapterId) {
+      console.error('Chapter ID is required for getTransactionStats');
+      return { total: 0, totalAmount: 0, byCategory: {}, bySource: {} };
+    }
+
     try {
       const { data, error } = await supabase
         .from('transactions')
-        .select('*');
+        .select('*')
+        .eq('chapter_id', chapterId);
 
       if (error) throw error;
 

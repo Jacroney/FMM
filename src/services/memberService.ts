@@ -3,18 +3,18 @@ import { Member } from './types';
 
 export class MemberService {
   // Fetch all members for a specific chapter
-  static async getMembers(chapterId?: string): Promise<Member[]> {
+  static async getMembers(chapterId: string): Promise<Member[]> {
+    if (!chapterId) {
+      console.error('Chapter ID is required for getMembers');
+      return [];
+    }
+
     try {
-      let query = supabase
+      const { data, error } = await supabase
         .from('members')
         .select('*')
+        .eq('chapter_id', chapterId)
         .order('name', { ascending: true });
-
-      if (chapterId) {
-        query = query.eq('chapter_id', chapterId);
-      }
-
-      const { data, error } = await query;
 
       if (error) throw error;
 

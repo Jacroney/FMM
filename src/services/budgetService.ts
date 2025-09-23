@@ -33,6 +33,7 @@ export interface BudgetPeriod {
 
 export interface Budget {
   id: string;
+  chapter_id: string;
   category_id: string;
   period_id: string;
   allocated: number;
@@ -53,7 +54,12 @@ export interface Expense {
 }
 
 export class BudgetService {
-  static async fetchBudgets() {
+  static async fetchBudgets(chapterId: string) {
+    if (!chapterId) {
+      console.error('Chapter ID is required for fetchBudgets');
+      return [];
+    }
+
     try {
       const { data, error } = await supabase
         .from('budgets')
@@ -70,6 +76,7 @@ export class BudgetService {
             end_date
           )
         `)
+        .eq('chapter_id', chapterId)
         .order('created_at desc');
 
       // If table doesn't exist or other database error, return empty array
@@ -98,11 +105,92 @@ export class BudgetService {
     }
   }
 
-  static async getBudgetSummary(periodName?: string) {
+  static async addBudget(budget: Omit<Budget, 'id'>) {
+    if (!budget.chapter_id) {
+      throw new Error('Chapter ID is required for addBudget');
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('budgets')
+        .insert(budget)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Transform to match the Budget interface in types.ts
+      return {
+        id: data.id,
+        chapter_id: data.chapter_id,
+        name: 'New Budget', // This would need to be fetched from category
+        amount: data.allocated || 0,
+        spent: 0,
+        category: 'Unknown',
+        period: 'QUARTERLY',
+        startDate: new Date(),
+        endDate: new Date()
+      };
+    } catch (error) {
+      console.error('Error adding budget:', error);
+      throw error;
+    }
+  }
+
+  static async updateBudget(id: string, updates: Partial<Omit<Budget, 'id'>>) {
+    try {
+      const { data, error } = await supabase
+        .from('budgets')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Transform to match the Budget interface in types.ts
+      return {
+        id: data.id,
+        chapter_id: data.chapter_id,
+        name: 'Updated Budget',
+        amount: data.allocated || 0,
+        spent: 0,
+        category: 'Unknown',
+        period: 'QUARTERLY',
+        startDate: new Date(),
+        endDate: new Date()
+      };
+    } catch (error) {
+      console.error('Error updating budget:', error);
+      throw error;
+    }
+  }
+
+  static async deleteBudget(id: string) {
+    try {
+      const { error } = await supabase
+        .from('budgets')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error deleting budget:', error);
+      throw error;
+    }
+  }
+
+  static async getBudgetSummary(chapterId: string, periodName?: string) {
+    if (!chapterId) {
+      console.error('Chapter ID is required for getBudgetSummary');
+      return [];
+    }
+
     try {
       let query = supabase
         .from('budget_summary')
         .select('*')
+        .eq('chapter_id', chapterId)
         .order('start_date, category_type, category');
 
       if (periodName) {
@@ -122,11 +210,17 @@ export class BudgetService {
     }
   }
 
-  static async getBudgetCategories() {
+  static async getBudgetCategories(chapterId: string) {
+    if (!chapterId) {
+      console.error('Chapter ID is required for getBudgetCategories');
+      return [];
+    }
+
     try {
       const { data, error } = await supabase
         .from('budget_categories')
         .select('*')
+        .eq('chapter_id', chapterId)
         .eq('is_active', true)
         .order('type, name');
 
@@ -141,11 +235,17 @@ export class BudgetService {
     }
   }
 
-  static async getBudgetPeriods() {
+  static async getBudgetPeriods(chapterId: string) {
+    if (!chapterId) {
+      console.error('Chapter ID is required for getBudgetPeriods');
+      return [];
+    }
+
     try {
       const { data, error } = await supabase
         .from('budget_periods')
         .select('*')
+        .eq('chapter_id', chapterId)
         .order('start_date', { ascending: false });
 
       if (error) {
@@ -159,11 +259,17 @@ export class BudgetService {
     }
   }
 
-  static async getCurrentPeriod() {
+  static async getCurrentPeriod(chapterId: string) {
+    if (!chapterId) {
+      console.error('Chapter ID is required for getCurrentPeriod');
+      return null;
+    }
+
     try {
       const { data, error } = await supabase
         .from('budget_periods')
         .select('*')
+        .eq('chapter_id', chapterId)
         .eq('is_current', true)
         .single();
 
@@ -178,11 +284,16 @@ export class BudgetService {
     }
   }
 
-  static async updateBudgetAllocation(categoryId: string, periodId: string, amount: number, notes?: string) {
+  static async updateBudgetAllocation(chapterId: string, categoryId: string, periodId: string, amount: number, notes?: string) {
+    if (!chapterId) {
+      throw new Error('Chapter ID is required for updateBudgetAllocation');
+    }
+
     try {
       const { data, error } = await supabase
         .from('budgets')
         .upsert({
+          chapter_id: chapterId,
           category_id: categoryId,
           period_id: periodId,
           allocated: amount,
@@ -201,11 +312,15 @@ export class BudgetService {
     }
   }
 
-  static async addExpense(expense: Omit<Expense, 'id'>) {
+  static async addExpense(chapterId: string, expense: Omit<Expense, 'id'>) {
+    if (!chapterId) {
+      throw new Error('Chapter ID is required for addExpense');
+    }
+
     try {
       const { data, error } = await supabase
         .from('expenses')
-        .insert(expense)
+        .insert({ ...expense, chapter_id: chapterId })
         .select()
         .single();
 
@@ -217,11 +332,16 @@ export class BudgetService {
     }
   }
 
-  static async getExpensesByCategory(categoryId: string, periodId?: string) {
+  static async getExpensesByCategory(chapterId: string, categoryId: string, periodId?: string) {
+    if (!chapterId) {
+      throw new Error('Chapter ID is required for getExpensesByCategory');
+    }
+
     try {
       let query = supabase
         .from('expenses')
         .select('*')
+        .eq('chapter_id', chapterId)
         .eq('category_id', categoryId)
         .order('transaction_date desc');
 
@@ -254,7 +374,11 @@ export class BudgetService {
     }
   }
 
-  static async getBudgetsByPeriod(periodId: string) {
+  static async getBudgetsByPeriod(chapterId: string, periodId: string) {
+    if (!chapterId) {
+      throw new Error('Chapter ID is required for getBudgetsByPeriod');
+    }
+
     try {
       const { data, error } = await supabase
         .from('budgets')
@@ -266,6 +390,7 @@ export class BudgetService {
             type
           )
         `)
+        .eq('chapter_id', chapterId)
         .eq('period_id', periodId);
 
       if (error) throw error;
@@ -276,9 +401,19 @@ export class BudgetService {
     }
   }
 
-  static async getTotalsByPeriod(periodName: string) {
+  static async getTotalsByPeriod(chapterId: string, periodName: string) {
+    if (!chapterId) {
+      console.warn('Chapter ID is required for getTotalsByPeriod');
+      return {
+        'Fixed Costs': { allocated: 0, spent: 0, remaining: 0 },
+        'Operational Costs': { allocated: 0, spent: 0, remaining: 0 },
+        'Event Costs': { allocated: 0, spent: 0, remaining: 0 },
+        'Grand Total': { allocated: 0, spent: 0, remaining: 0 }
+      };
+    }
+
     try {
-      const summaryData = await this.getBudgetSummary(periodName);
+      const summaryData = await this.getBudgetSummary(chapterId, periodName);
 
       const totals = {
         'Fixed Costs': { allocated: 0, spent: 0, remaining: 0 },
