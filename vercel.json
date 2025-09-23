@@ -4,11 +4,6 @@
       "VITE_APP_PASSWORD": "fmm"
     }
   },
-  "functions": {
-    "app/api/**": {
-      "runtime": "nodejs18.x"
-    }
-  },
   "rewrites": [
     {
       "source": "/(.*)",
