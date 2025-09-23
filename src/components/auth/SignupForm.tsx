@@ -34,6 +34,18 @@ export const SignupForm: React.FC<SignupFormProps> = ({ onSwitchToLogin }) => {
     e.preventDefault();
     const success = await signUp(formData);
     if (success) {
+      // Clear form data
+      setFormData({
+        email: '',
+        password: '',
+        full_name: '',
+        phone_number: '',
+        year: 'Freshman',
+        major: '',
+        chapter_id: formData.chapter_id, // Keep chapter selection
+        position: 'Member',
+        role: 'member'
+      });
       // Switch to login form after successful signup
       onSwitchToLogin();
     }

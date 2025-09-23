@@ -66,9 +66,18 @@ const AppRoutes = () => {
   const [showFirstTimeSetup, setShowFirstTimeSetup] = useState(false);
 
   // Check if admin needs first-time setup (you could add a setup_completed field to user_profiles)
-  const needsFirstTimeSetup = isAdmin && !profile?.phone_number; // Simple check for now
+  const needsFirstTimeSetup = isAdmin && profile?.phone_number === undefined;
 
   if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  // If user is authenticated but no profile is loaded yet, show loading
+  if (!profile) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
