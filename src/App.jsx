@@ -22,8 +22,8 @@ function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <AuthProtection>
-          <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <AuthProtection>
             <ChapterProvider>
               <FinancialProvider>
                 <AppRoutes />
@@ -53,8 +53,8 @@ function App() {
                 />
               </FinancialProvider>
             </ChapterProvider>
-          </Router>
-        </AuthProtection>
+          </AuthProtection>
+        </Router>
       </AuthProvider>
     </ThemeProvider>
   );

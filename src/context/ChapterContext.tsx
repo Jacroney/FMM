@@ -46,6 +46,8 @@ export const ChapterProvider: React.FC<ChapterProviderProps> = ({ children }) =>
       }
     } catch (error) {
       console.error('Failed to fetch chapters:', error);
+      // Set empty chapters array if fetch fails completely
+      setChapters([]);
     } finally {
       setLoading(false);
     }
@@ -61,6 +63,8 @@ export const ChapterProvider: React.FC<ChapterProviderProps> = ({ children }) =>
   };
 
   useEffect(() => {
+    // Only load chapters once the component mounts
+    // This will work for both auth and non-auth users
     refreshChapters();
   }, []);
 
