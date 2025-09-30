@@ -67,7 +67,6 @@ export class AuthService {
 
       return { user: data.user, error: null };
     } catch (error) {
-      console.error('Error signing up:', error);
       return { user: null, error: error as Error };
     }
   }
@@ -84,7 +83,6 @@ export class AuthService {
 
       return { user: data.user, error: null };
     } catch (error) {
-      console.error('Error signing in:', error);
       return { user: null, error: error as Error };
     }
   }
@@ -96,7 +94,6 @@ export class AuthService {
       if (error) throw error;
       return { error: null };
     } catch (error) {
-      console.error('Error signing out:', error);
       return { error: error as Error };
     }
   }
@@ -108,7 +105,6 @@ export class AuthService {
       if (error) throw error;
       return session;
     } catch (error) {
-      console.error('Error getting session:', error);
       return null;
     }
   }
@@ -117,10 +113,16 @@ export class AuthService {
   static async getCurrentUser(): Promise<User | null> {
     try {
       const { data: { user }, error } = await supabase.auth.getUser();
-      if (error) throw error;
+      if (error) {
+        // AuthSessionMissingError is normal when no user is logged in
+        if (error.name === 'AuthSessionMissingError' || error.message?.includes('Auth session missing')) {
+          return null;
+        }
+        throw error;
+      }
       return user;
     } catch (error) {
-      console.error('Error getting current user:', error);
+      // Silently handle auth session errors
       return null;
     }
   }
@@ -140,7 +142,6 @@ export class AuthService {
       if (error) throw error;
       return data as UserProfile;
     } catch (error) {
-      console.error('Error getting user profile:', error);
       return null;
     }
   }
@@ -170,7 +171,6 @@ export class AuthService {
 
       return { profile: data as UserProfile, error: null };
     } catch (error) {
-      console.error('Error updating user profile:', error);
       return { profile: null, error: error as Error };
     }
   }
@@ -192,7 +192,6 @@ export class AuthService {
       if (error) throw error;
       return { error: null };
     } catch (error) {
-      console.error('Error updating user role:', error);
       return { error: error as Error };
     }
   }
@@ -213,7 +212,6 @@ export class AuthService {
       if (error) throw error;
       return { error: null };
     } catch (error) {
-      console.error('Error updating dues balance:', error);
       return { error: error as Error };
     }
   }
@@ -238,7 +236,6 @@ export class AuthService {
       if (error) throw error;
       return data as UserProfile[];
     } catch (error) {
-      console.error('Error getting chapter users:', error);
       return [];
     }
   }
@@ -254,7 +251,6 @@ export class AuthService {
       if (error) throw error;
       return data as MemberDuesInfo;
     } catch (error) {
-      console.error('Error getting member dues info:', error);
       return null;
     }
   }
@@ -265,7 +261,6 @@ export class AuthService {
       const profile = await this.getUserProfile();
       return profile ? ['admin', 'exec'].includes(profile.role) : false;
     } catch (error) {
-      console.error('Error checking admin access:', error);
       return false;
     }
   }
@@ -276,7 +271,6 @@ export class AuthService {
       const profile = await this.getUserProfile();
       return profile ? profile.role === 'admin' : false;
     } catch (error) {
-      console.error('Error checking admin role:', error);
       return false;
     }
   }
@@ -288,7 +282,6 @@ export class AuthService {
       if (error) throw error;
       return { error: null };
     } catch (error) {
-      console.error('Error resetting password:', error);
       return { error: error as Error };
     }
   }

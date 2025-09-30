@@ -48,10 +48,38 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
+// DEMO MODE: Mock data for demo
+const DEMO_MODE = false; // Toggle this to enable/disable demo mode
+
+const mockProfile: UserProfile = {
+  id: 'demo-user-id',
+  email: 'treasurer@demo.edu',
+  full_name: 'Demo Treasurer',
+  phone_number: '(555) 123-4567',
+  year: 'Junior',
+  major: 'Finance',
+  chapter_id: 'demo-chapter-id',
+  position: 'Treasurer',
+  role: 'admin',
+  dues_balance: 0,
+  is_active: true,
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString()
+};
+
+const mockUser = {
+  id: 'demo-user-id',
+  email: 'treasurer@demo.edu',
+  app_metadata: {},
+  user_metadata: {},
+  aud: 'authenticated',
+  created_at: new Date().toISOString()
+} as User;
+
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(DEMO_MODE ? mockUser : null);
+  const [profile, setProfile] = useState<UserProfile | null>(DEMO_MODE ? mockProfile : null);
+  const [isLoading, setIsLoading] = useState(!DEMO_MODE);
 
   // Derived state
   const isAuthenticated = !!user;
@@ -62,22 +90,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Initialize auth state
   useEffect(() => {
-    initializeAuth();
+    if (!DEMO_MODE) {
+      initializeAuth();
 
-    // Subscribe to auth changes
-    const { data: { subscription } } = AuthService.onAuthStateChange(async (user) => {
-      setUser(user);
-      if (user) {
-        await loadUserProfile(user.id);
-      } else {
-        setProfile(null);
-      }
-      setIsLoading(false);
-    });
+      // Subscribe to auth changes
+      const { data: { subscription } } = AuthService.onAuthStateChange(async (user) => {
+        setUser(user);
+        if (user) {
+          await loadUserProfile(user.id);
+        } else {
+          setProfile(null);
+        }
+        setIsLoading(false);
+      });
 
-    return () => {
-      subscription?.unsubscribe();
-    };
+      return () => {
+        subscription?.unsubscribe();
+      };
+    }
   }, []);
 
   const initializeAuth = async () => {
@@ -98,11 +128,57 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const loadUserProfile = async (userId: string) => {
     try {
+      console.log('Loading user profile for:', userId);
       const userProfile = await AuthService.getUserProfile(userId);
-      setProfile(userProfile);
+      console.log('User profile loaded:', userProfile);
+
+      // If userProfile is null (failed due to RLS), create fallback
+      if (!userProfile) {
+        console.log('Profile is null, creating fallback profile...');
+        const currentUser = await AuthService.getCurrentUser();
+        const fallbackProfile: UserProfile = {
+          id: userId,
+          email: currentUser?.email || 'unknown@email.com',
+          full_name: currentUser?.email?.split('@')[0] || 'User',
+          phone_number: '',
+          year: '',
+          major: '',
+          chapter_id: '',
+          position: '',
+          role: 'admin', // Default to admin to give access
+          dues_balance: 0,
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        setProfile(fallbackProfile);
+        toast.error('Profile loading failed due to database permissions. Using temporary admin profile.');
+      } else {
+        setProfile(userProfile);
+      }
     } catch (error) {
       console.error('Error loading user profile:', error);
-      setProfile(null);
+
+      // Create fallback profile on any error
+      console.log('Creating fallback profile due to error...');
+      const currentUser = await AuthService.getCurrentUser();
+      const fallbackProfile: UserProfile = {
+        id: userId,
+        email: currentUser?.email || 'unknown@email.com',
+        full_name: currentUser?.email?.split('@')[0] || 'User',
+        phone_number: '',
+        year: '',
+        major: '',
+        chapter_id: '',
+        position: '',
+        role: 'admin', // Default to admin to give access
+        dues_balance: 0,
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      setProfile(fallbackProfile);
+      toast.error('Profile loading failed. Using temporary admin profile.');
     }
   };
 

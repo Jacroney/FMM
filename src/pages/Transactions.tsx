@@ -70,54 +70,38 @@ const Transactions: React.FC = () => {
   }, { total: 0, byCategory: {} as Record<string, number> });
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-800">Transactions</h1>
-        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-          {/* Mobile: Stack buttons and controls */}
-          <div className="flex gap-2 sm:gap-4">
-            <button
-              className="bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
-              onClick={() => {
-                CSVService.exportTransactionsToCSV(
-                  filteredTransactions, 
-                  `transactions-${selectedQuarter}-${new Date().getFullYear()}.csv`
-                );
-              }}
-              disabled={filteredTransactions.length === 0}
-              title={filteredTransactions.length === 0 ? 'No transactions to export' : undefined}
-            >
-              <span className="hidden sm:inline">Export CSV</span>
-              <span className="sm:hidden">Export</span>
-            </button>
-            <button
-              className="bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm sm:text-base"
-              onClick={() => setShowImportModal(true)}
-            >
-              <span className="hidden sm:inline">Import CSV</span>
-              <span className="sm:hidden">Import</span>
-            </button>
-          </div>
-          
-          <div className="flex gap-2 sm:gap-4 flex-1">
-            <select
-              value={selectedQuarter}
-              onChange={(e) => setSelectedQuarter(e.target.value)}
-              className="rounded-lg border border-gray-300 px-3 sm:px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base min-w-0"
-            >
-              <option value="Q1">Q1 (Jan-Mar)</option>
-              <option value="Q2">Q2 (Apr-Jun)</option>
-              <option value="Q3">Q3 (Jul-Sep)</option>
-              <option value="Q4">Q4 (Oct-Dec)</option>
-            </select>
-            <input
-              type="text"
-              placeholder="Search..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="flex-1 rounded-lg border border-gray-300 px-3 sm:px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base min-w-0"
-            />
-          </div>
+    <div className="space-y-6 p-4 sm:p-6 lg:p-8">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white">Transactions</h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">Track and manage all financial transactions</p>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <button
+            className="inline-flex items-center px-4 py-2.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all duration-200 text-sm font-medium shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={() => {
+              CSVService.exportTransactionsToCSV(
+                filteredTransactions,
+                `transactions-${selectedQuarter}-${new Date().getFullYear()}.csv`
+              );
+            }}
+            disabled={filteredTransactions.length === 0}
+            title={filteredTransactions.length === 0 ? 'No transactions to export' : undefined}
+          >
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+            </svg>
+            Export CSV
+          </button>
+          <button
+            className="inline-flex items-center px-4 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-200 text-sm font-medium shadow-sm hover:shadow-md"
+            onClick={() => setShowImportModal(true)}
+          >
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+            </svg>
+            Import CSV
+          </button>
         </div>
       </div>
 

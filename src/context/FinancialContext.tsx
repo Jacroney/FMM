@@ -30,11 +30,139 @@ interface FinancialContextType {
 
 const FinancialContext = createContext<FinancialContextType | undefined>(undefined);
 
+// DEMO MODE: Mock financial data
+const DEMO_MODE = true;
+
+const mockTransactions: Transaction[] = [
+  {
+    id: '1',
+    date: new Date().toISOString().split('T')[0],
+    description: 'Chapter Dues Collection - Fall 2024',
+    amount: 6750,
+    type: 'income',
+    category: 'Dues',
+    paymentMethod: 'Bank Transfer',
+    chapter_id: 'demo-chapter-id'
+  },
+  {
+    id: '2',
+    date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    description: 'Formal Event Venue Rental',
+    amount: -2500,
+    type: 'expense',
+    category: 'Events',
+    paymentMethod: 'Credit Card',
+    chapter_id: 'demo-chapter-id'
+  },
+  {
+    id: '3',
+    date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    description: 'Brotherhood Event - Bowling',
+    amount: -450,
+    type: 'expense',
+    category: 'Social',
+    paymentMethod: 'Debit Card',
+    chapter_id: 'demo-chapter-id'
+  },
+  {
+    id: '4',
+    date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    description: 'Fundraiser Proceeds',
+    amount: 1200,
+    type: 'income',
+    category: 'Fundraising',
+    paymentMethod: 'Cash',
+    chapter_id: 'demo-chapter-id'
+  }
+];
+
+const mockBudgets: Budget[] = [
+  {
+    id: '1',
+    category: 'Events',
+    budgeted: 5000,
+    spent: 2500,
+    period: 'Fall 2024',
+    chapter_id: 'demo-chapter-id'
+  },
+  {
+    id: '2',
+    category: 'Social',
+    budgeted: 2000,
+    spent: 450,
+    period: 'Fall 2024',
+    chapter_id: 'demo-chapter-id'
+  },
+  {
+    id: '3',
+    category: 'Recruitment',
+    budgeted: 1500,
+    spent: 0,
+    period: 'Fall 2024',
+    chapter_id: 'demo-chapter-id'
+  }
+];
+
+const mockMembers: Member[] = [
+  {
+    id: '1',
+    name: 'John Smith',
+    email: 'jsmith@university.edu',
+    phone: '(555) 111-2222',
+    year: 'Junior',
+    major: 'Business',
+    position: 'President',
+    status: 'Active',
+    dues_paid: true,
+    dues_amount: 150,
+    chapter_id: 'demo-chapter-id'
+  },
+  {
+    id: '2',
+    name: 'Mike Johnson',
+    email: 'mjohnson@university.edu',
+    phone: '(555) 333-4444',
+    year: 'Sophomore',
+    major: 'Engineering',
+    position: 'Vice President',
+    status: 'Active',
+    dues_paid: true,
+    dues_amount: 150,
+    chapter_id: 'demo-chapter-id'
+  },
+  {
+    id: '3',
+    name: 'David Lee',
+    email: 'dlee@university.edu',
+    phone: '(555) 555-6666',
+    year: 'Senior',
+    major: 'Finance',
+    position: 'Treasurer',
+    status: 'Active',
+    dues_paid: true,
+    dues_amount: 150,
+    chapter_id: 'demo-chapter-id'
+  },
+  {
+    id: '4',
+    name: 'Chris Williams',
+    email: 'cwilliams@university.edu',
+    phone: '(555) 777-8888',
+    year: 'Freshman',
+    major: 'Computer Science',
+    position: 'Member',
+    status: 'Active',
+    dues_paid: false,
+    dues_amount: 150,
+    chapter_id: 'demo-chapter-id'
+  }
+];
+
 export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentChapter } = useChapter();
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [budgets, setBudgets] = useState<Budget[]>([]);
-  const [members, setMembers] = useState<Member[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>(DEMO_MODE ? mockTransactions : []);
+  const [budgets, setBudgets] = useState<Budget[]>(DEMO_MODE ? mockBudgets : []);
+  const [members, setMembers] = useState<Member[]>(DEMO_MODE ? mockMembers : []);
   const [totalBalance, setTotalBalance] = useState(0);
   const [totalDues, setTotalDues] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
@@ -42,9 +170,15 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   // Load initial data from Supabase and set up real-time listeners
   useEffect(() => {
-    if (currentChapter?.id) {
+    if (!DEMO_MODE && currentChapter?.id) {
       loadInitialData();
       setupRealtimeListeners();
+    } else if (DEMO_MODE) {
+      // Calculate totals for demo mode
+      const balance = mockTransactions.reduce((sum, t) => sum + t.amount, 0);
+      setTotalBalance(balance);
+      const dues = mockMembers.filter(m => !m.dues_paid).reduce((sum, m) => sum + (m.dues_amount || 0), 0);
+      setTotalDues(dues);
     }
     return () => cleanupRealtimeListeners();
   }, [currentChapter?.id]);

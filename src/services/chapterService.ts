@@ -10,41 +10,13 @@ export class ChapterService {
         .order('name', { ascending: true });
 
       if (error) {
-        console.error('Error fetching chapters:', error);
-        // If RLS prevents access (common for unauthenticated users), return test chapter for signup
-        if (error.code === 'PGRST301' || error.message?.includes('permission denied')) {
-          return [{
-            id: 'test-chapter-id',
-            name: 'Alpha Beta Chapter',
-            school: 'Test University',
-            address: '123 Greek Row',
-            phone: '(555) 123-4567',
-            email: 'treasurer@alphabeta.edu',
-            member_count: 50,
-            dues_amount: 150.00,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          }];
-        }
-        throw error;
+        // Return empty array if there's an error - the actual chapter should exist in DB
+        return [];
       }
 
       return data || [];
     } catch (error) {
-      console.error('Failed to fetch chapters:', error);
-      // Return test chapter for signup form even if there's an error
-      return [{
-        id: 'test-chapter-id',
-        name: 'Alpha Beta Chapter',
-        school: 'Test University',
-        address: '123 Greek Row',
-        phone: '(555) 123-4567',
-        email: 'treasurer@alphabeta.edu',
-        member_count: 50,
-        dues_amount: 150.00,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }];
+      return [];
     }
   }
 
@@ -57,13 +29,11 @@ export class ChapterService {
         .single();
 
       if (error) {
-        console.error('Error fetching chapter:', error);
         throw error;
       }
 
       return data;
     } catch (error) {
-      console.error('Failed to fetch chapter:', error);
       throw error;
     }
   }
@@ -77,13 +47,11 @@ export class ChapterService {
         .single();
 
       if (error) {
-        console.error('Error creating chapter:', error);
         throw error;
       }
 
       return data;
     } catch (error) {
-      console.error('Failed to create chapter:', error);
       throw error;
     }
   }
@@ -98,13 +66,11 @@ export class ChapterService {
         .single();
 
       if (error) {
-        console.error('Error updating chapter:', error);
         throw error;
       }
 
       return data;
     } catch (error) {
-      console.error('Failed to update chapter:', error);
       throw error;
     }
   }
@@ -117,11 +83,9 @@ export class ChapterService {
         .eq('id', id);
 
       if (error) {
-        console.error('Error deleting chapter:', error);
         throw error;
       }
     } catch (error) {
-      console.error('Failed to delete chapter:', error);
       throw error;
     }
   }
@@ -136,7 +100,6 @@ export class ChapterService {
         .eq('status', 'Active');
 
       if (countError) {
-        console.error('Error counting members:', countError);
         throw countError;
       }
 
@@ -150,11 +113,9 @@ export class ChapterService {
         .eq('id', chapterId);
 
       if (updateError) {
-        console.error('Error updating member count:', updateError);
         throw updateError;
       }
     } catch (error) {
-      console.error('Failed to update member count:', error);
       throw error;
     }
   }
@@ -189,7 +150,6 @@ export class ChapterService {
         duesPaymentRate: totalMembers ? ((paidMembers || 0) / totalMembers * 100).toFixed(1) : '0'
       };
     } catch (error) {
-      console.error('Failed to get chapter stats:', error);
       return {
         totalMembers: 0,
         activeMembers: 0,

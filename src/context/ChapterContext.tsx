@@ -24,10 +24,26 @@ interface ChapterProviderProps {
   children: ReactNode;
 }
 
+// DEMO MODE: Mock chapter data
+const DEMO_MODE = true;
+
+const mockChapter: Chapter = {
+  id: 'demo-chapter-id',
+  name: 'Alpha Beta Chapter',
+  school: 'Demo University',
+  address: '123 Greek Row, College Town, ST 12345',
+  phone: '(555) 123-4567',
+  email: 'treasurer@alphabeta.edu',
+  member_count: 45,
+  dues_amount: 150.00,
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString()
+};
+
 export const ChapterProvider: React.FC<ChapterProviderProps> = ({ children }) => {
-  const [chapters, setChapters] = useState<Chapter[]>([]);
-  const [currentChapter, setCurrentChapter] = useState<Chapter | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [chapters, setChapters] = useState<Chapter[]>(DEMO_MODE ? [mockChapter] : []);
+  const [currentChapter, setCurrentChapter] = useState<Chapter | null>(DEMO_MODE ? mockChapter : null);
+  const [loading, setLoading] = useState(!DEMO_MODE);
 
   const refreshChapters = async () => {
     try {
@@ -65,7 +81,9 @@ export const ChapterProvider: React.FC<ChapterProviderProps> = ({ children }) =>
   useEffect(() => {
     // Only load chapters once the component mounts
     // This will work for both auth and non-auth users
-    refreshChapters();
+    if (!DEMO_MODE) {
+      refreshChapters();
+    }
   }, []);
 
   const value: ChapterContextType = {

@@ -32,6 +32,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({ onSwitchToLogin }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Signup form submitted with:', formData);
     const success = await signUp(formData);
     if (success) {
       // Clear form data
@@ -48,6 +49,8 @@ export const SignupForm: React.FC<SignupFormProps> = ({ onSwitchToLogin }) => {
       });
       // Switch to login form after successful signup
       onSwitchToLogin();
+    } else {
+      console.error('Signup failed - check console for details');
     }
   };
 
