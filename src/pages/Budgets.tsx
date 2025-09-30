@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   BudgetService,
   BudgetSummary,
@@ -21,8 +21,10 @@ import {
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import ExpenseModal from '../components/ExpenseModal';
 import BudgetCharts from '../components/BudgetCharts';
+import { useChapter } from '../context/ChapterContext';
 
 const Budgets: React.FC = () => {
+  const { currentChapter } = useChapter();
   const [budgetSummary, setBudgetSummary] = useState<BudgetSummary[]>([]);
   const [periods, setPeriods] = useState<BudgetPeriod[]>([]);
   const [categories, setCategories] = useState<BudgetCategory[]>([]);
@@ -34,23 +36,24 @@ const Budgets: React.FC = () => {
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [currentPeriod, setCurrentPeriod] = useState<BudgetPeriod | null>(null);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  useEffect(() => {
-    if (selectedPeriod) {
-      loadBudgetSummary();
+  const loadData = useCallback(async () => {
+    if (!currentChapter?.id) {
+      setBudgetSummary([]);
+      setPeriods([]);
+      setCategories([]);
+      setCurrentPeriod(null);
+      setSelectedPeriod('');
+      setEditingBudget(null);
+      setLoading(false);
+      return;
     }
-  }, [selectedPeriod]);
 
-  const loadData = async () => {
     try {
       setLoading(true);
       const [periodsData, categoriesData, currentPeriod] = await Promise.all([
-        BudgetService.getBudgetPeriods(),
-        BudgetService.getBudgetCategories(),
-        BudgetService.getCurrentPeriod()
+        BudgetService.getBudgetPeriods(currentChapter.id),
+        BudgetService.getBudgetCategories(currentChapter.id),
+        BudgetService.getCurrentPeriod(currentChapter.id)
       ]);
 
       setPeriods(periodsData);
@@ -68,20 +71,36 @@ const Budgets: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentChapter?.id]);
 
-  const loadBudgetSummary = async () => {
+  const loadBudgetSummary = useCallback(async () => {
+    if (!currentChapter?.id || !selectedPeriod) {
+      setBudgetSummary([]);
+      return;
+    }
+
     try {
-      const data = await BudgetService.getBudgetSummary(selectedPeriod);
+      const data = await BudgetService.getBudgetSummary(currentChapter.id, selectedPeriod);
       setBudgetSummary(data);
     } catch (error) {
       console.error('Error loading budget summary:', error);
     }
-  };
+  }, [currentChapter?.id, selectedPeriod]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  useEffect(() => {
+    if (selectedPeriod) {
+      loadBudgetSummary();
+    }
+  }, [loadBudgetSummary, selectedPeriod]);
 
   const handleAddExpense = async (expense: any) => {
+    if (!currentChapter?.id) return;
     try {
-      await BudgetService.addExpense(expense);
+      await BudgetService.addExpense(currentChapter.id, expense);
       await loadBudgetSummary();
       setShowExpenseModal(false);
     } catch (error) {
@@ -90,12 +109,13 @@ const Budgets: React.FC = () => {
   };
 
   const handleUpdateBudget = async (categoryName: string, newAmount: number) => {
+    if (!currentChapter?.id) return;
     try {
       const category = categories.find(c => c.name === categoryName);
       const period = periods.find(p => p.name === selectedPeriod);
 
       if (category && period) {
-        await BudgetService.updateBudgetAllocation(category.id, period.id, newAmount);
+        await BudgetService.updateBudgetAllocation(currentChapter.id, category.id, period.id, newAmount);
         await loadBudgetSummary();
         setEditingBudget(null);
       }
@@ -180,7 +200,9 @@ const Budgets: React.FC = () => {
           </select>
           <button
             onClick={() => setShowExpenseModal(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={!currentChapter?.id}
+          >
             <Plus className="w-4 h-4" />
             Add Expense
           </button>
@@ -373,6 +395,7 @@ const Budgets: React.FC = () => {
         onSubmit={handleAddExpense}
         categories={categories}
         currentPeriod={currentPeriod}
+        chapterId={currentChapter?.id || null}
       />
     </div>
   );

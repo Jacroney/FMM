@@ -175,8 +175,8 @@ const Reports = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      <div className="flex items-center justify-center h-64 bg-white dark:bg-gray-900">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 dark:border-blue-400"></div>
       </div>
     );
   }
@@ -185,26 +185,26 @@ const Reports = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Financial Reports</h1>
-          <p className="text-sm text-gray-500 mt-1">Comprehensive analysis of your financial data</p>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Financial Reports</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Comprehensive analysis of your financial data</p>
         </div>
         
         <div className="flex flex-col sm:flex-row gap-2">
           <select
             value={dateRange}
             onChange={(e) => setDateRange(e.target.value)}
-            className="rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
           >
             <option value="week">Last 7 Days</option>
             <option value="month">Last 30 Days</option>
             <option value="quarter">Last 3 Months</option>
             <option value="year">Last 12 Months</option>
           </select>
-          
+
           <select
             value={reportType}
             onChange={(e) => setReportType(e.target.value)}
-            className="rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
           >
             <option value="overview">Overview</option>
             <option value="charts">Charts & Analytics</option>
@@ -215,14 +215,14 @@ const Reports = () => {
           <div className="flex gap-2">
             <button
               onClick={exportToCSV}
-              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center"
+              className="bg-green-600 dark:bg-green-700 text-white px-4 py-2 rounded-lg hover:bg-green-700 dark:hover:bg-green-800 transition-colors flex items-center"
             >
               📊 CSV
             </button>
             <button
               onClick={exportToPDF}
               disabled={isExporting}
-              className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors flex items-center disabled:opacity-50"
+              className="bg-red-600 dark:bg-red-700 text-white px-4 py-2 rounded-lg hover:bg-red-700 dark:hover:bg-red-800 transition-colors flex items-center disabled:opacity-50"
             >
               {isExporting ? '⏳' : '📄'} PDF
             </button>
@@ -235,48 +235,48 @@ const Reports = () => {
           <>
             {/* Key Metrics */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-lg font-semibold text-gray-700">Total Income</h3>
-                <p className="text-3xl font-bold text-green-600">${metrics.totalIncome.toLocaleString()}</p>
-                <p className="text-sm text-gray-500 mt-2">Income this period</p>
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200">Total Income</h3>
+                <p className="text-3xl font-bold text-green-600 dark:text-green-400">${metrics.totalIncome.toLocaleString()}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Income this period</p>
               </div>
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-lg font-semibold text-gray-700">Total Expenses</h3>
-                <p className="text-3xl font-bold text-red-600">${metrics.totalExpenses.toLocaleString()}</p>
-                <p className="text-sm text-gray-500 mt-2">Expenses this period</p>
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200">Total Expenses</h3>
+                <p className="text-3xl font-bold text-red-600 dark:text-red-400">${metrics.totalExpenses.toLocaleString()}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Expenses this period</p>
               </div>
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-lg font-semibold text-gray-700">Net Income</h3>
-                <p className={`text-3xl font-bold ${metrics.netIncome >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200">Net Income</h3>
+                <p className={`text-3xl font-bold ${metrics.netIncome >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                   ${metrics.netIncome.toLocaleString()}
                 </p>
-                <p className="text-sm text-gray-500 mt-2">Net this period</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Net this period</p>
               </div>
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-lg font-semibold text-gray-700">Dues Collection</h3>
-                <p className="text-3xl font-bold text-blue-600">{metrics.duesCollectionRate.toFixed(1)}%</p>
-                <p className="text-sm text-gray-500 mt-2">{metrics.paidMembers} of {metrics.totalMembers} paid</p>
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200">Dues Collection</h3>
+                <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{metrics.duesCollectionRate.toFixed(1)}%</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">{metrics.paidMembers} of {metrics.totalMembers} paid</p>
               </div>
             </div>
 
             {/* Category Breakdown */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-700 mb-4">Expenses by Category</h3>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+              <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-4">Expenses by Category</h3>
               <div className="space-y-4">
                 {Object.entries(metrics.expenseByCategory)
                   .sort(([, a], [, b]) => b - a)
                   .slice(0, 8)
                   .map(([category, amount]) => (
                     <div key={category} className="flex items-center justify-between">
-                      <span className="text-gray-600 capitalize">{category}</span>
+                      <span className="text-gray-600 dark:text-gray-300 capitalize">{category}</span>
                       <div className="flex items-center gap-2">
-                        <div className="w-20 h-2 bg-gray-200 rounded-full">
-                          <div 
-                            className="h-2 bg-blue-600 rounded-full"
+                        <div className="w-20 h-2 bg-gray-200 dark:bg-gray-700 rounded-full">
+                          <div
+                            className="h-2 bg-blue-600 dark:bg-blue-400 rounded-full"
                             style={{ width: `${(amount / metrics.totalExpenses) * 100}%` }}
                           />
                         </div>
-                        <span className="font-semibold min-w-16">${amount.toLocaleString()}</span>
+                        <span className="font-semibold text-gray-900 dark:text-white min-w-16">${amount.toLocaleString()}</span>
                       </div>
                     </div>
                   ))}
@@ -288,8 +288,8 @@ const Reports = () => {
         {reportType === 'charts' && (
           <>
             {/* Pie Chart - Expense Categories */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-700 mb-4">Expense Breakdown by Category</h3>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+              <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-4">Expense Breakdown by Category</h3>
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -314,8 +314,8 @@ const Reports = () => {
             </div>
 
             {/* Bar Chart - Monthly Trends */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-700 mb-4">Income vs Expenses Over Time</h3>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+              <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-4">Income vs Expenses Over Time</h3>
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={barChartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
@@ -332,8 +332,8 @@ const Reports = () => {
             </div>
 
             {/* Dues Collection Chart */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-700 mb-4">Dues Collection Status</h3>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+              <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-4">Dues Collection Status</h3>
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -359,20 +359,20 @@ const Reports = () => {
 
         {reportType === 'budget' && (
           <div className="space-y-6">
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-700 mb-4">Budget Summary</h3>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+              <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-4">Budget Summary</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-blue-600">${budgets.reduce((sum, b) => sum + b.amount, 0).toLocaleString()}</p>
-                  <p className="text-sm text-gray-500">Total Budgeted</p>
+                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">${budgets.reduce((sum, b) => sum + b.amount, 0).toLocaleString()}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Total Budgeted</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-red-600">${budgets.reduce((sum, b) => sum + b.spent, 0).toLocaleString()}</p>
-                  <p className="text-sm text-gray-500">Total Spent</p>
+                  <p className="text-2xl font-bold text-red-600 dark:text-red-400">${budgets.reduce((sum, b) => sum + b.spent, 0).toLocaleString()}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Total Spent</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-green-600">${budgets.reduce((sum, b) => sum + (b.amount - b.spent), 0).toLocaleString()}</p>
-                  <p className="text-sm text-gray-500">Remaining</p>
+                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">${budgets.reduce((sum, b) => sum + (b.amount - b.spent), 0).toLocaleString()}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Remaining</p>
                 </div>
               </div>
             </div>
@@ -380,52 +380,52 @@ const Reports = () => {
             {budgets.map(budget => {
               const progress = (budget.spent / budget.amount) * 100;
               const isOverBudget = budget.spent > budget.amount;
-              
+
               return (
-                <div key={budget.id} className="bg-white rounded-lg shadow p-6">
+                <div key={budget.id} className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
                   <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-semibold text-gray-700">{budget.name}</h3>
+                    <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200">{budget.name}</h3>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm text-gray-500">{budget.period}</span>
+                      <span className="text-sm text-gray-500 dark:text-gray-400">{budget.period}</span>
                       {isOverBudget && (
-                        <span className="bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs font-medium">
+                        <span className="bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 px-2 py-1 rounded-full text-xs font-medium">
                           Over Budget
                         </span>
                       )}
                     </div>
                   </div>
-                  
+
                   <div className="space-y-4">
                     <div>
-                      <div className="flex justify-between text-sm text-gray-600 mb-2">
+                      <div className="flex justify-between text-sm text-gray-600 dark:text-gray-300 mb-2">
                         <span>Progress: {Math.min(progress, 100).toFixed(1)}%</span>
                         <span>${budget.spent.toLocaleString()} / ${budget.amount.toLocaleString()}</span>
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-3">
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
                         <div
                           className={`h-3 rounded-full transition-all duration-300 ${
-                            isOverBudget ? 'bg-red-600' : 
-                            progress >= 80 ? 'bg-yellow-500' : 'bg-green-600'
+                            isOverBudget ? 'bg-red-600 dark:bg-red-500' :
+                            progress >= 80 ? 'bg-yellow-500 dark:bg-yellow-400' : 'bg-green-600 dark:bg-green-500'
                           }`}
                           style={{ width: `${Math.min(progress, 100)}%` }}
                         />
                       </div>
                     </div>
-                    
+
                     <div className="grid grid-cols-3 gap-4 text-sm">
                       <div>
-                        <span className="text-gray-500">Category:</span>
-                        <p className="font-medium capitalize">{budget.category}</p>
+                        <span className="text-gray-500 dark:text-gray-400">Category:</span>
+                        <p className="font-medium text-gray-900 dark:text-white capitalize">{budget.category}</p>
                       </div>
                       <div>
-                        <span className="text-gray-500">Remaining:</span>
-                        <p className={`font-medium ${isOverBudget ? 'text-red-600' : 'text-green-600'}`}>
+                        <span className="text-gray-500 dark:text-gray-400">Remaining:</span>
+                        <p className={`font-medium ${isOverBudget ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
                           ${(budget.amount - budget.spent).toLocaleString()}
                         </p>
                       </div>
                       <div>
-                        <span className="text-gray-500">Period:</span>
-                        <p className="font-medium">
+                        <span className="text-gray-500 dark:text-gray-400">Period:</span>
+                        <p className="font-medium text-gray-900 dark:text-white">
                           {new Date(budget.startDate).toLocaleDateString()} - {new Date(budget.endDate).toLocaleDateString()}
                         </p>
                       </div>
@@ -439,84 +439,84 @@ const Reports = () => {
 
         {reportType === 'dues' && (
           <div className="space-y-6">
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-700 mb-6">Dues Collection Overview</h3>
-              
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+              <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-6">Dues Collection Overview</h3>
+
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
                 <div className="text-center">
-                  <p className="text-3xl font-bold text-blue-600">{metrics.totalMembers}</p>
-                  <p className="text-sm text-gray-500">Total Members</p>
+                  <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{metrics.totalMembers}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Total Members</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-3xl font-bold text-green-600">{metrics.paidMembers}</p>
-                  <p className="text-sm text-gray-500">Paid Dues</p>
+                  <p className="text-3xl font-bold text-green-600 dark:text-green-400">{metrics.paidMembers}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Paid Dues</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-3xl font-bold text-red-600">{metrics.unpaidMembers}</p>
-                  <p className="text-sm text-gray-500">Unpaid Dues</p>
+                  <p className="text-3xl font-bold text-red-600 dark:text-red-400">{metrics.unpaidMembers}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Unpaid Dues</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-3xl font-bold text-purple-600">{metrics.duesCollectionRate.toFixed(1)}%</p>
-                  <p className="text-sm text-gray-500">Collection Rate</p>
+                  <p className="text-3xl font-bold text-purple-600 dark:text-purple-400">{metrics.duesCollectionRate.toFixed(1)}%</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Collection Rate</p>
                 </div>
               </div>
 
-              <div className="w-full bg-gray-200 rounded-full h-4 mb-4">
-                <div 
-                  className="bg-green-600 h-4 rounded-full transition-all duration-300"
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4 mb-4">
+                <div
+                  className="bg-green-600 dark:bg-green-500 h-4 rounded-full transition-all duration-300"
                   style={{ width: `${metrics.duesCollectionRate}%` }}
                 />
               </div>
-              <p className="text-center text-sm text-gray-600">
+              <p className="text-center text-sm text-gray-600 dark:text-gray-300">
                 {metrics.paidMembers} of {metrics.totalMembers} members have paid their dues
               </p>
             </div>
 
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-              <div className="px-6 py-4 bg-gray-50 border-b">
-                <h3 className="text-lg font-semibold text-gray-700">Member Dues Status</h3>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+              <div className="px-6 py-4 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+                <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200">Member Dues Status</h3>
               </div>
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-gray-700">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dues Paid</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Date</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Name</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Email</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Dues Paid</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Payment Date</th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                     {members.map((member) => (
-                      <tr key={member.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      <tr key={member.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                           {member.name}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                           {member.email}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            member.status === 'Active' 
-                              ? 'bg-green-100 text-green-800'
+                            member.status === 'Active'
+                              ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200'
                               : member.status === 'Inactive'
-                              ? 'bg-red-100 text-red-800'
-                              : 'bg-gray-100 text-gray-800'
+                              ? 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200'
+                              : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
                           }`}>
                             {member.status}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            member.duesPaid 
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-red-100 text-red-800'
+                            member.duesPaid
+                              ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200'
+                              : 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200'
                           }`}>
                             {member.duesPaid ? 'Paid' : 'Unpaid'}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                           {member.paymentDate ? new Date(member.paymentDate).toLocaleDateString() : '-'}
                         </td>
                       </tr>

@@ -5,7 +5,7 @@ import { SignupForm } from './auth/SignupForm';
 import { LoadingSpinner } from './LoadingSpinner';
 
 const AuthProtection = ({ children }) => {
-  const { isAuthenticated, isLoading, signOut, profile } = useAuth();
+  const { isAuthenticated, isLoading, signOut } = useAuth();
   const [authMode, setAuthMode] = useState('login'); // 'login' or 'signup'
 
   if (isLoading) {
@@ -20,12 +20,7 @@ const AuthProtection = ({ children }) => {
   if (isAuthenticated) {
     return (
       <div>
-        <div className="fixed top-4 right-4 z-50 flex items-center gap-3">
-          {profile && (
-            <div className="hidden sm:block text-sm text-gray-600 dark:text-gray-300">
-              Welcome, {profile.full_name} ({profile.role})
-            </div>
-          )}
+        <div className="fixed top-4 right-4 z-50 flex items-center">
           <button
             onClick={signOut}
             className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 transition-colors"

@@ -8,6 +8,7 @@ interface ExpenseModalProps {
   onSubmit: (expense: Omit<Expense, 'id'>) => void;
   categories: BudgetCategory[];
   currentPeriod: BudgetPeriod | null;
+  chapterId: string | null;
 }
 
 const ExpenseModal: React.FC<ExpenseModalProps> = ({
@@ -15,7 +16,8 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({
   onClose,
   onSubmit,
   categories,
-  currentPeriod
+  currentPeriod,
+  chapterId
 }) => {
   const [formData, setFormData] = useState({
     category_id: '',
@@ -33,13 +35,13 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({
     if (formData.category_id && currentPeriod) {
       loadBudgetInfo();
     }
-  }, [formData.category_id]);
+  }, [formData.category_id, currentPeriod, chapterId]);
 
   const loadBudgetInfo = async () => {
-    if (!currentPeriod) return;
+    if (!currentPeriod || !chapterId) return;
 
     try {
-      const summary = await BudgetService.getBudgetSummary(currentPeriod.name);
+      const summary = await BudgetService.getBudgetSummary(chapterId, currentPeriod.name);
       const category = categories.find(c => c.id === formData.category_id);
       const budgetItem = summary.find(s => s.category === category?.name);
 

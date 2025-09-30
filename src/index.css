@@ -1,3 +1,68 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-gray-100 text-gray-900 transition-colors duration-200;
+  }
+
+  :root {
+    --toast-bg: #363636;
+    --toast-text: #fff;
+  }
+
+  .dark {
+    --toast-bg: #1f2937;
+    --toast-text: #f9fafb;
+  }
+}
+
+@layer components {
+  /* Custom scrollbar styles */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background-color: rgb(243 244 246);
+  }
+
+  .dark .custom-scrollbar::-webkit-scrollbar-track {
+    background-color: rgb(31 41 55);
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: rgb(209 213 219);
+    border-radius: 9999px;
+  }
+
+  .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: rgb(75 85 99);
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(156 163 175);
+  }
+
+  .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(107 114 128);
+  }
+}
+
+@layer utilities {
+  /* Animation utilities */
+  .animate-fadeIn {
+    animation: fadeIn 0.2s ease-in;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+}

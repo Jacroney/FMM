@@ -90,6 +90,7 @@ export class TransactionService {
 
       return {
         id: data.id,
+        chapter_id: data.chapter_id,
         date: new Date(data.date),
         amount: data.amount,
         description: data.description,
@@ -125,6 +126,7 @@ export class TransactionService {
 
       return (data || []).map(tx => ({
         id: tx.id,
+        chapter_id: tx.chapter_id,
         date: new Date(tx.date),
         amount: tx.amount,
         description: tx.description,
@@ -161,6 +163,7 @@ export class TransactionService {
 
       return {
         id: data.id,
+        chapter_id: data.chapter_id,
         date: new Date(data.date),
         amount: data.amount,
         description: data.description,

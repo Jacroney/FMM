@@ -45,14 +45,21 @@ The primary goal of KSig Treasurer is to simplify the financial responsibilities
    yarn install
    ```
 
-3. **Start the development server:**
+3. **Create your environment file:**
+   ```bash
+   cp .env.example .env.local
+   ```
+
+   Fill in your Supabase credentials and optional feature flags in `.env.local`.
+
+4. **Start the development server:**
    ```bash
    npm run dev
    # or
    yarn dev
    ```
 
-4. Open your browser to the provided local URL (usually `http://localhost:5173/`).
+5. Open your browser to the provided local URL (usually `http://localhost:5173/`).
 
 ### Build for Production
 
@@ -78,6 +85,7 @@ yarn preview
 - **Build Tool:** Vite
 - **State Management:** Context API (FinancialProvider)
 - **Data Handling:** Formik, Yup (forms & validation), PapaParse (CSV data), Axios (API requests)
+- **Environment:** Vite-powered env vars (`.env.local`)
 - **Icons & UI:** HeadlessUI, Heroicons
 
 ## Folder Structure
@@ -96,4 +104,3 @@ Pull requests and suggestions are welcome! If you have ideas for features or imp
 This project is private to Jacroney and collaborators.
 
 ---
-

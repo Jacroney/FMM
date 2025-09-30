@@ -124,19 +124,19 @@ export const ChapterSelector: React.FC = () => {
     <div className="relative">
       <button
         type="button"
-        className="relative w-full cursor-default rounded-md bg-white py-2 pl-3 pr-10 text-left text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 sm:text-sm"
+        className="relative w-full cursor-default rounded-md bg-white dark:bg-gray-700 py-2 pl-3 pr-10 text-left text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 sm:text-sm"
         onClick={() => setIsOpen(!isOpen)}
       >
         {currentChapter ? (
-          <div className="flex items-center">
-            <BuildingOfficeIcon className="h-5 w-5 text-gray-400 mr-2" />
-            <div className="min-w-0 flex-1">
+          <div className="flex items-center min-w-0">
+            <BuildingOfficeIcon className="h-5 w-5 text-gray-400 mr-2 flex-shrink-0" />
+            <div className="min-w-0 flex-1 truncate">
               <span className="font-medium">{currentChapter.name}</span>
-              <span className="text-gray-500 ml-2">- {currentChapter.school}</span>
+              <span className="text-gray-500 dark:text-gray-400 ml-2 hidden sm:inline">- {currentChapter.school}</span>
             </div>
           </div>
         ) : (
-          <span className="text-gray-500">Select a chapter...</span>
+          <span className="text-gray-500 dark:text-gray-400">Select a chapter...</span>
         )}
         <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
           <ChevronUpDownIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
@@ -144,12 +144,12 @@ export const ChapterSelector: React.FC = () => {
       </button>
 
       {isOpen && (
-        <div className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
+        <div className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white dark:bg-gray-700 py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
           {chapters.map((chapter) => (
             <div
               key={chapter.id}
-              className={`relative cursor-default select-none py-2 pl-10 pr-4 hover:bg-gray-50 ${
-                currentChapter?.id === chapter.id ? 'bg-blue-50' : ''
+              className={`relative cursor-default select-none py-2 pl-10 pr-4 hover:bg-gray-50 dark:hover:bg-gray-600 ${
+                currentChapter?.id === chapter.id ? 'bg-blue-50 dark:bg-blue-900' : ''
               }`}
               onClick={() => {
                 setCurrentChapter(chapter);
@@ -157,16 +157,16 @@ export const ChapterSelector: React.FC = () => {
               }}
             >
               <div className="flex items-center justify-between">
-                <div>
-                  <span className="font-medium text-gray-900">{chapter.name}</span>
-                  <div className="text-sm text-gray-500 flex items-center space-x-3">
-                    <span className="flex items-center">
-                      <AcademicCapIcon className="h-4 w-4 mr-1" />
-                      {chapter.school}
+                <div className="min-w-0 flex-1">
+                  <span className="font-medium text-gray-900 dark:text-white">{chapter.name}</span>
+                  <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center space-x-3 truncate">
+                    <span className="flex items-center truncate">
+                      <AcademicCapIcon className="h-4 w-4 mr-1 flex-shrink-0" />
+                      <span className="truncate">{chapter.school}</span>
                     </span>
-                    <span className="flex items-center">
+                    <span className="flex items-center flex-shrink-0">
                       <UserGroupIcon className="h-4 w-4 mr-1" />
-                      {chapter.member_count} members
+                      {chapter.member_count}
                     </span>
                   </div>
                 </div>
@@ -179,7 +179,7 @@ export const ChapterSelector: React.FC = () => {
             </div>
           ))}
           <div
-            className="relative cursor-default select-none py-2 pl-10 pr-4 text-blue-600 hover:bg-blue-50"
+            className="relative cursor-default select-none py-2 pl-10 pr-4 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-gray-600"
             onClick={() => {
               setShowCreateForm(true);
               setIsOpen(false);

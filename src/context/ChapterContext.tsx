@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Chapter } from '../services/types';
 import { ChapterService } from '../services/chapterService';
+import { isDemoModeEnabled } from '../utils/env';
 
 interface ChapterContextType {
   chapters: Chapter[];
@@ -25,10 +26,10 @@ interface ChapterProviderProps {
 }
 
 // DEMO MODE: Mock chapter data
-const DEMO_MODE = true;
+const DEMO_MODE = isDemoModeEnabled();
 
 const mockChapter: Chapter = {
-  id: 'demo-chapter-id',
+  id: '00000000-0000-0000-0000-000000000001',
   name: 'Alpha Beta Chapter',
   school: 'Demo University',
   address: '123 Greek Row, College Town, ST 12345',

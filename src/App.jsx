@@ -32,9 +32,10 @@ function App() {
                   position="top-right"
                   toastOptions={{
                     duration: 4000,
+                    className: '',
                     style: {
-                      background: '#363636',
-                      color: '#fff',
+                      background: 'var(--toast-bg, #363636)',
+                      color: 'var(--toast-text, #fff)',
                     },
                     success: {
                       duration: 3000,
@@ -86,10 +87,10 @@ const AppRoutes = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
         <div className="flex flex-col items-center gap-4">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <p className="text-gray-600">Loading application...</p>
+          <p className="text-gray-600 dark:text-gray-300">Loading application...</p>
         </div>
       </div>
     );
@@ -98,10 +99,10 @@ const AppRoutes = () => {
   // If user is authenticated but no profile is loaded yet, show loading with timeout
   if (!profile && user && !loadingTimeout) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
         <div className="flex flex-col items-center gap-4">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <p className="text-gray-600">Loading profile...</p>
+          <p className="text-gray-600 dark:text-gray-300">Loading profile...</p>
           <p className="text-sm text-gray-400">This is taking longer than usual...</p>
         </div>
       </div>
@@ -111,11 +112,11 @@ const AppRoutes = () => {
   // If loading timed out, show error and allow user to continue
   if (loadingTimeout && user && !profile) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900 p-4">
         <div className="max-w-md text-center">
           <div className="text-red-500 text-6xl mb-4">⚠️</div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Profile Loading Failed</h2>
-          <p className="text-gray-600 mb-4">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Profile Loading Failed</h2>
+          <p className="text-gray-600 dark:text-gray-300 mb-4">
             There was an issue loading your profile. This may be due to database permissions.
           </p>
           <button

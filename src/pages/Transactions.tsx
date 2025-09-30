@@ -107,10 +107,10 @@ const Transactions: React.FC = () => {
 
       {/* Import Modal */}
       {showImportModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-lg p-4 sm:p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto relative">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto relative">
             <button
-              className="absolute top-2 right-2 text-gray-400 hover:text-gray-600"
+              className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
               onClick={() => {
                 setShowImportModal(false);
                 setCsvData([]);
@@ -124,7 +124,7 @@ const Transactions: React.FC = () => {
             >
               ✕
             </button>
-            <h2 className="text-xl font-semibold mb-4">Import Transactions from CSV</h2>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Import Transactions from CSV</h2>
             {importStep === 'upload' && (
               <>
                 <input
@@ -158,7 +158,7 @@ const Transactions: React.FC = () => {
                     file:bg-blue-50 file:text-blue-700
                     hover:file:bg-blue-100"
                 />
-                <div className="text-sm text-gray-600 mt-2">
+                <div className="text-sm text-gray-600 dark:text-gray-300 mt-2">
                   <p>Supported formats: CSV files with headers</p>
                   <p>Required fields: Date, Amount, Description</p>
                 </div>
@@ -167,15 +167,15 @@ const Transactions: React.FC = () => {
 
             {importStep === 'mapping' && (
               <>
-                <h3 className="text-lg font-medium mb-4">Map CSV Fields</h3>
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Map CSV Fields</h3>
                 <div className="space-y-3 mb-4">
                   {['date', 'amount', 'description', 'category'].map(field => (
                     <div key={field} className="flex items-center space-x-3">
-                      <label className="w-20 text-sm font-medium capitalize">{field}:</label>
+                      <label className="w-20 text-sm font-medium text-gray-700 dark:text-gray-300 capitalize">{field}:</label>
                       <select
                         value={fieldMapping[field] || ''}
                         onChange={(e) => setFieldMapping(prev => ({ ...prev, [field]: e.target.value }))}
-                        className="flex-1 rounded border border-gray-300 px-2 py-1 text-sm"
+                        className="flex-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-2 py-1 text-sm"
                         required={field !== 'category'}
                       >
                         <option value="">Select field...</option>
@@ -188,7 +188,7 @@ const Transactions: React.FC = () => {
                 </div>
                 <div className="flex space-x-2">
                   <button
-                    className="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50"
+                    className="px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-50 dark:hover:bg-gray-700"
                     onClick={() => setImportStep('upload')}
                   >
                     Back
@@ -216,7 +216,7 @@ const Transactions: React.FC = () => {
 
             {importStep === 'duplicates' && duplicateResults && (
               <>
-                <h3 className="text-lg font-medium mb-4">Duplicate Detection Results</h3>
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Duplicate Detection Results</h3>
                 <div className="space-y-4 mb-4">
                   <div className="bg-green-50 p-3 rounded border">
                     <h4 className="font-medium text-green-800">✅ Unique Transactions: {duplicateResults.unique.length}</h4>
@@ -256,7 +256,7 @@ const Transactions: React.FC = () => {
                 
                 <div className="flex space-x-2">
                   <button
-                    className="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50"
+                    className="px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-50 dark:hover:bg-gray-700"
                     onClick={() => setImportStep('mapping')}
                   >
                     Back
@@ -273,25 +273,25 @@ const Transactions: React.FC = () => {
 
             {importStep === 'preview' && (
               <>
-                <h3 className="text-lg font-medium mb-4">Preview Transactions ({duplicateResults?.unique.length || 0})</h3>
-                <div className="max-h-64 overflow-y-auto border rounded mb-4">
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Preview Transactions ({duplicateResults?.unique.length || 0})</h3>
+                <div className="max-h-64 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded mb-4">
                   <table className="min-w-full text-xs">
-                    <thead className="bg-gray-50">
+                    <thead className="bg-gray-50 dark:bg-gray-700">
                       <tr>
-                        <th className="px-2 py-1 text-left">Date</th>
-                        <th className="px-2 py-1 text-left">Description</th>
-                        <th className="px-2 py-1 text-left">Category</th>
-                        <th className="px-2 py-1 text-left">Amount</th>
+                        <th className="px-2 py-1 text-left text-gray-700 dark:text-gray-300">Date</th>
+                        <th className="px-2 py-1 text-left text-gray-700 dark:text-gray-300">Description</th>
+                        <th className="px-2 py-1 text-left text-gray-700 dark:text-gray-300">Category</th>
+                        <th className="px-2 py-1 text-left text-gray-700 dark:text-gray-300">Amount</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-200">
+                    <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
                       {(duplicateResults?.unique || []).slice(0, 10).map((tx: Transaction, idx: number) => (
-                        <tr key={idx}>
+                        <tr key={idx} className="text-gray-900 dark:text-gray-200">
                           <td className="px-2 py-1">{formatDate(new Date(tx.date))}</td>
                           <td className="px-2 py-1">{tx.description}</td>
                           <td className="px-2 py-1">{tx.category}</td>
                           <td className="px-2 py-1 font-medium">
-                            <span className={tx.amount >= 0 ? 'text-green-600' : 'text-red-600'}>
+                            <span className={tx.amount >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
                               {formatCurrency(tx.amount)}
                             </span>
                           </td>
@@ -300,15 +300,15 @@ const Transactions: React.FC = () => {
                     </tbody>
                   </table>
                   {(duplicateResults?.unique.length || 0) > 10 && (
-                    <div className="text-gray-500 text-xs px-2 py-1 bg-gray-50">
+                    <div className="text-gray-500 dark:text-gray-400 text-xs px-2 py-1 bg-gray-50 dark:bg-gray-700">
                       ...and {(duplicateResults?.unique.length || 0) - 10} more transactions
                     </div>
                   )}
                 </div>
-                
+
                 <div className="flex space-x-2">
                   <button
-                    className="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50"
+                    className="px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-50 dark:hover:bg-gray-700"
                     onClick={() => setImportStep('duplicates')}
                   >
                     Back
@@ -368,27 +368,27 @@ const Transactions: React.FC = () => {
 
       {/* Quarterly Summary */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-        <div className="bg-white rounded-lg shadow p-4 sm:p-6">
-          <h2 className="text-lg font-semibold mb-4">Quarterly Summary</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Quarterly Summary</h2>
           <div className="space-y-2">
             <div className="flex justify-between items-center">
-              <span className="text-gray-600 text-sm sm:text-base">Total Transactions:</span>
-              <span className="font-semibold">{filteredTransactions.length}</span>
+              <span className="text-gray-600 dark:text-gray-400 text-sm sm:text-base">Total Transactions:</span>
+              <span className="font-semibold text-gray-900 dark:text-white">{filteredTransactions.length}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-gray-600 text-sm sm:text-base">Total Amount:</span>
-              <span className="font-semibold text-sm sm:text-base">{formatCurrency(quarterlyTotals.total)}</span>
+              <span className="text-gray-600 dark:text-gray-400 text-sm sm:text-base">Total Amount:</span>
+              <span className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base">{formatCurrency(quarterlyTotals.total)}</span>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-4 sm:p-6">
-          <h2 className="text-lg font-semibold mb-4">Category Breakdown</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Category Breakdown</h2>
           <div className="space-y-2 max-h-32 sm:max-h-none overflow-y-auto">
             {Object.entries(quarterlyTotals.byCategory).map(([category, amount]) => (
               <div key={category} className="flex justify-between items-center">
-                <span className="text-gray-600 text-sm sm:text-base truncate mr-2">{category}:</span>
-                <span className="font-semibold text-sm sm:text-base flex-shrink-0">{formatCurrency(amount)}</span>
+                <span className="text-gray-600 dark:text-gray-400 text-sm sm:text-base truncate mr-2">{category}:</span>
+                <span className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base flex-shrink-0">{formatCurrency(amount)}</span>
               </div>
             ))}
           </div>
@@ -396,32 +396,32 @@ const Transactions: React.FC = () => {
       </div>
 
       {/* Transactions Table */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
         {/* Mobile Card View */}
         <div className="sm:hidden">
-          <div className="divide-y divide-gray-200">
+          <div className="divide-y divide-gray-200 dark:divide-gray-700">
             {filteredTransactions.map((transaction) => (
-              <div key={transaction.id} className="p-4 hover:bg-gray-50">
+              <div key={transaction.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700">
                 <div className="flex justify-between items-start mb-2">
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                       {transaction.description}
                     </p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
                       {formatDate(transaction.date)} • {transaction.category}
                     </p>
                   </div>
                   <div className="text-right ml-2">
                     <span className={`text-sm font-medium ${
-                      transaction.amount >= 0 ? 'text-green-600' : 'text-red-600'
+                      transaction.amount >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
                     }`}>
                       {formatCurrency(transaction.amount)}
                     </span>
                     <div className="mt-1">
                       <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                        transaction.status === 'COMPLETED' ? 'bg-green-100 text-green-800' : 
-                        transaction.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' : 
-                        'bg-red-100 text-red-800'
+                        transaction.status === 'COMPLETED' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
+                        transaction.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' :
+                        'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
                       }`}>
                         {transaction.status}
                       </span>
@@ -435,38 +435,38 @@ const Transactions: React.FC = () => {
 
         {/* Desktop Table View */}
         <div className="hidden sm:block overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead className="bg-gray-50 dark:bg-gray-700">
               <tr>
-                <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-                <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Date</th>
+                <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Description</th>
+                <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Category</th>
+                <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Amount</th>
+                <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
               {filteredTransactions.map((transaction) => (
-                <tr key={transaction.id} className="hover:bg-gray-50">
-                  <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <tr key={transaction.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                  <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                     {formatDate(transaction.date)}
                   </td>
-                  <td className="px-4 lg:px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
+                  <td className="px-4 lg:px-6 py-4 text-sm text-gray-900 dark:text-white max-w-xs truncate">
                     <span title={transaction.description}>{transaction.description}</span>
                   </td>
-                  <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                     {transaction.category}
                   </td>
                   <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <span className={transaction.amount >= 0 ? 'text-green-600' : 'text-red-600'}>
+                    <span className={transaction.amount >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
                       {formatCurrency(transaction.amount)}
                     </span>
                   </td>
                   <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                      ${transaction.status === 'COMPLETED' ? 'bg-green-100 text-green-800' : 
-                        transaction.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' : 
-                        'bg-red-100 text-red-800'}`}>
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
+                      ${transaction.status === 'COMPLETED' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
+                        transaction.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' :
+                        'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'}`}>
                       {transaction.status}
                     </span>
                   </td>
@@ -475,13 +475,13 @@ const Transactions: React.FC = () => {
             </tbody>
           </table>
         </div>
-        
+
         {/* Empty state */}
         {filteredTransactions.length === 0 && (
           <div className="text-center py-12">
             <div className="text-gray-400 text-6xl mb-4">📊</div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No transactions found</h3>
-            <p className="text-gray-500">Try adjusting your search or select a different quarter.</p>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No transactions found</h3>
+            <p className="text-gray-500 dark:text-gray-400">Try adjusting your search or select a different quarter.</p>
           </div>
         )}
       </div>

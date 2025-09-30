@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { User } from '@supabase/supabase-js';
 import { AuthService, UserProfile, SignUpData, SignInData, MemberDuesInfo } from '../services/authService';
 import toast from 'react-hot-toast';
+import { isDemoModeEnabled } from '../utils/env';
 
 interface AuthContextType {
   // Auth state
@@ -49,7 +50,7 @@ interface AuthProviderProps {
 }
 
 // DEMO MODE: Mock data for demo
-const DEMO_MODE = false; // Toggle this to enable/disable demo mode
+const DEMO_MODE = isDemoModeEnabled();
 
 const mockProfile: UserProfile = {
   id: 'demo-user-id',
@@ -58,7 +59,7 @@ const mockProfile: UserProfile = {
   phone_number: '(555) 123-4567',
   year: 'Junior',
   major: 'Finance',
-  chapter_id: 'demo-chapter-id',
+  chapter_id: '00000000-0000-0000-0000-000000000001',
   position: 'Treasurer',
   role: 'admin',
   dues_balance: 0,

@@ -6,6 +6,7 @@ import { BudgetService } from '../services/budgetService';
 import { MemberService } from '../services/memberService';
 import { supabase } from '../services/supabaseClient';
 import { useChapter } from './ChapterContext';
+import { isDemoModeEnabled } from '../utils/env';
 
 interface FinancialContextType {
   transactions: Transaction[];
@@ -31,130 +32,138 @@ interface FinancialContextType {
 const FinancialContext = createContext<FinancialContextType | undefined>(undefined);
 
 // DEMO MODE: Mock financial data
-const DEMO_MODE = true;
+const DEMO_MODE = isDemoModeEnabled();
+
+const demoChapterId = '00000000-0000-0000-0000-000000000001';
+const demoMemberDuesAmount = 150;
 
 const mockTransactions: Transaction[] = [
   {
-    id: '1',
-    date: new Date().toISOString().split('T')[0],
+    id: 'demo-tx-1',
+    chapter_id: demoChapterId,
+    date: new Date(),
     description: 'Chapter Dues Collection - Fall 2024',
     amount: 6750,
-    type: 'income',
     category: 'Dues',
-    paymentMethod: 'Bank Transfer',
-    chapter_id: 'demo-chapter-id'
+    source: 'MANUAL',
+    status: 'COMPLETED'
   },
   {
-    id: '2',
-    date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    id: 'demo-tx-2',
+    chapter_id: demoChapterId,
+    date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
     description: 'Formal Event Venue Rental',
     amount: -2500,
-    type: 'expense',
     category: 'Events',
-    paymentMethod: 'Credit Card',
-    chapter_id: 'demo-chapter-id'
+    source: 'MANUAL',
+    status: 'COMPLETED'
   },
   {
-    id: '3',
-    date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    id: 'demo-tx-3',
+    chapter_id: demoChapterId,
+    date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
     description: 'Brotherhood Event - Bowling',
     amount: -450,
-    type: 'expense',
     category: 'Social',
-    paymentMethod: 'Debit Card',
-    chapter_id: 'demo-chapter-id'
+    source: 'MANUAL',
+    status: 'COMPLETED'
   },
   {
-    id: '4',
-    date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    id: 'demo-tx-4',
+    chapter_id: demoChapterId,
+    date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
     description: 'Fundraiser Proceeds',
     amount: 1200,
-    type: 'income',
     category: 'Fundraising',
-    paymentMethod: 'Cash',
-    chapter_id: 'demo-chapter-id'
+    source: 'MANUAL',
+    status: 'COMPLETED'
   }
 ];
 
 const mockBudgets: Budget[] = [
   {
-    id: '1',
-    category: 'Events',
-    budgeted: 5000,
+    id: 'demo-budget-1',
+    chapter_id: demoChapterId,
+    name: 'Events - Fall 2024',
+    amount: 5000,
     spent: 2500,
-    period: 'Fall 2024',
-    chapter_id: 'demo-chapter-id'
+    category: 'Events',
+    period: 'YEARLY',
+    startDate: new Date('2024-08-01'),
+    endDate: new Date('2024-12-15')
   },
   {
-    id: '2',
-    category: 'Social',
-    budgeted: 2000,
+    id: 'demo-budget-2',
+    chapter_id: demoChapterId,
+    name: 'Social - Fall 2024',
+    amount: 2000,
     spent: 450,
-    period: 'Fall 2024',
-    chapter_id: 'demo-chapter-id'
+    category: 'Social',
+    period: 'YEARLY',
+    startDate: new Date('2024-08-01'),
+    endDate: new Date('2024-12-15')
   },
   {
-    id: '3',
-    category: 'Recruitment',
-    budgeted: 1500,
+    id: 'demo-budget-3',
+    chapter_id: demoChapterId,
+    name: 'Recruitment - Fall 2024',
+    amount: 1500,
     spent: 0,
-    period: 'Fall 2024',
-    chapter_id: 'demo-chapter-id'
+    category: 'Recruitment',
+    period: 'YEARLY',
+    startDate: new Date('2024-08-01'),
+    endDate: new Date('2024-12-15')
   }
 ];
 
 const mockMembers: Member[] = [
   {
-    id: '1',
+    id: 'demo-member-1',
+    chapter_id: demoChapterId,
     name: 'John Smith',
     email: 'jsmith@university.edu',
-    phone: '(555) 111-2222',
-    year: 'Junior',
-    major: 'Business',
-    position: 'President',
     status: 'Active',
-    dues_paid: true,
-    dues_amount: 150,
-    chapter_id: 'demo-chapter-id'
+    year: 'Junior',
+    duesPaid: true,
+    paymentDate: new Date().toISOString(),
+    semester: 'Fall 2024',
+    lastUpdated: new Date().toISOString()
   },
   {
-    id: '2',
+    id: 'demo-member-2',
+    chapter_id: demoChapterId,
     name: 'Mike Johnson',
     email: 'mjohnson@university.edu',
-    phone: '(555) 333-4444',
-    year: 'Sophomore',
-    major: 'Engineering',
-    position: 'Vice President',
     status: 'Active',
-    dues_paid: true,
-    dues_amount: 150,
-    chapter_id: 'demo-chapter-id'
+    year: 'Sophomore',
+    duesPaid: true,
+    paymentDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+    semester: 'Fall 2024',
+    lastUpdated: new Date().toISOString()
   },
   {
-    id: '3',
+    id: 'demo-member-3',
+    chapter_id: demoChapterId,
     name: 'David Lee',
     email: 'dlee@university.edu',
-    phone: '(555) 555-6666',
-    year: 'Senior',
-    major: 'Finance',
-    position: 'Treasurer',
     status: 'Active',
-    dues_paid: true,
-    dues_amount: 150,
-    chapter_id: 'demo-chapter-id'
+    year: 'Senior',
+    duesPaid: true,
+    paymentDate: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
+    semester: 'Fall 2024',
+    lastUpdated: new Date().toISOString()
   },
   {
-    id: '4',
+    id: 'demo-member-4',
+    chapter_id: demoChapterId,
     name: 'Chris Williams',
     email: 'cwilliams@university.edu',
-    phone: '(555) 777-8888',
-    year: 'Freshman',
-    major: 'Computer Science',
-    position: 'Member',
     status: 'Active',
-    dues_paid: false,
-    dues_amount: 150,
-    chapter_id: 'demo-chapter-id'
+    year: 'Freshman',
+    duesPaid: false,
+    paymentDate: null,
+    semester: 'Fall 2024',
+    lastUpdated: new Date().toISOString()
   }
 ];
 
@@ -177,7 +186,7 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       // Calculate totals for demo mode
       const balance = mockTransactions.reduce((sum, t) => sum + t.amount, 0);
       setTotalBalance(balance);
-      const dues = mockMembers.filter(m => !m.dues_paid).reduce((sum, m) => sum + (m.dues_amount || 0), 0);
+      const dues = mockMembers.filter(m => !m.duesPaid).length * demoMemberDuesAmount;
       setTotalDues(dues);
     }
     return () => cleanupRealtimeListeners();
@@ -215,9 +224,7 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // Calculate totals when data changes
   useEffect(() => {
     // Calculate total balance from transactions
-    const balance = transactions.reduce((sum, tx) => {
-      return sum + (tx.source === 'CHASE' ? tx.amount : -tx.amount);
-    }, 0);
+    const balance = transactions.reduce((sum, tx) => sum + tx.amount, 0);
     setTotalBalance(balance);
 
     // Calculate total dues (sum of all budget amounts)
