@@ -243,13 +243,34 @@ export class AuthService {
   // Get member dues info (for member dashboard)
   static async getMemberDuesInfo(): Promise<MemberDuesInfo | null> {
     try {
+      const user = await this.getCurrentUser();
+      if (!user) return null;
+
       const { data, error } = await supabase
-        .from('member_dues_view')
-        .select('*')
+        .from('user_profiles')
+        .select(`
+          id,
+          full_name,
+          email,
+          dues_balance,
+          chapter_id,
+          chapters (
+            name
+          )
+        `)
+        .eq('id', user.id)
         .single();
 
       if (error) throw error;
-      return data as MemberDuesInfo;
+
+      return {
+        user_id: data.id,
+        full_name: data.full_name,
+        email: data.email,
+        dues_balance: data.dues_balance,
+        chapter_id: data.chapter_id,
+        chapter_name: data.chapters?.name || 'Unknown Chapter'
+      } as MemberDuesInfo;
     } catch (error) {
       return null;
     }

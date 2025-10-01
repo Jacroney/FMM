@@ -77,7 +77,7 @@ export class BudgetService {
           )
         `)
         .eq('chapter_id', chapterId)
-        .order('created_at desc');
+        .order('created_at', { ascending: false });
 
       // If table doesn't exist or other database error, return empty array
       if (error) {
