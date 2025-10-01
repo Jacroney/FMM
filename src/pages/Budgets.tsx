@@ -43,6 +43,21 @@ const Budgets: React.FC = () => {
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [currentPeriod, setCurrentPeriod] = useState<BudgetPeriod | null>(null);
   const [viewMode, setViewMode] = useState<'overview' | 'expenses'>('overview');
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [showPeriodModal, setShowPeriodModal] = useState(false);
+  const [newCategory, setNewCategory] = useState({
+    name: '',
+    type: 'Operational Costs' as 'Fixed Costs' | 'Operational Costs' | 'Event Costs',
+    description: ''
+  });
+  const [newPeriod, setNewPeriod] = useState({
+    name: '',
+    type: 'Quarter' as 'Quarter' | 'Semester' | 'Year',
+    start_date: '',
+    end_date: '',
+    fiscal_year: new Date().getFullYear(),
+    is_current: false
+  });
 
   const loadData = useCallback(async () => {
     if (!currentChapter?.id) {
@@ -149,6 +164,63 @@ const Budgets: React.FC = () => {
     ]);
   };
 
+  const handleCreateCategory = async () => {
+    if (!currentChapter?.id || !newCategory.name.trim()) {
+      toast.error('Please enter a category name');
+      return;
+    }
+
+    try {
+      await ExpenseService.addCategory(currentChapter.id, {
+        name: newCategory.name.trim(),
+        type: newCategory.type,
+        description: newCategory.description.trim() || null,
+        is_active: true
+      });
+
+      toast.success('Category created successfully');
+      setShowCategoryModal(false);
+      setNewCategory({ name: '', type: 'Operational Costs', description: '' });
+      await loadData();
+    } catch (error) {
+      console.error('Error creating category:', error);
+      toast.error('Failed to create category');
+    }
+  };
+
+  const handleCreatePeriod = async () => {
+    if (!currentChapter?.id || !newPeriod.name.trim() || !newPeriod.start_date || !newPeriod.end_date) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    try {
+      await ExpenseService.addPeriod(currentChapter.id, {
+        name: newPeriod.name.trim(),
+        type: newPeriod.type,
+        start_date: newPeriod.start_date,
+        end_date: newPeriod.end_date,
+        fiscal_year: newPeriod.fiscal_year,
+        is_current: newPeriod.is_current
+      });
+
+      toast.success('Budget period created successfully');
+      setShowPeriodModal(false);
+      setNewPeriod({
+        name: '',
+        type: 'Quarter',
+        start_date: '',
+        end_date: '',
+        fiscal_year: new Date().getFullYear(),
+        is_current: false
+      });
+      await loadData();
+    } catch (error) {
+      console.error('Error creating period:', error);
+      toast.error('Failed to create budget period');
+    }
+  };
+
   const handleUpdateBudget = async (categoryName: string, newAmount: number) => {
     if (!currentChapter?.id) return;
     try {
@@ -228,6 +300,24 @@ const Budgets: React.FC = () => {
           <p className="text-gray-600 dark:text-gray-400 mt-1">Track budgets and manage all expenses</p>
         </div>
         <div className="flex gap-3">
+          <button
+            onClick={() => setShowCategoryModal(true)}
+            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={!currentChapter?.id}
+            title="Add new budget category"
+          >
+            <Plus className="w-4 h-4" />
+            Add Category
+          </button>
+          <button
+            onClick={() => setShowPeriodModal(true)}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={!currentChapter?.id}
+            title="Add new budget period"
+          >
+            <Calendar className="w-4 h-4" />
+            Add Period
+          </button>
           <select
             value={selectedPeriod}
             onChange={(e) => {
@@ -488,6 +578,192 @@ const Budgets: React.FC = () => {
         currentPeriod={currentPeriod}
         chapterId={currentChapter?.id || null}
       />
+
+      {/* Add Category Modal */}
+      {showCategoryModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Add Budget Category</h3>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Category Name *
+                </label>
+                <input
+                  type="text"
+                  value={newCategory.name}
+                  onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+                  placeholder="e.g., House Maintenance"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Category Type *
+                </label>
+                <select
+                  value={newCategory.type}
+                  onChange={(e) => setNewCategory({ ...newCategory, type: e.target.value as any })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="Fixed Costs">Fixed Costs</option>
+                  <option value="Operational Costs">Operational Costs</option>
+                  <option value="Event Costs">Event Costs</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Description (Optional)
+                </label>
+                <textarea
+                  value={newCategory.description}
+                  onChange={(e) => setNewCategory({ ...newCategory, description: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+                  rows={3}
+                  placeholder="Describe this category..."
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowCategoryModal(false);
+                  setNewCategory({ name: '', type: 'Operational Costs', description: '' });
+                }}
+                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateCategory}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+              >
+                Create Category
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Period Modal */}
+      {showPeriodModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Add Budget Period</h3>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Period Name *
+                </label>
+                <input
+                  type="text"
+                  value={newPeriod.name}
+                  onChange={(e) => setNewPeriod({ ...newPeriod, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+                  placeholder="e.g., Fall Quarter, Spring Semester"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Period Type *
+                </label>
+                <select
+                  value={newPeriod.type}
+                  onChange={(e) => setNewPeriod({ ...newPeriod, type: e.target.value as any })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="Quarter">Quarter</option>
+                  <option value="Semester">Semester</option>
+                  <option value="Year">Year</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Start Date *
+                  </label>
+                  <input
+                    type="date"
+                    value={newPeriod.start_date}
+                    onChange={(e) => setNewPeriod({ ...newPeriod, start_date: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    End Date *
+                  </label>
+                  <input
+                    type="date"
+                    value={newPeriod.end_date}
+                    onChange={(e) => setNewPeriod({ ...newPeriod, end_date: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Fiscal Year *
+                </label>
+                <input
+                  type="number"
+                  value={newPeriod.fiscal_year}
+                  onChange={(e) => setNewPeriod({ ...newPeriod, fiscal_year: parseInt(e.target.value) })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+                  min={2020}
+                  max={2050}
+                />
+              </div>
+
+              <div>
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <input
+                    type="checkbox"
+                    checked={newPeriod.is_current}
+                    onChange={(e) => setNewPeriod({ ...newPeriod, is_current: e.target.checked })}
+                    className="rounded border-gray-300 dark:border-gray-600"
+                  />
+                  Set as current period
+                </label>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowPeriodModal(false);
+                  setNewPeriod({
+                    name: '',
+                    type: 'Quarter',
+                    start_date: '',
+                    end_date: '',
+                    fiscal_year: new Date().getFullYear(),
+                    is_current: false
+                  });
+                }}
+                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreatePeriod}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+              >
+                Create Period
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

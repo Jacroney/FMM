@@ -11,6 +11,8 @@ export const SignupForm: React.FC<SignupFormProps> = ({ onSwitchToLogin }) => {
   const { signUp, isLoading } = useAuth();
   const { chapters } = useChapter();
   const [showPassword, setShowPassword] = useState(false);
+  const [accessCode, setAccessCode] = useState('');
+  const [accessCodeError, setAccessCodeError] = useState('');
   const [formData, setFormData] = useState<SignUpData>({
     email: '',
     password: '',
@@ -30,10 +32,92 @@ export const SignupForm: React.FC<SignupFormProps> = ({ onSwitchToLogin }) => {
     }
   }, [chapters, formData.chapter_id]);
 
+  // Generate chapter code from chapter info
+  const generateChapterCode = (chapterId: string): string => {
+    const chapter = chapters.find(c => c.id === chapterId);
+    if (!chapter) return '';
+
+    // Extract fraternity abbreviation (e.g., "Kappa Sigma" -> "ksig")
+    const fraternityWords = chapter.fraternity_name.toLowerCase().split(' ');
+    const fraternityAbbrev = fraternityWords
+      .map(word => word.charAt(0))
+      .join('');
+
+    // Extract school abbreviation (e.g., "California Polytechnic State University - San Luis Obispo" -> "slo")
+    // Look for common patterns like city names, or use first letters
+    let schoolAbbrev = '';
+    const schoolLower = chapter.school.toLowerCase();
+
+    // Check for common city/campus abbreviations
+    if (schoolLower.includes('san luis obispo') || schoolLower.includes('slo')) {
+      schoolAbbrev = 'slo';
+    } else if (schoolLower.includes('los angeles') || schoolLower.includes('ucla')) {
+      schoolAbbrev = 'la';
+    } else if (schoolLower.includes('berkeley')) {
+      schoolAbbrev = 'berkeley';
+    } else if (schoolLower.includes('san diego')) {
+      schoolAbbrev = 'sd';
+    } else {
+      // Fallback: use first letters of first two words
+      const schoolWords = chapter.school.split(' ').filter(w => w.length > 2);
+      schoolAbbrev = schoolWords.slice(0, 2).map(w => w.charAt(0)).join('').toLowerCase();
+    }
+
+    return `${fraternityAbbrev}-${schoolAbbrev}`;
+  };
+
+  // Validate access code and determine role
+  const validateAccessCode = (code: string): { valid: boolean; role: 'admin' | 'exec' | 'member' } | null => {
+    if (!formData.chapter_id) {
+      return null;
+    }
+
+    const trimmedCode = code.trim().toLowerCase();
+    const chapterCode = generateChapterCode(formData.chapter_id);
+
+    if (!chapterCode) {
+      return null;
+    }
+
+    // Check for chapter-specific codes
+    // Format: {chapter-code}-{role}
+    // Example: ksig-slo-admin, ksig-slo-exec, ksig-slo-member
+
+    if (trimmedCode === `${chapterCode}-admin`) {
+      return { valid: true, role: 'admin' };
+    }
+
+    if (trimmedCode === `${chapterCode}-exec`) {
+      return { valid: true, role: 'exec' };
+    }
+
+    if (trimmedCode === `${chapterCode}-member` || trimmedCode === chapterCode) {
+      return { valid: true, role: 'member' };
+    }
+
+    return null;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Signup form submitted with:', formData);
-    const success = await signUp(formData);
+    setAccessCodeError('');
+
+    // Validate access code
+    const codeValidation = validateAccessCode(accessCode);
+    if (!codeValidation) {
+      setAccessCodeError('Invalid access code. Please contact your chapter admin for the correct code.');
+      return;
+    }
+
+    // Update formData with the role based on access code
+    const signupData = {
+      ...formData,
+      role: codeValidation.role,
+      position: codeValidation.role === 'admin' ? 'Treasurer' : formData.position
+    };
+
+    console.log('Signup form submitted with:', signupData);
+    const success = await signUp(signupData);
     if (success) {
       // Clear form data
       setFormData({
@@ -47,6 +131,8 @@ export const SignupForm: React.FC<SignupFormProps> = ({ onSwitchToLogin }) => {
         position: 'Member',
         role: 'member'
       });
+      setAccessCode('');
+      setAccessCodeError('');
       // Switch to login form after successful signup
       onSwitchToLogin();
     } else {
@@ -109,6 +195,48 @@ export const SignupForm: React.FC<SignupFormProps> = ({ onSwitchToLogin }) => {
               </option>
             ))}
           </select>
+        </div>
+
+        {/* Access Code */}
+        <div>
+          <label htmlFor="access_code" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Access Code *
+          </label>
+          <input
+            id="access_code"
+            name="access_code"
+            type="text"
+            required
+            value={accessCode}
+            onChange={(e) => {
+              setAccessCode(e.target.value);
+              setAccessCodeError('');
+            }}
+            className={`w-full px-3 py-2 border rounded-lg shadow-sm placeholder-gray-400
+                     focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+                     dark:bg-gray-700 dark:text-white dark:placeholder-gray-500 ${
+                       accessCodeError
+                         ? 'border-red-500 dark:border-red-500'
+                         : 'border-gray-300 dark:border-gray-600'
+                     }`}
+            placeholder="Enter your chapter access code"
+          />
+          {accessCodeError && (
+            <p className="mt-2 text-sm text-red-600 dark:text-red-400">{accessCodeError}</p>
+          )}
+          {formData.chapter_id && (
+            <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800">
+              <p className="text-xs text-blue-800 dark:text-blue-300">
+                📝 Your chapter code is: <code className="font-mono font-bold">{generateChapterCode(formData.chapter_id)}</code>
+              </p>
+              <p className="text-xs text-blue-700 dark:text-blue-400 mt-1">
+                Add <code className="font-mono">-admin</code>, <code className="font-mono">-exec</code>, or <code className="font-mono">-member</code> based on your role
+              </p>
+            </div>
+          )}
+          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+            💡 Contact your chapter admin to get the access code
+          </p>
         </div>
 
         {/* Personal Information */}
