@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
-import { BudgetService, BudgetCategory, BudgetPeriod, Expense } from '../services/budgetService';
+import { BudgetCategory, BudgetPeriod, Expense, ExpenseDetail } from '../services/types';
+import { ExpenseService } from '../services/expenseService';
 
 interface ExpenseModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (expense: Omit<Expense, 'id'>) => void;
+  onSubmit: () => void;
   categories: BudgetCategory[];
   currentPeriod: BudgetPeriod | null;
   chapterId: string | null;
+  existingExpense?: ExpenseDetail | null;
+  mode?: 'create' | 'edit';
 }
 
 const ExpenseModal: React.FC<ExpenseModalProps> = ({
@@ -17,7 +20,9 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({
   onSubmit,
   categories,
   currentPeriod,
-  chapterId
+  chapterId,
+  existingExpense = null,
+  mode = 'create'
 }) => {
   const [formData, setFormData] = useState({
     category_id: '',
@@ -25,11 +30,41 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({
     description: '',
     transaction_date: new Date().toISOString().split('T')[0],
     vendor: '',
-    payment_method: 'Cash' as const,
-    status: 'completed' as const
+    payment_method: 'Cash' as 'Cash' | 'Check' | 'Credit Card' | 'ACH' | 'Venmo' | 'Other',
+    status: 'completed' as 'pending' | 'completed' | 'cancelled',
+    notes: ''
   });
 
   const [budgetInfo, setBudgetInfo] = useState<{ allocated: number; spent: number } | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Initialize form with existing expense data if editing
+  useEffect(() => {
+    if (mode === 'edit' && existingExpense) {
+      setFormData({
+        category_id: existingExpense.category_id,
+        amount: existingExpense.amount.toString(),
+        description: existingExpense.description,
+        transaction_date: existingExpense.transaction_date,
+        vendor: existingExpense.vendor || '',
+        payment_method: (existingExpense.payment_method || 'Cash') as any,
+        status: existingExpense.status,
+        notes: existingExpense.notes || ''
+      });
+    } else if (mode === 'create') {
+      // Reset form for new expense
+      setFormData({
+        category_id: '',
+        amount: '',
+        description: '',
+        transaction_date: new Date().toISOString().split('T')[0],
+        vendor: '',
+        payment_method: 'Cash',
+        status: 'completed',
+        notes: ''
+      });
+    }
+  }, [mode, existingExpense, isOpen]);
 
   useEffect(() => {
     if (formData.category_id && currentPeriod) {
@@ -41,7 +76,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({
     if (!currentPeriod || !chapterId) return;
 
     try {
-      const summary = await BudgetService.getBudgetSummary(chapterId, currentPeriod.name);
+      const summary = await ExpenseService.getBudgetSummary(chapterId, currentPeriod.name);
       const category = categories.find(c => c.id === formData.category_id);
       const budgetItem = summary.find(s => s.category === category?.name);
 
@@ -56,49 +91,63 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!currentPeriod) {
+    if (!currentPeriod || !chapterId) {
       alert('No current period selected');
       return;
     }
 
-    onSubmit({
-      budget_id: null,
-      category_id: formData.category_id,
-      period_id: currentPeriod.id,
-      amount: parseFloat(formData.amount),
-      description: formData.description,
-      transaction_date: formData.transaction_date,
-      vendor: formData.vendor || null,
-      payment_method: formData.payment_method,
-      status: formData.status
-    });
+    setIsSubmitting(true);
 
-    // Reset form
-    setFormData({
-      category_id: '',
-      amount: '',
-      description: '',
-      transaction_date: new Date().toISOString().split('T')[0],
-      vendor: '',
-      payment_method: 'Cash',
-      status: 'completed'
-    });
-    setBudgetInfo(null);
+    try {
+      const expenseData = {
+        budget_id: null,
+        category_id: formData.category_id,
+        period_id: currentPeriod.id,
+        amount: parseFloat(formData.amount),
+        description: formData.description,
+        transaction_date: formData.transaction_date,
+        vendor: formData.vendor || null,
+        receipt_url: null,
+        payment_method: formData.payment_method as any,
+        status: formData.status,
+        source: 'MANUAL' as const,
+        notes: formData.notes || null,
+        created_by: null
+      };
+
+      if (mode === 'edit' && existingExpense) {
+        await ExpenseService.updateExpense(existingExpense.id, expenseData);
+      } else {
+        await ExpenseService.addExpense(chapterId, expenseData);
+      }
+
+      // Call onSubmit callback to refresh data
+      onSubmit();
+      onClose();
+    } catch (error) {
+      console.error('Error saving expense:', error);
+      alert('Failed to save expense. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md mx-4">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Add Expense</h2>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+            {mode === 'edit' ? 'Edit Expense' : 'Add Expense'}
+          </h2>
           <button
             onClick={onClose}
             className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+            disabled={isSubmitting}
           >
             <X className="w-5 h-5" />
           </button>
@@ -214,19 +263,49 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({
             </select>
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Status
+            </label>
+            <select
+              value={formData.status}
+              onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700"
+            >
+              <option value="completed">Completed</option>
+              <option value="pending">Pending</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Notes
+            </label>
+            <textarea
+              value={formData.notes}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700"
+              placeholder="Additional notes or context..."
+              rows={3}
+            />
+          </div>
+
           <div className="flex gap-3 pt-4">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+              disabled={isSubmitting}
+              className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              disabled={isSubmitting}
+              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Add Expense
+              {isSubmitting ? 'Saving...' : mode === 'edit' ? 'Update Expense' : 'Add Expense'}
             </button>
           </div>
         </form>
