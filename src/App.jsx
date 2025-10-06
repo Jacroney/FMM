@@ -18,6 +18,7 @@ import Budgets from './pages/Budgets';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 import Members from './pages/Members';
+import { PlaidSync } from './pages/PlaidSync';
 
 function App() {
   return (
@@ -154,6 +155,7 @@ const AppRoutes = () => {
           <Route path="budgets" element={<Budgets />} />
           <Route path="reports" element={<Reports />} />
           <Route path="members" element={<Members />} />
+          <Route path="plaid-sync" element={<PlaidSync />} />
           <Route path="settings" element={<Settings />} />
           <Route path="*" element={<NotFound />} />
         </Route>

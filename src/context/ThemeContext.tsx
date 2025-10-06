@@ -1,10 +1,9 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-type Theme = 'light' | 'dark' | 'system';
+type Theme = 'light' | 'dark';
 
 interface ThemeContextType {
   theme: Theme;
-  effectiveTheme: 'light' | 'dark';
   setTheme: (theme: Theme) => void;
   toggleTheme: () => void;
 }
@@ -23,29 +22,16 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [theme, setTheme] = useState<Theme>(() => {
     if (typeof window !== 'undefined') {
       const savedTheme = localStorage.getItem('theme') as Theme;
-      if (savedTheme && ['light', 'dark', 'system'].includes(savedTheme)) {
+      if (savedTheme && ['light', 'dark'].includes(savedTheme)) {
         return savedTheme;
       }
     }
-    return 'system';
+    return 'light';
   });
 
-  const [effectiveTheme, setEffectiveTheme] = useState<'light' | 'dark'>('light');
-
   useEffect(() => {
-    const determineEffectiveTheme = () => {
-      if (theme === 'system') {
-        const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        return systemPrefersDark ? 'dark' : 'light';
-      }
-      return theme;
-    };
-
-    const newEffectiveTheme = determineEffectiveTheme();
-    setEffectiveTheme(newEffectiveTheme);
-
     // Apply theme to document
-    if (newEffectiveTheme === 'dark') {
+    if (theme === 'dark') {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
@@ -55,45 +41,12 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     localStorage.setItem('theme', theme);
   }, [theme]);
 
-  useEffect(() => {
-    // Listen for system theme changes
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleChange = () => {
-      if (theme === 'system') {
-        const systemPrefersDark = mediaQuery.matches;
-        const newEffectiveTheme = systemPrefersDark ? 'dark' : 'light';
-        setEffectiveTheme(newEffectiveTheme);
-        
-        if (newEffectiveTheme === 'dark') {
-          document.documentElement.classList.add('dark');
-        } else {
-          document.documentElement.classList.remove('dark');
-        }
-      }
-    };
-
-    mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
-  }, [theme]);
-
   const toggleTheme = () => {
-    setTheme(current => {
-      switch (current) {
-        case 'light':
-          return 'dark';
-        case 'dark':
-          return 'system';
-        case 'system':
-          return 'light';
-        default:
-          return 'light';
-      }
-    });
+    setTheme(current => current === 'light' ? 'dark' : 'light');
   };
 
   const value = {
     theme,
-    effectiveTheme,
     setTheme,
     toggleTheme,
   };

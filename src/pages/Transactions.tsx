@@ -175,7 +175,7 @@ const Transactions: React.FC = () => {
                       <select
                         value={fieldMapping[field] || ''}
                         onChange={(e) => setFieldMapping(prev => ({ ...prev, [field]: e.target.value }))}
-                        className="flex-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-2 py-1 text-sm"
+                        className="flex-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-2 py-1 text-sm [&>option]:dark:text-white [&>option]:dark:bg-gray-700"
                         required={field !== 'category'}
                       >
                         <option value="">Select field...</option>

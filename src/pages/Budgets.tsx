@@ -328,7 +328,7 @@ const Budgets: React.FC = () => {
                 setSelectedPeriodId(period.id);
               }
             }}
-            className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:text-white [&>option]:dark:text-white [&>option]:dark:bg-gray-700"
           >
             {periods.map(period => (
               <option key={period.id} value={period.name}>
@@ -606,7 +606,7 @@ const Budgets: React.FC = () => {
                 <select
                   value={newCategory.type}
                   onChange={(e) => setNewCategory({ ...newCategory, type: e.target.value as any })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white [&>option]:dark:text-white [&>option]:dark:bg-gray-700"
                 >
                   <option value="Fixed Costs">Fixed Costs</option>
                   <option value="Operational Costs">Operational Costs</option>
@@ -676,7 +676,7 @@ const Budgets: React.FC = () => {
                 <select
                   value={newPeriod.type}
                   onChange={(e) => setNewPeriod({ ...newPeriod, type: e.target.value as any })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white [&>option]:dark:text-white [&>option]:dark:bg-gray-700"
                 >
                   <option value="Quarter">Quarter</option>
                   <option value="Semester">Semester</option>
