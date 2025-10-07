@@ -18,10 +18,6 @@ const Settings = () => {
       budgetAlert: true,
       transactionAlert: true
     },
-    display: {
-      theme: 'light',
-      dateFormat: 'MM/DD/YYYY'
-    },
     security: {
       twoFactorAuth: false,
       sessionTimeout: 30,
@@ -32,6 +28,7 @@ const Settings = () => {
   const [activeTab, setActiveTab] = useState('profile');
   const [isSaving, setIsSaving] = useState(false);
   const [notification, setNotification] = useState({ show: false, message: '', type: '' });
+
 
   const showNotification = (message, type = 'success') => {
     setNotification({ show: true, message, type });
@@ -243,34 +240,6 @@ const Settings = () => {
           </div>
         );
 
-      case 'display':
-        return (
-          <div className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Theme</label>
-              <select
-                value={settings.display.theme}
-                onChange={(e) => handleSettingChange('display', 'theme', e.target.value)}
-                className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 [&>option]:dark:text-white [&>option]:dark:bg-gray-700"
-              >
-                <option value="light">Light</option>
-                <option value="dark">Dark</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Date Format</label>
-              <select
-                value={settings.display.dateFormat}
-                onChange={(e) => handleSettingChange('display', 'dateFormat', e.target.value)}
-                className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 [&>option]:dark:text-white [&>option]:dark:bg-gray-700"
-              >
-                <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-                <option value="DD/MM/YYYY">DD/MM/YYYY</option>
-                <option value="YYYY-MM-DD">YYYY-MM-DD</option>
-              </select>
-            </div>
-          </div>
-        );
 
       case 'security':
         return (
@@ -382,7 +351,6 @@ const Settings = () => {
               { key: 'profile', label: 'Profile' },
               { key: 'organization', label: 'Organization' },
               { key: 'notifications', label: 'Notifications' },
-              { key: 'display', label: 'Display' },
               { key: 'security', label: 'Security' },
               { key: 'database', label: 'Database' }
             ].map((tab) => (
@@ -399,7 +367,6 @@ const Settings = () => {
             { key: 'profile', label: 'Profile', icon: '👤' },
             { key: 'organization', label: 'Organization', icon: '🏢' },
             { key: 'notifications', label: 'Notifications', icon: '🔔' },
-            { key: 'display', label: 'Display', icon: '🎨' },
             { key: 'security', label: 'Security', icon: '🔐' },
             { key: 'database', label: 'Database', icon: '🗄️' }
           ].map((tab) => (
