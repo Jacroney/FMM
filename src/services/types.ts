@@ -142,4 +142,142 @@ export interface Member {
   paymentDate: string | null;
   semester: string;
   lastUpdated: string;
+}
+
+// ============================================================================
+// DUES MANAGEMENT TYPES
+// ============================================================================
+
+export interface DuesConfiguration {
+  id: string;
+  chapter_id: string;
+
+  // Period information
+  period_name: string;
+  period_type: 'Quarter' | 'Semester' | 'Year';
+  period_start_date: string;
+  period_end_date: string;
+  fiscal_year: number;
+  is_current: boolean;
+
+  // Dues amounts by year/class
+  freshman_dues: number;
+  sophomore_dues: number;
+  junior_dues: number;
+  senior_dues: number;
+  graduate_dues: number;
+  alumni_dues: number;
+  pledge_dues: number;
+  default_dues: number;
+
+  // Late fee configuration
+  late_fee_enabled: boolean;
+  late_fee_amount: number;
+  late_fee_type: 'flat' | 'percentage';
+  late_fee_grace_days: number;
+
+  // Due date
+  due_date: string | null;
+
+  // Notes
+  notes: string | null;
+
+  // Timestamps
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface MemberDues {
+  id: string;
+  chapter_id: string;
+  member_id: string;
+  config_id: string | null;
+
+  // Dues information
+  base_amount: number;
+  late_fee: number;
+  adjustments: number;
+  total_amount: number;
+
+  // Payment tracking
+  amount_paid: number;
+  balance: number;
+
+  // Status
+  status: 'pending' | 'partial' | 'paid' | 'overdue' | 'waived';
+
+  // Dates
+  assigned_date: string;
+  due_date: string | null;
+  paid_date: string | null;
+  late_fee_applied_date: string | null;
+
+  // Notes
+  notes: string | null;
+  adjustment_reason: string | null;
+
+  // Timestamps
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface DuesPayment {
+  id: string;
+  member_dues_id: string;
+  member_id: string;
+  chapter_id: string;
+
+  // Payment information
+  amount: number;
+  payment_method: 'Cash' | 'Check' | 'Credit Card' | 'ACH' | 'Venmo' | 'Zelle' | 'Other' | null;
+  payment_date: string;
+
+  // Reference information
+  reference_number: string | null;
+  receipt_url: string | null;
+
+  // Who recorded the payment
+  recorded_by: string | null;
+
+  // Notes
+  notes: string | null;
+
+  // Timestamps
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface MemberDuesSummary extends MemberDues {
+  member_name: string;
+  member_email: string;
+  member_year: string | null;
+  member_status: string;
+  chapter_name: string;
+  period_name: string;
+  period_type: string;
+  fiscal_year: number;
+  is_overdue: boolean;
+  days_overdue: number;
+}
+
+export interface ChapterDuesStats {
+  chapter_id: string;
+  period_name: string;
+  fiscal_year: number;
+
+  // Member counts
+  total_members: number;
+  members_paid: number;
+  members_pending: number;
+  members_overdue: number;
+  members_partial: number;
+
+  // Financial totals
+  total_expected: number;
+  total_collected: number;
+  total_outstanding: number;
+  total_late_fees: number;
+
+  // Percentages
+  payment_rate: number;
 } 
