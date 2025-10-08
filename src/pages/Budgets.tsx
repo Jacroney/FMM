@@ -25,6 +25,7 @@ import { LoadingSpinner } from '../components/LoadingSpinner';
 import ExpenseModal from '../components/ExpenseModal';
 import BudgetCharts from '../components/BudgetCharts';
 import ExpenseList from '../components/ExpenseList';
+import BudgetSetupWizard from '../components/BudgetSetupWizard';
 import { useChapter } from '../context/ChapterContext';
 import toast from 'react-hot-toast';
 
@@ -45,6 +46,7 @@ const Budgets: React.FC = () => {
   const [viewMode, setViewMode] = useState<'overview' | 'expenses'>('overview');
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showPeriodModal, setShowPeriodModal] = useState(false);
+  const [showSetupWizard, setShowSetupWizard] = useState(false);
   const [newCategory, setNewCategory] = useState({
     name: '',
     type: 'Operational Costs' as 'Fixed Costs' | 'Operational Costs' | 'Event Costs',
@@ -79,9 +81,9 @@ const Budgets: React.FC = () => {
       // Check if budget structure is initialized
       const isInitialized = await ExpenseService.isBudgetInitialized(currentChapter.id);
       if (!isInitialized) {
-        console.log('Initializing budget structure for chapter...');
-        await ExpenseService.initializeChapterBudget(currentChapter.id);
-        toast.success('Budget structure initialized! You can now start tracking expenses.');
+        setShowSetupWizard(true);
+        setLoading(false);
+        return;
       }
 
       const [periodsData, categoriesData, currentPeriodData] = await Promise.all([
@@ -162,6 +164,11 @@ const Budgets: React.FC = () => {
       loadBudgetSummary(),
       loadExpenses()
     ]);
+  };
+
+  const handleSetupComplete = async () => {
+    setShowSetupWizard(false);
+    await loadData();
   };
 
   const handleCreateCategory = async () => {
@@ -290,6 +297,24 @@ const Budgets: React.FC = () => {
   };
 
   if (loading) return <LoadingSpinner />;
+
+  // Show setup wizard if budget is not initialized
+  if (showSetupWizard && currentChapter?.id) {
+    return <BudgetSetupWizard chapterId={currentChapter.id} onComplete={handleSetupComplete} />;
+  }
+
+  // Show empty state if no chapter selected
+  if (!currentChapter?.id) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <p className="text-gray-600 dark:text-gray-400 text-lg">
+            Please select a chapter to view budgets
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">

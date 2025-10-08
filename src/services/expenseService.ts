@@ -487,47 +487,17 @@ export class ExpenseService {
 
   /**
    * Initialize default budget structure for a new chapter
+   *
+   * @deprecated This function is no longer used. Budget setup is now handled
+   * through the BudgetSetupWizard component which provides a better user experience
+   * with recommendations and customization options.
    */
   static async initializeChapterBudget(chapterId: string): Promise<void> {
-    try {
-      // Call the database function to initialize budget structure
-      const { error } = await supabase.rpc('initialize_chapter_budget_structure', {
-        p_chapter_id: chapterId
-      });
+    console.warn('initializeChapterBudget is deprecated. Use BudgetSetupWizard component instead.');
 
-      if (error) {
-        console.warn('Could not initialize budget structure via RPC, creating manually:', error);
-
-        // Fallback: Create default categories manually
-        const defaultCategories = [
-          { name: 'IFC Dues', type: 'Fixed Costs', description: 'Inter-Fraternity Council dues' },
-          { name: 'National Chapter Dues', type: 'Fixed Costs', description: 'National chapter dues' },
-          { name: 'Rent', type: 'Fixed Costs', description: 'House rent or facility costs' },
-          { name: 'Social Events', type: 'Event Costs', description: 'Parties and social gatherings' },
-          { name: 'Formal Events', type: 'Event Costs', description: 'Formal dances and special events' },
-          { name: 'Brotherhood Events', type: 'Operational Costs', description: 'Member bonding activities' },
-          { name: 'Uncategorized', type: 'Operational Costs', description: 'Miscellaneous expenses' },
-        ] as const;
-
-        for (const cat of defaultCategories) {
-          await this.addCategory(chapterId, { ...cat, is_active: true }).catch(console.error);
-        }
-
-        // Create current period
-        const fiscalYear = new Date().getFullYear();
-        await this.addPeriod(chapterId, {
-          name: `Fall ${fiscalYear}`,
-          type: 'Semester',
-          start_date: `${fiscalYear}-09-01`,
-          end_date: `${fiscalYear + 1}-01-15`,
-          fiscal_year: fiscalYear,
-          is_current: true
-        }).catch(console.error);
-      }
-    } catch (error) {
-      console.error('Error initializing chapter budget:', error);
-      throw error;
-    }
+    // This function is kept for backwards compatibility but should not be used
+    // Budget initialization is now handled through the UI wizard
+    throw new Error('This function is deprecated. Please use the BudgetSetupWizard component.');
   }
 
   /**

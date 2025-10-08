@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Papa from 'papaparse';
 import { MemberService } from '../services/memberService';
 import { useChapter } from '../context/ChapterContext';
+import DuesManagementSection from '../components/DuesManagementSection';
 
 const Members = () => {
   const { currentChapter } = useChapter();
@@ -13,6 +14,7 @@ const Members = () => {
   const [importError, setImportError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [notification, setNotification] = useState({ show: false, message: '', type: '' });
+  const [activeTab, setActiveTab] = useState('roster'); // 'roster' or 'dues'
 
   // Load members on component mount and when chapter changes
   useEffect(() => {
@@ -261,6 +263,7 @@ const Members = () => {
           <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Members</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage member roster and track dues payments</p>
         </div>
+        {activeTab === 'roster' && (
         <div className="flex space-x-4">
           <select
             value={selectedSemester}
@@ -300,8 +303,45 @@ const Members = () => {
             </div>
           </div>
         </div>
+        )}
       </div>
 
+      {/* Tab Navigation */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+        <div className="border-b border-gray-200 dark:border-gray-700">
+          <nav className="flex -mb-px">
+            <button
+              onClick={() => setActiveTab('roster')}
+              className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === 'roster'
+                  ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+              }`}
+            >
+              👥 Member Roster
+            </button>
+            <button
+              onClick={() => setActiveTab('dues')}
+              className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === 'dues'
+                  ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+              }`}
+            >
+              💰 Dues Management
+            </button>
+          </nav>
+        </div>
+      </div>
+
+      {/* Dues Management Tab */}
+      {activeTab === 'dues' && currentChapter?.id && (
+        <DuesManagementSection chapterId={currentChapter.id} />
+      )}
+
+      {/* Roster Tab Content */}
+      {activeTab === 'roster' && (
+        <>
       {/* Notification */}
       {notification.show && (
         <div className={`fixed top-4 right-4 p-4 rounded-lg shadow-lg ${
@@ -501,6 +541,8 @@ const Members = () => {
             </div>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );
