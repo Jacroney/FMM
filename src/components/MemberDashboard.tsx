@@ -1,13 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import { MemberDuesInfo } from '../services/authService';
 
-const formatCurrency = (amount: number) => {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  }).format(amount);
-};
+const formatCurrency = (amount: number) =>
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
 
 export const MemberDashboard: React.FC = () => {
   const { profile, getMemberDues } = useAuth();
@@ -15,7 +12,8 @@ export const MemberDashboard: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    loadDuesInfo();
+    void loadDuesInfo();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadDuesInfo = async () => {
@@ -25,6 +23,7 @@ export const MemberDashboard: React.FC = () => {
       setDuesInfo(info);
     } catch (error) {
       console.error('Error loading dues info:', error);
+      toast.error('Unable to load dues information right now.');
     } finally {
       setIsLoading(false);
     }
@@ -32,193 +31,170 @@ export const MemberDashboard: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 text-gray-600 dark:bg-gray-900">
+        <div className="flex items-center gap-2 text-sm">
+          <span className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-blue-500" />
+          Loading your dashboard...
+        </div>
       </div>
     );
   }
 
-  const duesBalance = duesInfo?.dues_balance || profile?.dues_balance || 0;
+  const duesBalance = duesInfo?.dues_balance ?? profile?.dues_balance ?? 0;
   const isOwed = duesBalance > 0;
+  const chapterName = duesInfo?.chapter_name || 'Your Chapter';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-400 to-blue-600 rounded-2xl shadow-xl mb-4">
-            <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <div className="min-h-screen bg-gray-50 py-8 px-4 text-gray-900 transition-colors duration-200 dark:bg-gray-900 dark:text-gray-100 sm:px-6 lg:px-8">
+      <div className="mx-auto flex w-full max-w-4xl flex-col gap-8">
+        <header className="text-center">
+          <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-blue-100 text-blue-600 shadow">
+            <svg className="h-10 w-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
           </div>
-          <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 dark:text-white mb-2">
-            Welcome, {profile?.full_name}!
-          </h1>
-          <p className="text-lg text-gray-600 dark:text-gray-400">
-            {duesInfo?.chapter_name || 'Chapter Member Portal'}
-          </p>
-        </div>
+          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Welcome, {profile?.full_name || 'Member'}!</h1>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">{chapterName}</p>
+        </header>
 
-        {/* Member Info Card */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 p-6 mb-8 hover:shadow-2xl transition-all duration-300">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
-            <div className="w-10 h-10 bg-gradient-to-br from-indigo-400 to-indigo-600 rounded-lg flex items-center justify-center mr-3">
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md dark:border-gray-700 dark:bg-gray-800">
+          <div className="mb-6 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600">
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               </svg>
             </div>
-            Member Information
-          </h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Full Name</p>
-              <p className="text-gray-900 dark:text-white">{profile?.full_name}</p>
-            </div>
-
-            <div>
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Email</p>
-              <p className="text-gray-900 dark:text-white">{profile?.email}</p>
-            </div>
-
-            <div>
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Year</p>
-              <p className="text-gray-900 dark:text-white">{profile?.year || 'Not specified'}</p>
-            </div>
-
-            <div>
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Major</p>
-              <p className="text-gray-900 dark:text-white">{profile?.major || 'Not specified'}</p>
-            </div>
-
-            <div>
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Position</p>
-              <p className="text-gray-900 dark:text-white">{profile?.position || 'Member'}</p>
-            </div>
-
-            <div>
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Phone</p>
-              <p className="text-gray-900 dark:text-white">{profile?.phone_number || 'Not provided'}</p>
-            </div>
+            <h2 className="text-lg font-semibold">Member information</h2>
           </div>
-        </div>
-
-        {/* Dues Balance Card */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
-            <span className="mr-2">💰</span>
-            Dues & Payments
-          </h2>
-
-          <div className="text-center py-8">
-            <div className={`text-4xl sm:text-5xl font-bold mb-2 ${
-              isOwed ? 'text-red-600' : 'text-green-600'
-            }`}>
-              {formatCurrency(Math.abs(duesBalance))}
+          <dl className="grid gap-4 text-sm sm:grid-cols-2">
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Email</dt>
+              <dd className="mt-1 text-gray-900 dark:text-gray-100">{profile?.email}</dd>
             </div>
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Year</dt>
+              <dd className="mt-1 text-gray-900 dark:text-gray-100">{profile?.year || 'Not specified'}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Major</dt>
+              <dd className="mt-1 text-gray-900 dark:text-gray-100">{profile?.major || 'Not specified'}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Position</dt>
+              <dd className="mt-1 text-gray-900 dark:text-gray-100">{profile?.position || 'Member'}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Phone</dt>
+              <dd className="mt-1 text-gray-900 dark:text-gray-100">{profile?.phone_number || 'Not provided'}</dd>
+            </div>
+          </dl>
+        </section>
 
-            <p className="text-lg text-gray-600 dark:text-gray-400 mb-4">
-              {isOwed ? 'Amount Owed' : duesBalance === 0 ? 'Balance: Paid in Full' : 'Credit Balance'}
+        <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <div className="mb-6 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100 text-amber-600">
+              💰
+            </div>
+            <h2 className="text-lg font-semibold">Dues & payments</h2>
+          </div>
+          <div className="text-center">
+            <p className={`text-4xl font-semibold sm:text-5xl ${isOwed ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+              {formatCurrency(Math.abs(duesBalance))}
             </p>
-
-            <div className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium ${
-              isOwed
-                ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-            }`}>
-              {isOwed ? '⚠️ Payment Required' : '✅ Account Current'}
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+              {isOwed ? 'Amount owed for the current term.' : duesBalance === 0 ? 'Balance: paid in full.' : 'Credit balance on your account.'}
+            </p>
+            <div
+              className={`mt-4 inline-flex items-center rounded-full px-4 py-2 text-sm font-medium ${
+                isOwed ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-200' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200'
+              }`}
+            >
+              {isOwed ? '⚠️ Payment required' : '✅ Account current'}
             </div>
           </div>
 
           {isOwed && (
-            <div className="border-t border-gray-200 dark:border-gray-700 pt-6 mt-6">
-              <div className="bg-blue-50 dark:bg-blue-900 rounded-lg p-4 mb-4">
-                <h3 className="font-medium text-blue-900 dark:text-blue-100 mb-2">
-                  Payment Instructions
-                </h3>
-                <ul className="text-sm text-blue-700 dark:text-blue-200 space-y-1">
-                  <li>• Contact the treasurer for payment options</li>
-                  <li>• Venmo, Zelle, or cash payments accepted</li>
-                  <li>• Include your full name in payment description</li>
-                  <li>• Payment confirmation will update your balance</li>
+            <div className="mt-6 space-y-4">
+              <div className="rounded-lg bg-blue-50 p-4 text-left text-sm text-blue-700 dark:bg-blue-900/40 dark:text-blue-100">
+                <h3 className="font-medium">Payment instructions</h3>
+                <ul className="mt-2 space-y-1">
+                  <li>• Coordinate with the treasurer on Venmo, Zelle, or cash payments.</li>
+                  <li>• Include your full name in every payment description.</li>
+                  <li>• Balances update automatically once the payment is processed.</li>
                 </ul>
               </div>
-
               <button
-                className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                onClick={() => {
-                  // This will be implemented later with payment integration
-                  alert('Payment portal coming soon! Please contact the treasurer for now.');
-                }}
+                type="button"
+                onClick={() => toast('Online payments are coming soon. Please reach out to the treasurer in the meantime.')}
+                className="w-full rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-100 dark:border-blue-700/40 dark:bg-gray-800 dark:text-blue-300 dark:hover:bg-gray-700"
               >
-                Pay Dues Online (Coming Soon)
+                Pay dues online (coming soon)
               </button>
             </div>
           )}
-        </div>
+        </section>
 
-        {/* Quick Actions */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
-            <span className="mr-2">⚡</span>
-            Quick Actions
-          </h2>
+        <div className="grid gap-6 lg:grid-cols-2">
+          <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <h2 className="text-lg font-semibold">Quick actions</h2>
+            <div className="mt-4 grid gap-3 text-sm">
+              <button
+                type="button"
+                onClick={() => toast('Profile updates will be available soon. Contact your treasurer for urgent changes.')}
+                className="flex items-center rounded-lg border border-gray-200 px-4 py-3 text-left font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700"
+              >
+                <span className="mr-3 text-lg">✏️</span>
+                Update profile details
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const email = 'treasurer@chapter.com';
+                  const subject = 'Question about dues';
+                  const body = `Hi,\n\nI have a question about my dues balance.\n\nBest regards,\n${profile?.full_name || ''}`;
+                  window.open(`mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
+                }}
+                className="flex items-center rounded-lg border border-gray-200 px-4 py-3 text-left font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700"
+              >
+                <span className="mr-3 text-lg">📧</span>
+                Contact the treasurer
+              </button>
+              <button
+                type="button"
+                onClick={() => toast('Event calendar integration is in progress. Watch your email for updates.')}
+                className="flex items-center rounded-lg border border-gray-200 px-4 py-3 text-left font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700"
+              >
+                <span className="mr-3 text-lg">📅</span>
+                View upcoming events
+              </button>
+              <button
+                type="button"
+                onClick={loadDuesInfo}
+                className="flex items-center rounded-lg border border-gray-200 px-4 py-3 text-left font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700"
+              >
+                <span className="mr-3 text-lg">🔄</span>
+                Refresh balance
+              </button>
+            </div>
+          </section>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <button
-              onClick={() => {
-                // This could open a profile edit modal
-                alert('Profile editing coming soon!');
-              }}
-              className="flex items-center p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-            >
-              <span className="text-2xl mr-3">✏️</span>
-              <div className="text-left">
-                <p className="font-medium text-gray-900 dark:text-white">Edit Profile</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Update your information</p>
-              </div>
-            </button>
-
-            <button
-              onClick={() => {
-                const email = 'treasurer@chapter.com'; // This should come from chapter info
-                const subject = 'Question about dues';
-                const body = `Hi,\\n\\nI have a question about my dues balance.\\n\\nBest regards,\\n${profile?.full_name}`;
-                window.open(`mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
-              }}
-              className="flex items-center p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-            >
-              <span className="text-2xl mr-3">📧</span>
-              <div className="text-left">
-                <p className="font-medium text-gray-900 dark:text-white">Contact Treasurer</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Ask about payments</p>
-              </div>
-            </button>
-
-            <button
-              onClick={() => {
-                alert('Event calendar integration coming soon!');
-              }}
-              className="flex items-center p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-            >
-              <span className="text-2xl mr-3">📅</span>
-              <div className="text-left">
-                <p className="font-medium text-gray-900 dark:text-white">Upcoming Events</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">View chapter calendar</p>
-              </div>
-            </button>
-
-            <button
-              onClick={loadDuesInfo}
-              className="flex items-center p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-            >
-              <span className="text-2xl mr-3">🔄</span>
-              <div className="text-left">
-                <p className="font-medium text-gray-900 dark:text-white">Refresh Balance</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Update dues information</p>
-              </div>
-            </button>
-          </div>
+          <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <h2 className="text-lg font-semibold">Need help?</h2>
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+              Here are a few ways to stay connected with chapter leadership.
+            </p>
+            <ul className="mt-4 space-y-2 text-sm text-gray-600 dark:text-gray-300">
+              <li>• Watch for weekly email updates from the executive board.</li>
+              <li>• Join the group chat for real-time announcements and reminders.</li>
+              <li>
+                • Reach out any time at{' '}
+                <a className="text-blue-600 underline-offset-2 hover:underline" href="mailto:treasurer@chapter.com">
+                  treasurer@chapter.com
+                </a>
+                .
+              </li>
+            </ul>
+          </section>
         </div>
       </div>
     </div>
