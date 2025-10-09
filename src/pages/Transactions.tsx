@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import toast from 'react-hot-toast';
 import { useFinancial } from '../context/FinancialContext';
 import { Transaction } from '../services/types';
 import { CSVService } from '../services/csvService';
@@ -19,7 +20,7 @@ const formatDate = (date: Date) => {
 };
 
 const Transactions: React.FC = () => {
-  const { transactions, budgets, addTransactions } = useFinancial();
+  const { transactions, budgets, addTransactions, refreshData } = useFinancial();
   const [selectedQuarter, setSelectedQuarter] = useState<string>('Q1');
   const [searchTerm, setSearchTerm] = useState('');
   const [showImportModal, setShowImportModal] = useState(false);
@@ -69,46 +70,124 @@ const Transactions: React.FC = () => {
     return acc;
   }, { total: 0, byCategory: {} as Record<string, number> });
 
+  useEffect(() => {
+    const handleOpenImport = () => setShowImportModal(true);
+    const handleRefresh = () => {
+      toast.loading('Refreshing financial data…', { id: 'refresh-data' });
+      refreshData()
+        .then(() => toast.success('Financial data refreshed', { id: 'refresh-data' }))
+        .catch(() => toast.error('Unable to refresh data', { id: 'refresh-data' }));
+    };
+
+    window.addEventListener('open-transactions-import', handleOpenImport);
+    window.addEventListener('refresh-financial-data', handleRefresh);
+
+    return () => {
+      window.removeEventListener('open-transactions-import', handleOpenImport);
+      window.removeEventListener('refresh-financial-data', handleRefresh);
+    };
+  }, [refreshData]);
+
   return (
     <div className="space-y-6 p-4 sm:p-6 lg:p-8">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white">Transactions</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">Track and manage all financial transactions</p>
+      <div className="surface-card space-y-6 p-6">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <span className="surface-pill">Operations</span>
+            <h1 className="mt-2 text-3xl font-semibold text-slate-900 dark:text-slate-100">
+              Transactions
+            </h1>
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+              Import, categorise, and monitor every movement of cash for your chapter.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <button
+              className="focus-ring inline-flex items-center gap-1.5 rounded-lg border border-sky-200 bg-white px-3 py-1.5 text-xs font-medium text-sky-700 transition-colors hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-sky-700/40 dark:bg-gray-800 dark:text-sky-300 dark:hover:bg-gray-700"
+              onClick={() => {
+                CSVService.exportTransactionsToCSV(
+                  filteredTransactions,
+                  `transactions-${selectedQuarter}-${new Date().getFullYear()}.csv`
+                );
+              }}
+              disabled={filteredTransactions.length === 0}
+              title={filteredTransactions.length === 0 ? 'No transactions to export' : undefined}
+            >
+              <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+              </svg>
+              Export CSV
+            </button>
+            <button
+              className="focus-ring inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-100 dark:border-blue-700/40 dark:bg-gray-800 dark:text-blue-300 dark:hover:bg-gray-700"
+              onClick={() => setShowImportModal(true)}
+            >
+              <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+              Import CSV
+            </button>
+          </div>
         </div>
-        <div className="flex flex-wrap gap-3">
-          <button
-            className="inline-flex items-center gap-2 rounded-lg border border-sky-200 bg-white px-4 py-2.5 text-sm font-medium text-sky-700 transition-colors hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-sky-700/40 dark:bg-gray-800 dark:text-sky-300 dark:hover:bg-gray-700"
-            onClick={() => {
-              CSVService.exportTransactionsToCSV(
-                filteredTransactions,
-                `transactions-${selectedQuarter}-${new Date().getFullYear()}.csv`
-              );
-            }}
-            disabled={filteredTransactions.length === 0}
-            title={filteredTransactions.length === 0 ? 'No transactions to export' : undefined}
-          >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
-            </svg>
-            Export CSV
-          </button>
-          <button
-            className="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-100 dark:border-blue-700/40 dark:bg-gray-800 dark:text-blue-300 dark:hover:bg-gray-700"
-            onClick={() => setShowImportModal(true)}
-          >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-            </svg>
-            Import CSV
-          </button>
+
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {['Q1', 'Q2', 'Q3', 'Q4'].map((quarter) => (
+            <button
+              key={quarter}
+              type="button"
+              onClick={() => setSelectedQuarter(quarter)}
+              className={`focus-ring rounded-xl border px-4 py-3 text-left text-sm transition-colors ${
+                selectedQuarter === quarter
+                  ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-soft)] text-[var(--brand-primary)]'
+                  : 'border-[var(--brand-border)] bg-white text-slate-600 hover:bg-slate-100 dark:bg-gray-800 dark:text-slate-300'
+              }`}
+            >
+              <span className="font-medium">{quarter}</span>
+              <p className="text-xs text-slate-500">Quarter filter</p>
+            </button>
+          ))}
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="surface-panel p-4">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Transactions</p>
+            <p className="mt-2 text-2xl font-semibold text-slate-900 dark:text-slate-100">{filteredTransactions.length}</p>
+            <p className="text-xs text-slate-500">For {selectedQuarter} ({new Date().getFullYear()})</p>
+          </div>
+          <div className="surface-panel p-4">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Net movement</p>
+            <p className={`mt-2 text-2xl font-semibold ${quarterlyTotals.total >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'}`}>
+              {formatCurrency(quarterlyTotals.total)}
+            </p>
+            <p className="text-xs text-slate-500">Income minus expenses</p>
+          </div>
+          <div className="surface-panel p-4">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Highest category</p>
+            <p className="mt-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+              {
+                Object.entries(quarterlyTotals.byCategory)
+                  .sort(([, a], [, b]) => b - a)[0]?.[0] || '—'
+              }
+            </p>
+            <p className="text-xs text-slate-500">Top share this quarter</p>
+          </div>
+          <div className="surface-panel p-4">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Search</p>
+            <input
+              type="text"
+              placeholder="Search description or category"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="focus-ring mt-2 w-full rounded-lg border border-[var(--brand-border)] bg-white px-3 py-2 text-sm text-slate-700 dark:bg-gray-800 dark:text-slate-200"
+            />
+          </div>
         </div>
       </div>
 
       {/* Import Modal */}
       {showImportModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm animate-fadeIn">
+          <div className="surface-card relative w-full max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6 animate-pop">
             <button
               className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
               onClick={() => {
@@ -367,28 +446,28 @@ const Transactions: React.FC = () => {
       )}
 
       {/* Quarterly Summary */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Quarterly Summary</h2>
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600 dark:text-gray-400 text-sm sm:text-base">Total Transactions:</span>
-              <span className="font-semibold text-gray-900 dark:text-white">{filteredTransactions.length}</span>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="surface-card p-6">
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Quarterly summary</h2>
+          <div className="mt-4 space-y-3 text-sm text-slate-600 dark:text-slate-300">
+            <div className="flex items-center justify-between">
+              <span>Total transactions</span>
+              <span className="font-semibold text-slate-900 dark:text-slate-100">{filteredTransactions.length}</span>
             </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600 dark:text-gray-400 text-sm sm:text-base">Total Amount:</span>
-              <span className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base">{formatCurrency(quarterlyTotals.total)}</span>
+            <div className="flex items-center justify-between">
+              <span>Net amount moved</span>
+              <span className="font-semibold text-slate-900 dark:text-slate-100">{formatCurrency(quarterlyTotals.total)}</span>
             </div>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Category Breakdown</h2>
-          <div className="space-y-2 max-h-32 sm:max-h-none overflow-y-auto">
+        <div className="surface-card p-6">
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Category breakdown</h2>
+          <div className="mt-4 space-y-2 max-h-40 overflow-y-auto text-sm text-slate-600 dark:text-slate-300">
             {Object.entries(quarterlyTotals.byCategory).map(([category, amount]) => (
-              <div key={category} className="flex justify-between items-center">
-                <span className="text-gray-600 dark:text-gray-400 text-sm sm:text-base truncate mr-2">{category}:</span>
-                <span className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base flex-shrink-0">{formatCurrency(amount)}</span>
+              <div key={category} className="flex items-center justify-between gap-3">
+                <span className="truncate capitalize">{category}</span>
+                <span className="font-medium text-slate-900 dark:text-slate-100">{formatCurrency(amount)}</span>
               </div>
             ))}
           </div>
@@ -396,7 +475,7 @@ const Transactions: React.FC = () => {
       </div>
 
       {/* Transactions Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div className="surface-card overflow-hidden">
         {/* Mobile Card View */}
         <div className="sm:hidden">
           <div className="divide-y divide-gray-200 dark:divide-gray-700">

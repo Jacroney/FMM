@@ -7,7 +7,7 @@ const Settings = () => {
   const { profile } = useAuth();
   const [settings, setSettings] = useState({
     organization: {
-      name: 'KSIG Treasurer',
+      name: 'Greek Pay',
       fiscalYearStart: '2025-09-01',
       currency: 'USD',
       timezone: 'America/New_York'

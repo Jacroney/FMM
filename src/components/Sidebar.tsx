@@ -41,7 +41,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed = false }) => {
               </svg>
             </div>
             <h1 className={`ml-3 text-xl font-semibold tracking-tight ${collapsed ? 'hidden' : 'block'}`}>
-              KSIG Treasury
+              Greek Pay
             </h1>
           </div>
         </div>

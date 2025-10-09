@@ -247,17 +247,17 @@ const DuesManagementSection: React.FC<DuesManagementSectionProps> = ({ chapterId
               setEditingConfig(currentConfig || undefined);
               setShowConfigModal(true);
             }}
-            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2"
+            className="px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-1.5 text-sm"
           >
-            <Settings className="w-4 h-4" />
+            <Settings className="w-3.5 h-3.5" />
             {currentConfig ? 'Edit' : 'Setup'} Configuration
           </button>
           <button
             onClick={handleExport}
             disabled={memberDues.length === 0}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
           >
-            <Download className="w-4 h-4" />
+            <Download className="w-3.5 h-3.5" />
             Export
           </button>
         </div>
