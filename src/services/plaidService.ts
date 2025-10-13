@@ -1,39 +1,44 @@
 import { supabase } from './supabaseClient';
-
-export interface PlaidConnection {
-  id: string;
-  chapter_id: string;
-  institution_name: string;
-  last_synced_at: string | null;
-  is_active: boolean;
-  created_at: string;
-  error_message: string | null;
-}
-
-export interface PlaidSyncResult {
-  success: boolean;
-  added: number;
-  modified: number;
-  removed: number;
-  has_more: boolean;
-  error?: string;
-}
+import {
+  PlaidConnection,
+  PlaidAccount,
+  PlaidConnectionWithDetails,
+  PlaidSyncHistory,
+  PlaidLinkTokenResponse,
+  PlaidExchangeResponse,
+  PlaidSyncResponse,
+} from './types';
 
 export class PlaidService {
   /**
-   * Creates a Plaid Link token for initializing the Link flow
+   * Create a Plaid Link token to initialize the Plaid Link component
    */
-  static async createLinkToken(chapterId: string): Promise<string> {
+  static async createLinkToken(): Promise<PlaidLinkTokenResponse> {
     try {
-      const { data, error } = await supabase.functions.invoke('plaid-sync', {
-        body: {
-          action: 'create_link_token',
-          chapter_id: chapterId,
-        },
-      });
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
-      if (error) throw error;
-      return data.link_token;
+      if (sessionError || !session) {
+        throw new Error('Not authenticated');
+      }
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/plaid-create-link-token`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create link token');
+      }
+
+      const data = await response.json();
+      return data;
     } catch (error) {
       console.error('Error creating link token:', error);
       throw error;
@@ -41,23 +46,34 @@ export class PlaidService {
   }
 
   /**
-   * Exchanges a public token from Plaid Link for an access token
-   * and stores the connection in the database
+   * Exchange public token for access token after user connects their bank
    */
-  static async exchangeToken(
-    publicToken: string,
-    chapterId: string
-  ): Promise<{ connection_id: string; institution_name: string }> {
+  static async exchangePublicToken(publicToken: string): Promise<PlaidExchangeResponse> {
     try {
-      const { data, error } = await supabase.functions.invoke('plaid-sync', {
-        body: {
-          action: 'exchange_token',
-          public_token: publicToken,
-          chapter_id: chapterId,
-        },
-      });
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
-      if (error) throw error;
+      if (sessionError || !session) {
+        throw new Error('Not authenticated');
+      }
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/plaid-exchange-token`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ public_token: publicToken }),
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to exchange token');
+      }
+
+      const data = await response.json();
       return data;
     } catch (error) {
       console.error('Error exchanging token:', error);
@@ -66,22 +82,34 @@ export class PlaidService {
   }
 
   /**
-   * Syncs transactions from Plaid to the staging table
+   * Sync transactions for a specific connection
    */
-  static async syncTransactions(
-    connectionId: string,
-    chapterId: string
-  ): Promise<PlaidSyncResult> {
+  static async syncTransactions(connectionId: string): Promise<PlaidSyncResponse> {
     try {
-      const { data, error } = await supabase.functions.invoke('plaid-sync', {
-        body: {
-          action: 'sync_transactions',
-          connection_id: connectionId,
-          chapter_id: chapterId,
-        },
-      });
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
-      if (error) throw error;
+      if (sessionError || !session) {
+        throw new Error('Not authenticated');
+      }
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/plaid-sync-transactions`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ connection_id: connectionId }),
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to sync transactions');
+      }
+
+      const data = await response.json();
       return data;
     } catch (error) {
       console.error('Error syncing transactions:', error);
@@ -90,112 +118,161 @@ export class PlaidService {
   }
 
   /**
-   * Syncs all active connections for a chapter
+   * Get all active connections for the current chapter
    */
-  static async syncAll(chapterId: string): Promise<any> {
-    try {
-      const { data, error } = await supabase.functions.invoke('plaid-sync', {
-        body: {
-          action: 'sync_all',
-          chapter_id: chapterId,
-        },
-      });
-
-      if (error) throw error;
-      return data;
-    } catch (error) {
-      console.error('Error syncing all connections:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Gets all Plaid connections for a chapter
-   */
-  static async getConnections(chapterId: string): Promise<PlaidConnection[]> {
-    try {
-      const { data, error } = await supabase.functions.invoke('plaid-sync', {
-        body: {
-          action: 'get_connections',
-          chapter_id: chapterId,
-        },
-      });
-
-      if (error) throw error;
-      return data.connections || [];
-    } catch (error) {
-      console.error('Error getting connections:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Deactivates a Plaid connection
-   */
-  static async deactivateConnection(
-    connectionId: string,
-    chapterId: string
-  ): Promise<void> {
-    try {
-      const { error } = await supabase.functions.invoke('plaid-sync', {
-        body: {
-          action: 'deactivate_connection',
-          connection_id: connectionId,
-          chapter_id: chapterId,
-        },
-      });
-
-      if (error) throw error;
-    } catch (error) {
-      console.error('Error deactivating connection:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Runs the reconciliation function to move staging data to expenses
-   */
-  static async reconcile(
-    chapterId: string,
-    stagingTable: 'plaid_txn_staging' | 'transaction_staging' | 'switch_txn_staging' = 'plaid_txn_staging'
-  ): Promise<any> {
-    try {
-      const { data, error } = await supabase.rpc('fn_reconcile_staging', {
-        p_staging_table: stagingTable,
-        p_chapter_id: chapterId,
-      });
-
-      if (error) throw error;
-      return data;
-    } catch (error) {
-      console.error('Error reconciling staging data:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Gets unprocessed staging records for preview before reconciliation
-   */
-  static async getUnprocessedStaging(chapterId: string): Promise<any[]> {
+  static async getConnections(chapterId: string): Promise<PlaidConnectionWithDetails[]> {
     try {
       const { data, error } = await supabase
-        .from('unprocessed_staging_v')
-        .select('*')
-        .eq('chapter_id', chapterId)
-        .order('ingested_at', { ascending: false });
+        .rpc('get_active_plaid_connections', { p_chapter_id: chapterId });
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
+
       return data || [];
     } catch (error) {
-      console.error('Error getting unprocessed staging records:', error);
-      return [];
+      console.error('Error fetching connections:', error);
+      throw error;
     }
   }
 
   /**
-   * Gets recent sync history for a chapter
+   * Get a single connection by ID
    */
-  static async getSyncHistory(chapterId: string, limit: number = 20): Promise<any[]> {
+  static async getConnection(connectionId: string): Promise<PlaidConnection | null> {
+    try {
+      const { data, error } = await supabase
+        .from('plaid_connections')
+        .select('*')
+        .eq('id', connectionId)
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error fetching connection:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all accounts for a specific connection
+   */
+  static async getAccountsForConnection(connectionId: string): Promise<PlaidAccount[]> {
+    try {
+      const { data, error } = await supabase
+        .from('plaid_accounts')
+        .select('*')
+        .eq('connection_id', connectionId)
+        .eq('is_active', true)
+        .order('account_name');
+
+      if (error) {
+        throw error;
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching accounts:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all accounts for the current chapter
+   */
+  static async getAllAccounts(chapterId: string): Promise<PlaidAccount[]> {
+    try {
+      const { data, error } = await supabase
+        .from('plaid_accounts')
+        .select('*')
+        .eq('chapter_id', chapterId)
+        .eq('is_active', true)
+        .order('account_name');
+
+      if (error) {
+        throw error;
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching all accounts:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get total bank balance across all connected accounts
+   */
+  static async getTotalBankBalance(chapterId: string): Promise<number> {
+    try {
+      const { data, error } = await supabase
+        .rpc('get_total_bank_balance', { p_chapter_id: chapterId });
+
+      if (error) {
+        throw error;
+      }
+
+      return data || 0;
+    } catch (error) {
+      console.error('Error fetching total balance:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Deactivate a connection (soft delete)
+   */
+  static async deleteConnection(connectionId: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .rpc('deactivate_plaid_connection', { p_connection_id: connectionId });
+
+      if (error) {
+        throw error;
+      }
+    } catch (error) {
+      console.error('Error deleting connection:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get sync history for a connection
+   */
+  static async getSyncHistory(
+    connectionId: string,
+    limit: number = 10
+  ): Promise<PlaidSyncHistory[]> {
+    try {
+      const { data, error } = await supabase
+        .from('plaid_sync_history')
+        .select('*')
+        .eq('connection_id', connectionId)
+        .order('started_at', { ascending: false })
+        .limit(limit);
+
+      if (error) {
+        throw error;
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching sync history:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get recent sync history for a chapter
+   */
+  static async getRecentSyncHistory(
+    chapterId: string,
+    limit: number = 20
+  ): Promise<PlaidSyncHistory[]> {
     try {
       const { data, error } = await supabase
         .from('plaid_sync_history')
@@ -209,11 +286,52 @@ export class PlaidService {
         .order('started_at', { ascending: false })
         .limit(limit);
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
+
       return data || [];
     } catch (error) {
-      console.error('Error getting sync history:', error);
-      return [];
+      console.error('Error fetching recent sync history:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Check if a connection needs to be refreshed (has errors)
+   */
+  static needsReconnection(connection: PlaidConnection): boolean {
+    return (
+      connection.error_code !== null ||
+      !connection.is_active
+    );
+  }
+
+  /**
+   * Format last sync time for display
+   */
+  static formatLastSyncTime(lastSyncedAt: string | null): string {
+    if (!lastSyncedAt) {
+      return 'Never';
+    }
+
+    const date = new Date(lastSyncedAt);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 1) {
+      return 'Just now';
+    } else if (diffMins < 60) {
+      return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+    } else if (diffHours < 24) {
+      return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    } else if (diffDays < 7) {
+      return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+    } else {
+      return date.toLocaleDateString();
     }
   }
 }

@@ -1,6 +1,11 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFinancial } from '../context/FinancialContext';
+import { useChapter } from '../context/ChapterContext';
+import { RecurringService } from '../services/recurringService';
+import { PlaidService } from '../services/plaidService';
+import { RecurringTransaction } from '../services/types';
+import CashFlowForecastCard from './CashFlowForecastCard';
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('en-US', {
@@ -12,6 +17,33 @@ const formatCurrency = (amount: number) => {
 export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const { totalBalance, totalDues, transactions } = useFinancial();
+  const { currentChapter } = useChapter();
+  const [nextRecurring, setNextRecurring] = useState<RecurringTransaction | null>(null);
+  const [bankBalance, setBankBalance] = useState<number>(0);
+  const [loadingBankBalance, setLoadingBankBalance] = useState(true);
+
+  useEffect(() => {
+    const loadData = async () => {
+      if (!currentChapter?.id) return;
+
+      try {
+        // Load next recurring transaction
+        const next = await RecurringService.getNextRecurring(currentChapter.id);
+        setNextRecurring(next);
+
+        // Load bank balance from Plaid
+        setLoadingBankBalance(true);
+        const balance = await PlaidService.getTotalBankBalance(currentChapter.id);
+        setBankBalance(balance);
+      } catch (error) {
+        console.error('Error loading dashboard data:', error);
+      } finally {
+        setLoadingBankBalance(false);
+      }
+    };
+
+    loadData();
+  }, [currentChapter?.id]);
 
   return (
     <div className="space-y-6 p-4 sm:p-6 lg:p-8">
@@ -24,11 +56,45 @@ export const Dashboard: React.FC = () => {
           Last updated: {new Date().toLocaleDateString()}
         </div>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6">
+        {/* Bank Balance Card */}
+        <div
+          onClick={() => navigate('/plaid-sync')}
+          className="group bg-white dark:bg-gray-800 rounded-xl shadow-sm transition-all duration-300 p-6 border border-gray-200 dark:border-gray-700 hover:border-blue-200/60 dark:hover:border-blue-600/60 cursor-pointer"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+              Bank Balance
+            </h2>
+            <div className="w-10 h-10 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+              </svg>
+            </div>
+          </div>
+          {loadingBankBalance ? (
+            <div className="flex items-center gap-2">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600"></div>
+              <span className="text-sm text-gray-500 dark:text-gray-400">Loading...</span>
+            </div>
+          ) : (
+            <>
+              <p className="text-3xl lg:text-4xl font-bold text-indigo-600 dark:text-indigo-400">
+                {formatCurrency(bankBalance)}
+              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-3">
+                Connected bank accounts
+              </p>
+            </>
+          )}
+        </div>
+
         {/* Total Balance Card */}
         <div className="group bg-white dark:bg-gray-800 rounded-xl shadow-sm transition-all duration-300 p-6 border border-gray-200 dark:border-gray-700 hover:border-blue-200/60 dark:hover:border-blue-600/60">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">Total Balance</h2>
+            <h2 className="text-sm font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+              Total Balance
+            </h2>
             <div className="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -90,7 +156,49 @@ export const Dashboard: React.FC = () => {
             Available after dues
           </p>
         </div>
+
+        {/* Next Recurring Card */}
+        <div
+          onClick={() => navigate('/recurring')}
+          className="group bg-white dark:bg-gray-800 rounded-xl shadow-sm transition-all duration-300 p-6 border border-gray-200 dark:border-gray-700 hover:border-purple-200/60 dark:hover:border-purple-600/60 cursor-pointer"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">Next Recurring</h2>
+            <div className="w-10 h-10 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </div>
+          </div>
+          {nextRecurring ? (
+            <>
+              <p className={`text-2xl font-bold ${
+                nextRecurring.amount >= 0 ? 'text-green-600 dark:text-green-400' : 'text-purple-600 dark:text-purple-400'
+              }`}>
+                {formatCurrency(nextRecurring.amount)}
+              </p>
+              <p className="text-sm text-gray-900 dark:text-white mt-2 font-medium truncate">
+                {nextRecurring.name}
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Due {new Date(nextRecurring.next_due_date).toLocaleDateString()}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-2xl font-bold text-gray-400 dark:text-gray-600">
+                None
+              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-3">
+                No upcoming recurring
+              </p>
+            </>
+          )}
+        </div>
       </div>
+
+      {/* Cash Flow Forecast */}
+      <CashFlowForecastCard />
       
       {/* Quick Actions Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

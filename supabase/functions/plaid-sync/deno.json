@@ -1,8 +1,0 @@
-{
-  "tasks": {
-    "start": "deno run --allow-all --watch index.ts"
-  },
-  "imports": {
-    "plaid": "npm:plaid@16.0.0"
-  }
-}

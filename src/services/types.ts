@@ -280,4 +280,137 @@ export interface ChapterDuesStats {
 
   // Percentages
   payment_rate: number;
-} 
+}
+
+// ============================================================================
+// RECURRING TRANSACTIONS TYPES
+// ============================================================================
+
+export interface RecurringTransaction {
+  id: string;
+  chapter_id: string;
+  name: string;
+  description: string | null;
+  amount: number;
+  frequency: 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'yearly';
+  next_due_date: string;
+  category_id: string | null;
+  period_id: string | null;
+  payment_method: string | null;
+  auto_post: boolean;
+  is_active: boolean;
+  created_by: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface RecurringTransactionDetail extends RecurringTransaction {
+  category_name: string | null;
+  category_type: 'Fixed Costs' | 'Operational Costs' | 'Event Costs' | null;
+  period_name: string | null;
+}
+
+export interface AutomationAudit {
+  id: string;
+  job_type: string;
+  run_time: string;
+  chapter_id: string | null;
+  records_processed: number;
+  records_inserted: number;
+  records_updated: number;
+  records_errored: number;
+  errors: string[] | null;
+  status: 'running' | 'completed' | 'failed';
+  completed_at: string | null;
+}
+
+export interface ForecastBalance {
+  date: string;
+  chapter_id: string;
+  daily_amount: number;
+  sources: string[];
+  projected_balance: number;
+}
+
+// ============================================================================
+// PLAID INTEGRATION TYPES
+// ============================================================================
+
+export interface PlaidConnection {
+  id: string;
+  chapter_id: string;
+  institution_name: string | null;
+  institution_id: string | null;
+  access_token: string;
+  item_id: string;
+  cursor: string | null;
+  last_synced_at: string | null;
+  is_active: boolean;
+  error_code: string | null;
+  error_message: string | null;
+  created_by: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface PlaidAccount {
+  id: string;
+  connection_id: string;
+  chapter_id: string;
+  account_id: string;
+  account_name: string | null;
+  official_name: string | null;
+  account_type: string | null;
+  account_subtype: string | null;
+  mask: string | null;
+  verification_status: string | null;
+  current_balance: number | null;
+  available_balance: number | null;
+  iso_currency_code: string;
+  last_balance_update: string | null;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface PlaidSyncHistory {
+  id: string;
+  connection_id: string;
+  chapter_id: string;
+  transactions_added: number;
+  transactions_modified: number;
+  transactions_removed: number;
+  accounts_updated: number;
+  cursor_before: string | null;
+  cursor_after: string | null;
+  sync_status: 'running' | 'completed' | 'failed';
+  error_message: string | null;
+  started_at: string;
+  completed_at: string | null;
+}
+
+export interface PlaidConnectionWithDetails extends PlaidConnection {
+  account_count: number;
+  total_balance: number;
+  accounts?: PlaidAccount[];
+}
+
+export interface PlaidLinkTokenResponse {
+  link_token: string;
+  expiration: string;
+}
+
+export interface PlaidExchangeResponse {
+  success: boolean;
+  connection_id: string;
+  institution_name: string;
+  accounts_count: number;
+}
+
+export interface PlaidSyncResponse {
+  success: boolean;
+  transactions_added: number;
+  transactions_modified: number;
+  transactions_removed: number;
+  accounts_updated: number;
+}
