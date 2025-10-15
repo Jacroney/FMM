@@ -1,57 +1,5 @@
 import { supabase } from './supabaseClient';
-
-export interface BudgetSummary {
-  period: string;
-  period_type: string;
-  fiscal_year: number;
-  start_date: string;
-  category: string;
-  category_type: string;
-  allocated: number;
-  spent: number;
-  remaining: number;
-  percent_used: number;
-}
-
-export interface BudgetCategory {
-  id: string;
-  name: string;
-  type: 'Fixed Costs' | 'Operational Costs' | 'Event Costs';
-  description: string | null;
-  is_active: boolean;
-}
-
-export interface BudgetPeriod {
-  id: string;
-  name: string;
-  type: 'Quarter' | 'Semester' | 'Year';
-  start_date: string;
-  end_date: string;
-  fiscal_year: number;
-  is_current: boolean;
-}
-
-export interface Budget {
-  id: string;
-  chapter_id: string;
-  category_id: string;
-  period_id: string;
-  allocated: number;
-  notes: string | null;
-}
-
-export interface Expense {
-  id: string;
-  budget_id: string | null;
-  category_id: string;
-  period_id: string;
-  amount: number;
-  description: string;
-  transaction_date: string;
-  vendor: string | null;
-  payment_method: string | null;
-  status: 'pending' | 'completed' | 'cancelled';
-}
+import { BudgetSummary, BudgetCategory, BudgetPeriod, BudgetAllocation, Budget } from './types';
 
 export class BudgetService {
   static async fetchBudgets(chapterId: string) {
@@ -105,7 +53,7 @@ export class BudgetService {
     }
   }
 
-  static async addBudget(budget: Omit<Budget, 'id'>) {
+  static async addBudget(budget: Omit<BudgetAllocation, 'id'>) {
     if (!budget.chapter_id) {
       throw new Error('Chapter ID is required for addBudget');
     }
@@ -137,7 +85,7 @@ export class BudgetService {
     }
   }
 
-  static async updateBudget(id: string, updates: Partial<Omit<Budget, 'id'>>) {
+  static async updateBudget(id: string, updates: Partial<Omit<BudgetAllocation, 'id'>>) {
     try {
       const { data, error } = await supabase
         .from('budgets')

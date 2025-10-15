@@ -160,7 +160,7 @@ const Reports = () => {
       const imgY = 30;
 
       pdf.setFontSize(20);
-      pdf.text('KSIG Treasurer Financial Report', pdfWidth / 2, 20, { align: 'center' });
+      pdf.text('Greek Pay Financial Report', pdfWidth / 2, 20, { align: 'center' });
       pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
       
       pdf.save(`financial-report-${dateRange}-${Date.now()}.pdf`);

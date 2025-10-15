@@ -2,6 +2,9 @@ import React, { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import { MemberDuesInfo } from '../services/authService';
+import ProfileEditModal from './ProfileEditModal';
+import PaymentHistoryModal from './PaymentHistoryModal';
+import PasswordChangeModal from './PasswordChangeModal';
 
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
@@ -10,6 +13,11 @@ export const MemberDashboard: React.FC = () => {
   const { profile, getMemberDues } = useAuth();
   const [duesInfo, setDuesInfo] = useState<MemberDuesInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Modal states
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isPaymentHistoryModalOpen, setIsPaymentHistoryModalOpen] = useState(false);
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
 
   useEffect(() => {
     void loadDuesInfo();
@@ -45,28 +53,28 @@ export const MemberDashboard: React.FC = () => {
   const chapterName = duesInfo?.chapter_name || 'Your Chapter';
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4 text-gray-900 transition-colors duration-200 dark:bg-gray-900 dark:text-gray-100 sm:px-6 lg:px-8">
-      <div className="mx-auto flex w-full max-w-4xl flex-col gap-8">
+    <div className="min-h-screen bg-gray-50 py-4 px-4 text-gray-900 transition-colors duration-200 dark:bg-gray-900 dark:text-gray-100 sm:py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 sm:gap-6 lg:gap-8">
         <header className="text-center">
-          <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-blue-100 text-blue-600 shadow">
-            <svg className="h-10 w-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="mx-auto mb-3 sm:mb-4 flex h-16 w-16 sm:h-18 sm:w-18 items-center justify-center rounded-2xl bg-blue-100 text-blue-600 shadow">
+            <svg className="h-8 w-8 sm:h-9 sm:w-9" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
           </div>
-          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Welcome, {profile?.full_name || 'Member'}!</h1>
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">{chapterName}</p>
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl lg:text-4xl">Welcome, {profile?.full_name || 'Member'}!</h1>
+          <p className="mt-1.5 sm:mt-2 text-sm text-gray-600 dark:text-gray-300">{chapterName}</p>
         </header>
 
-        <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md dark:border-gray-700 dark:bg-gray-800">
-          <div className="mb-6 flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600">
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-6 shadow-sm transition-shadow hover:shadow-md dark:border-gray-700 dark:bg-gray-800">
+          <div className="mb-4 sm:mb-6 flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600">
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               </svg>
             </div>
-            <h2 className="text-lg font-semibold">Member information</h2>
+            <h2 className="text-base sm:text-lg font-semibold">Member information</h2>
           </div>
-          <dl className="grid gap-4 text-sm sm:grid-cols-2">
+          <dl className="grid gap-3 sm:gap-4 text-sm grid-cols-1 xs:grid-cols-2">
             <div>
               <dt className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Email</dt>
               <dd className="mt-1 text-gray-900 dark:text-gray-100">{profile?.email}</dd>
@@ -90,22 +98,22 @@ export const MemberDashboard: React.FC = () => {
           </dl>
         </section>
 
-        <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <div className="mb-6 flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100 text-amber-600">
+        <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <div className="mb-4 sm:mb-6 flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 text-amber-600 text-lg">
               💰
             </div>
-            <h2 className="text-lg font-semibold">Dues & payments</h2>
+            <h2 className="text-base sm:text-lg font-semibold">Dues & payments</h2>
           </div>
           <div className="text-center">
-            <p className={`text-4xl font-semibold sm:text-5xl ${isOwed ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+            <p className={`text-3xl font-semibold sm:text-4xl lg:text-5xl ${isOwed ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
               {formatCurrency(Math.abs(duesBalance))}
             </p>
-            <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+            <p className="mt-2 text-sm sm:text-base text-gray-600 dark:text-gray-300 px-4">
               {isOwed ? 'Amount owed for the current term.' : duesBalance === 0 ? 'Balance: paid in full.' : 'Credit balance on your account.'}
             </p>
             <div
-              className={`mt-4 inline-flex items-center rounded-full px-4 py-2 text-sm font-medium ${
+              className={`mt-3 sm:mt-4 inline-flex items-center rounded-full px-4 py-2 text-sm font-medium ${
                 isOwed ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-200' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200'
               }`}
             >
@@ -126,7 +134,7 @@ export const MemberDashboard: React.FC = () => {
               <button
                 type="button"
                 onClick={() => toast('Online payments are coming soon. Please reach out to the treasurer in the meantime.')}
-                className="w-full rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-100 dark:border-blue-700/40 dark:bg-gray-800 dark:text-blue-300 dark:hover:bg-gray-700"
+                className="w-full rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-100 dark:border-blue-700/40 dark:bg-gray-800 dark:text-blue-300 dark:hover:bg-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
               >
                 Pay dues online (coming soon)
               </button>
@@ -135,16 +143,32 @@ export const MemberDashboard: React.FC = () => {
         </section>
 
         <div className="grid gap-6 lg:grid-cols-2">
-          <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-            <h2 className="text-lg font-semibold">Quick actions</h2>
-            <div className="mt-4 grid gap-3 text-sm">
+          <section className="rounded-xl border border-gray-200 bg-white p-4 sm:p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <h2 className="text-base sm:text-lg font-semibold">Quick actions</h2>
+            <div className="mt-3 sm:mt-4 grid gap-2.5 sm:gap-3 text-sm">
               <button
                 type="button"
-                onClick={() => toast('Profile updates will be available soon. Contact your treasurer for urgent changes.')}
-                className="flex items-center rounded-lg border border-gray-200 px-4 py-3 text-left font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700"
+                onClick={() => setIsProfileModalOpen(true)}
+                className="flex items-center rounded-lg border border-gray-200 px-4 py-3.5 text-left font-medium text-gray-700 transition-all hover:bg-gray-50 active:scale-[0.99] dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700 touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
               >
-                <span className="mr-3 text-lg">✏️</span>
+                <span className="mr-3 text-xl">✏️</span>
                 Update profile details
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsPaymentHistoryModalOpen(true)}
+                className="flex items-center rounded-lg border border-gray-200 px-4 py-3.5 text-left font-medium text-gray-700 transition-all hover:bg-gray-50 active:scale-[0.99] dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700 touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+              >
+                <span className="mr-3 text-xl">💳</span>
+                View payment history
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsPasswordModalOpen(true)}
+                className="flex items-center rounded-lg border border-gray-200 px-4 py-3.5 text-left font-medium text-gray-700 transition-all hover:bg-gray-50 active:scale-[0.99] dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700 touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+              >
+                <span className="mr-3 text-xl">🔒</span>
+                Change password
               </button>
               <button
                 type="button"
@@ -154,41 +178,36 @@ export const MemberDashboard: React.FC = () => {
                   const body = `Hi,\n\nI have a question about my dues balance.\n\nBest regards,\n${profile?.full_name || ''}`;
                   window.open(`mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
                 }}
-                className="flex items-center rounded-lg border border-gray-200 px-4 py-3 text-left font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700"
+                className="flex items-center rounded-lg border border-gray-200 px-4 py-3.5 text-left font-medium text-gray-700 transition-all hover:bg-gray-50 active:scale-[0.99] dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700 touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
               >
-                <span className="mr-3 text-lg">📧</span>
+                <span className="mr-3 text-xl">📧</span>
                 Contact the treasurer
               </button>
               <button
                 type="button"
-                onClick={() => toast('Event calendar integration is in progress. Watch your email for updates.')}
-                className="flex items-center rounded-lg border border-gray-200 px-4 py-3 text-left font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700"
-              >
-                <span className="mr-3 text-lg">📅</span>
-                View upcoming events
-              </button>
-              <button
-                type="button"
                 onClick={loadDuesInfo}
-                className="flex items-center rounded-lg border border-gray-200 px-4 py-3 text-left font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700"
+                className="flex items-center rounded-lg border border-gray-200 px-4 py-3.5 text-left font-medium text-gray-700 transition-all hover:bg-gray-50 active:scale-[0.99] dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700 touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
               >
-                <span className="mr-3 text-lg">🔄</span>
+                <span className="mr-3 text-xl">🔄</span>
                 Refresh balance
               </button>
             </div>
           </section>
 
-          <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-            <h2 className="text-lg font-semibold">Need help?</h2>
+          <section className="rounded-xl border border-gray-200 bg-white p-4 sm:p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <h2 className="text-base sm:text-lg font-semibold">Need help?</h2>
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
               Here are a few ways to stay connected with chapter leadership.
             </p>
-            <ul className="mt-4 space-y-2 text-sm text-gray-600 dark:text-gray-300">
+            <ul className="mt-3 sm:mt-4 space-y-2 text-sm text-gray-600 dark:text-gray-300">
               <li>• Watch for weekly email updates from the executive board.</li>
               <li>• Join the group chat for real-time announcements and reminders.</li>
               <li>
                 • Reach out any time at{' '}
-                <a className="text-blue-600 underline-offset-2 hover:underline" href="mailto:treasurer@chapter.com">
+                <a
+                  className="text-blue-600 underline-offset-2 hover:underline active:text-blue-700 dark:text-blue-400 dark:active:text-blue-300 touch-manipulation"
+                  href="mailto:treasurer@chapter.com"
+                >
                   treasurer@chapter.com
                 </a>
                 .
@@ -197,6 +216,23 @@ export const MemberDashboard: React.FC = () => {
           </section>
         </div>
       </div>
+
+      {/* Modals */}
+      <ProfileEditModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+        onSuccess={loadDuesInfo}
+      />
+
+      <PaymentHistoryModal
+        isOpen={isPaymentHistoryModalOpen}
+        onClose={() => setIsPaymentHistoryModalOpen(false)}
+      />
+
+      <PasswordChangeModal
+        isOpen={isPasswordModalOpen}
+        onClose={() => setIsPasswordModalOpen(false)}
+      />
     </div>
   );
 };

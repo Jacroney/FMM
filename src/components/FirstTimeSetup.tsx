@@ -94,7 +94,7 @@ export const FirstTimeSetup: React.FC<{ onComplete: () => void }> = ({ onComplet
           </div>
           <div className="mt-4 text-center">
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-              Welcome to FMM! Let's get you set up.
+              Welcome to Greek Pay! Let's get you set up.
             </h1>
             <p className="text-gray-600 dark:text-gray-400 mt-2">
               Step {currentStep} of 3 - This will only take a few minutes

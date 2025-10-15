@@ -2,15 +2,15 @@ import React, { useMemo, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Sidebar } from '../components/Sidebar';
 import { ChapterSelector } from '../components/ChapterSelector';
+import { FloatingAIChat } from '../components/FloatingAIChat';
 import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
 
 const PAGE_TITLES: Record<string, string> = {
   '/': 'Chapter Dashboard',
   '/transactions': 'Transactions',
   '/budgets': 'Budgets',
+  '/dues': 'Dues Management',
   '/reports': 'Reports',
-  '/members': 'Members',
-  '/plaid-sync': 'Bank Sync',
   '/settings': 'Settings'
 };
 
@@ -62,6 +62,7 @@ const MainLayout: React.FC = () => {
           <Outlet />
         </main>
       </div>
+      <FloatingAIChat />
     </div>
   );
 };

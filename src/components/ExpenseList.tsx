@@ -14,8 +14,9 @@ import {
   ChevronUp,
   Search
 } from 'lucide-react';
-import { ExpenseDetail } from '../services/types';
+import { ExpenseDetail, BudgetCategory, BudgetPeriod } from '../services/types';
 import { ExpenseService } from '../services/expenseService';
+import ExpenseModal from './ExpenseModal';
 import toast from 'react-hot-toast';
 
 interface ExpenseListProps {
@@ -25,6 +26,9 @@ interface ExpenseListProps {
   showCategoryColumn?: boolean;
   showPeriodColumn?: boolean;
   showActions?: boolean;
+  categories?: BudgetCategory[];
+  currentPeriod?: BudgetPeriod | null;
+  chapterId?: string | null;
 }
 
 const ExpenseList: React.FC<ExpenseListProps> = ({
@@ -33,13 +37,17 @@ const ExpenseList: React.FC<ExpenseListProps> = ({
   onExpenseDeleted,
   showCategoryColumn = true,
   showPeriodColumn = true,
-  showActions = true
+  showActions = true,
+  categories = [],
+  currentPeriod = null,
+  chapterId = null
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState<keyof ExpenseDetail>('transaction_date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
-  const [editingExpense, setEditingExpense] = useState<string | null>(null);
+  const [editingExpense, setEditingExpense] = useState<ExpenseDetail | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   // Formatting helpers
   const formatCurrency = (amount: number) => {
@@ -156,8 +164,8 @@ const ExpenseList: React.FC<ExpenseListProps> = ({
   return (
     <div className="space-y-4">
       {/* Search and Summary */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
             <input
@@ -165,87 +173,107 @@ const ExpenseList: React.FC<ExpenseListProps> = ({
               placeholder="Search expenses..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all"
             />
           </div>
-          <div className="flex gap-4 text-sm">
-            <div className="flex items-center gap-2">
-              <FileText className="w-4 h-4 text-gray-500" />
-              <span className="text-gray-600 dark:text-gray-400">{totals.count} expenses</span>
+          <div className="flex items-center gap-4 text-sm">
+            <div className="flex items-center gap-2 px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
+              <FileText className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+              <span className="font-medium text-gray-700 dark:text-gray-300">{totals.count} expenses</span>
             </div>
-            <div className="flex items-center gap-2">
-              <DollarSign className="w-4 h-4 text-gray-500" />
-              <span className="font-semibold text-gray-900 dark:text-white">{formatCurrency(totals.total)}</span>
+            <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <DollarSign className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+              <span className="font-semibold text-blue-900 dark:text-blue-300">{formatCurrency(totals.total)}</span>
             </div>
           </div>
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded">
-            <p className="text-xs text-blue-600 dark:text-blue-400">Total</p>
-            <p className="text-lg font-bold text-blue-900 dark:text-blue-300">{formatCurrency(totals.total)}</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 p-4 rounded-xl border border-blue-200/50 dark:border-blue-700/50 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-xs font-medium text-blue-700 dark:text-blue-300">Total</p>
+              <DollarSign className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+            </div>
+            <p className="text-xl font-bold text-blue-900 dark:text-blue-100">{formatCurrency(totals.total)}</p>
           </div>
-          <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded">
-            <p className="text-xs text-green-600 dark:text-green-400">Completed</p>
-            <p className="text-lg font-bold text-green-900 dark:text-green-300">{formatCurrency(totals.completed)}</p>
+          <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 p-4 rounded-xl border border-green-200/50 dark:border-green-700/50 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-xs font-medium text-green-700 dark:text-green-300">Completed</p>
+              <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
+            </div>
+            <p className="text-xl font-bold text-green-900 dark:text-green-100">{formatCurrency(totals.completed)}</p>
           </div>
-          <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded">
-            <p className="text-xs text-yellow-600 dark:text-yellow-400">Pending</p>
-            <p className="text-lg font-bold text-yellow-900 dark:text-yellow-300">{formatCurrency(totals.pending)}</p>
+          <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20 p-4 rounded-xl border border-yellow-200/50 dark:border-yellow-700/50 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-xs font-medium text-yellow-700 dark:text-yellow-300">Pending</p>
+              <Clock className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
+            </div>
+            <p className="text-xl font-bold text-yellow-900 dark:text-yellow-100">{formatCurrency(totals.pending)}</p>
           </div>
-          <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded">
-            <p className="text-xs text-gray-600 dark:text-gray-400">Count</p>
-            <p className="text-lg font-bold text-gray-900 dark:text-white">{totals.count}</p>
+          <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 p-4 rounded-xl border border-gray-200/50 dark:border-gray-600/50 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-xs font-medium text-gray-700 dark:text-gray-300">Count</p>
+              <Receipt className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+            </div>
+            <p className="text-xl font-bold text-gray-900 dark:text-white">{totals.count}</p>
           </div>
         </div>
       </div>
 
       {/* Desktop Table View */}
-      <div className="hidden md:block bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
+      <div className="hidden md:block bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead className="bg-gray-50 dark:bg-gray-700">
+            <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800">
               <tr>
                 <th
-                  className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                  className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                   onClick={() => handleSort('transaction_date')}
                 >
-                  Date {getSortIcon('transaction_date')}
+                  <div className="flex items-center gap-1">
+                    Date {getSortIcon('transaction_date')}
+                  </div>
                 </th>
                 <th
-                  className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                  className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                   onClick={() => handleSort('description')}
                 >
-                  Description {getSortIcon('description')}
+                  <div className="flex items-center gap-1">
+                    Description {getSortIcon('description')}
+                  </div>
                 </th>
                 {showCategoryColumn && (
                   <th
-                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                    className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                     onClick={() => handleSort('category_name')}
                   >
-                    Category {getSortIcon('category_name')}
+                    <div className="flex items-center gap-1">
+                      Category {getSortIcon('category_name')}
+                    </div>
                   </th>
                 )}
                 {showPeriodColumn && (
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                     Period
                   </th>
                 )}
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                   Vendor
                 </th>
                 <th
-                  className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                  className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                   onClick={() => handleSort('amount')}
                 >
-                  Amount {getSortIcon('amount')}
+                  <div className="flex items-center gap-1">
+                    Amount {getSortIcon('amount')}
+                  </div>
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                   Status
                 </th>
                 {showActions && (
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                     Actions
                   </th>
                 )}
@@ -261,7 +289,7 @@ const ExpenseList: React.FC<ExpenseListProps> = ({
               ) : (
                 filteredAndSortedExpenses.map((expense) => (
                   <React.Fragment key={expense.id}>
-                    <tr className="hover:bg-gray-50 dark:hover:bg-gray-750 cursor-pointer"
+                    <tr className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer"
                       onClick={() => setExpandedRow(expandedRow === expense.id ? null : expense.id)}
                     >
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-white">
@@ -272,7 +300,7 @@ const ExpenseList: React.FC<ExpenseListProps> = ({
                       </td>
                       {showCategoryColumn && (
                         <td className="px-4 py-3 whitespace-nowrap text-sm">
-                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-gray-700 dark:text-gray-300">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 text-blue-700 dark:text-blue-300 rounded-full font-medium border border-blue-200 dark:border-blue-700">
                             <Tag className="w-3 h-3" />
                             {expense.category_name}
                           </span>
@@ -300,7 +328,8 @@ const ExpenseList: React.FC<ExpenseListProps> = ({
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setEditingExpense(expense.id);
+                                setEditingExpense(expense);
+                                setShowEditModal(true);
                               }}
                               className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
                               title="Edit expense"
@@ -323,7 +352,7 @@ const ExpenseList: React.FC<ExpenseListProps> = ({
                     </tr>
                     {/* Expanded Details Row */}
                     {expandedRow === expense.id && (
-                      <tr className="bg-gray-50 dark:bg-gray-750">
+                      <tr className="bg-gray-50 dark:bg-gray-700">
                         <td colSpan={8} className="px-4 py-4">
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                             <div>
@@ -408,7 +437,10 @@ const ExpenseList: React.FC<ExpenseListProps> = ({
               {showActions && (
                 <div className="flex gap-2 mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
                   <button
-                    onClick={() => setEditingExpense(expense.id)}
+                    onClick={() => {
+                      setEditingExpense(expense);
+                      setShowEditModal(true);
+                    }}
                     className="flex-1 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded hover:bg-blue-100 dark:hover:bg-blue-900/40 text-sm font-medium"
                   >
                     Edit
@@ -426,22 +458,25 @@ const ExpenseList: React.FC<ExpenseListProps> = ({
         )}
       </div>
 
-      {/* TODO: Add ExpenseModal for editing when editingExpense is set */}
-      {editingExpense && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full">
-            <h3 className="text-lg font-semibold mb-4">Edit Expense</h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-4">
-              Edit functionality coming next...
-            </p>
-            <button
-              onClick={() => setEditingExpense(null)}
-              className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-            >
-              Close
-            </button>
-          </div>
-        </div>
+      {/* Edit Expense Modal */}
+      {showEditModal && editingExpense && (
+        <ExpenseModal
+          isOpen={showEditModal}
+          onClose={() => {
+            setShowEditModal(false);
+            setEditingExpense(null);
+          }}
+          onSubmit={() => {
+            setShowEditModal(false);
+            setEditingExpense(null);
+            onExpenseUpdated?.();
+          }}
+          categories={categories}
+          currentPeriod={currentPeriod}
+          chapterId={chapterId}
+          existingExpense={editingExpense}
+          mode="edit"
+        />
       )}
     </div>
   );

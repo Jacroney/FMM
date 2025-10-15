@@ -79,6 +79,16 @@ export interface BudgetPeriod {
   created_at?: string;
 }
 
+// Budget allocation for a category in a period
+export interface BudgetAllocation {
+  id: string;
+  chapter_id: string;
+  category_id: string;
+  period_id: string;
+  allocated: number;
+  notes: string | null;
+}
+
 export interface BudgetSummary {
   chapter_id: string;
   period: string;
@@ -127,8 +137,26 @@ export interface Chapter {
   school: string;
   member_count: number;
   fraternity_name: string;
+
+  // Branding customization
+  greek_letters?: string;
+  primary_color?: string;
+  secondary_color?: string;
+  accent_color?: string;
+  logo_url?: string;
+  symbol_url?: string;
+  theme_config?: ChapterThemeConfig;
+
   created_at?: string;
   updated_at?: string;
+}
+
+export interface ChapterThemeConfig {
+  // Future extensibility for additional theme options
+  fontFamily?: string;
+  borderRadius?: 'none' | 'sm' | 'md' | 'lg' | 'xl';
+  buttonStyle?: 'solid' | 'outline' | 'ghost';
+  customCSS?: string;
 }
 
 export interface Member {
@@ -413,4 +441,122 @@ export interface PlaidSyncResponse {
   transactions_modified: number;
   transactions_removed: number;
   accounts_updated: number;
+}
+
+// ============================================================================
+// STRIPE PAYMENT PROCESSING TYPES
+// ============================================================================
+
+export interface StripeConnectedAccount {
+  id: string;
+  chapter_id: string;
+
+  // Stripe account information
+  stripe_account_id: string;
+  stripe_account_type: 'express' | 'standard';
+
+  // Account capabilities
+  charges_enabled: boolean;
+  payouts_enabled: boolean;
+  details_submitted: boolean;
+
+  // Onboarding status
+  onboarding_completed: boolean;
+  onboarding_url: string | null;
+  onboarding_expires_at: string | null;
+
+  // Bank account status
+  has_bank_account: boolean;
+  default_currency: string;
+
+  // Platform fee settings
+  platform_fee_percentage: number;
+
+  // Timestamps
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface PaymentIntent {
+  id: string;
+  chapter_id: string;
+  member_dues_id: string;
+  member_id: string;
+
+  // Stripe payment intent details
+  stripe_payment_intent_id: string;
+  stripe_client_secret: string | null;
+  stripe_charge_id: string | null;
+
+  // Payment amounts
+  amount: number;
+  platform_fee: number;
+  net_amount: number;
+  currency: string;
+
+  // Payment method information
+  payment_method_type: 'us_bank_account' | 'card' | null;
+  payment_method_brand: string | null;
+  payment_method_last4: string | null;
+
+  // Payment status
+  status: 'pending' | 'processing' | 'succeeded' | 'failed' | 'canceled';
+
+  // Error handling
+  failure_code: string | null;
+  failure_message: string | null;
+
+  // Timestamps
+  created_at?: string;
+  processing_at?: string | null;
+  succeeded_at?: string | null;
+  failed_at?: string | null;
+  updated_at?: string;
+}
+
+export interface DuesPaymentOnline extends DuesPayment {
+  payment_intent_id: string | null;
+  stripe_charge_id: string | null;
+  stripe_transfer_id: string | null;
+  stripe_payout_id: string | null;
+  reconciled: boolean;
+  reconciled_at: string | null;
+  reconciled_by: string | null;
+}
+
+// API Response Types
+export interface StripeConnectResponse {
+  success: boolean;
+  onboarding_url?: string;
+  account_id?: string;
+  onboarding_completed?: boolean;
+  charges_enabled?: boolean;
+  payouts_enabled?: boolean;
+  details_submitted?: boolean;
+  has_bank_account?: boolean;
+  has_account?: boolean;
+  message?: string;
+  error?: string;
+}
+
+export interface CreatePaymentIntentResponse {
+  success: boolean;
+  client_secret?: string;
+  payment_intent_id?: string;
+  amount?: number;
+  platform_fee?: number;
+  net_amount?: number;
+  error?: string;
+}
+
+export interface PaymentSummary {
+  total_payments: number;
+  total_amount: number;
+  stripe_ach_count: number;
+  stripe_ach_amount: number;
+  stripe_card_count: number;
+  stripe_card_amount: number;
+  manual_count: number;
+  manual_amount: number;
+  last_payment_date: string | null;
 }

@@ -37,7 +37,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({ onSwitchToLogin }) => {
     const chapter = chapters.find(c => c.id === chapterId);
     if (!chapter) return '';
 
-    // Extract fraternity abbreviation (e.g., "Kappa Sigma" -> "ksig")
+    // Extract fraternity abbreviation (e.g., "Alpha Beta" -> "ab")
     const fraternityWords = chapter.fraternity_name.toLowerCase().split(' ');
     const fraternityAbbrev = fraternityWords
       .map(word => word.charAt(0))
@@ -81,7 +81,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({ onSwitchToLogin }) => {
 
     // Check for chapter-specific codes
     // Format: {chapter-code}-{role}
-    // Example: ksig-slo-admin, ksig-slo-exec, ksig-slo-member
+    // Example: ab-slo-admin, ab-slo-exec, ab-slo-member
 
     if (trimmedCode === `${chapterCode}-admin`) {
       return { valid: true, role: 'admin' };

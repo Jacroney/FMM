@@ -16,6 +16,7 @@ interface AuthContextType {
   isExec: boolean;
   isMember: boolean;
   hasAdminAccess: boolean;
+  isDeveloper: boolean;
 
   // Auth actions
   signUp: (data: SignUpData) => Promise<boolean>;
@@ -55,7 +56,7 @@ const DEMO_MODE = isDemoModeEnabled();
 const mockProfile: UserProfile = {
   id: 'demo-user-id',
   email: 'treasurer@demo.edu',
-  full_name: 'Demo Treasurer',
+  full_name: 'Demo User',
   phone_number: '(555) 123-4567',
   year: 'Junior',
   major: 'Finance',
@@ -88,6 +89,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const isExec = profile?.role === 'exec';
   const isMember = profile?.role === 'member';
   const hasAdminAccess = isAdmin || isExec;
+
+  // Check if user is a developer (based on email whitelist)
+  const isDeveloper = React.useMemo(() => {
+    if (!user?.email) return false;
+    const developerEmails = import.meta.env.VITE_DEVELOPER_EMAILS || '';
+    const emailList = developerEmails.split(',').map((email: string) => email.trim().toLowerCase());
+    return emailList.includes(user.email.toLowerCase());
+  }, [user?.email]);
 
   // Initialize auth state
   useEffect(() => {
@@ -133,53 +142,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const userProfile = await AuthService.getUserProfile(userId);
       console.log('User profile loaded:', userProfile);
 
-      // If userProfile is null (failed due to RLS), create fallback
+      // SECURITY: If profile fails to load, deny access instead of granting admin
       if (!userProfile) {
-        console.log('Profile is null, creating fallback profile...');
-        const currentUser = await AuthService.getCurrentUser();
-        const fallbackProfile: UserProfile = {
-          id: userId,
-          email: currentUser?.email || 'unknown@email.com',
-          full_name: currentUser?.email?.split('@')[0] || 'User',
-          phone_number: '',
-          year: '',
-          major: '',
-          chapter_id: '',
-          position: '',
-          role: 'admin', // Default to admin to give access
-          dues_balance: 0,
-          is_active: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
-        setProfile(fallbackProfile);
-        toast.error('Profile loading failed due to database permissions. Using temporary admin profile.');
-      } else {
-        setProfile(userProfile);
+        console.error('SECURITY: Profile loading failed. Denying access.');
+        toast.error('Failed to load user profile. Please contact your administrator.');
+        // Sign out user for security
+        await AuthService.signOut();
+        setUser(null);
+        setProfile(null);
+        return;
       }
+
+      setProfile(userProfile);
     } catch (error) {
       console.error('Error loading user profile:', error);
 
-      // Create fallback profile on any error
-      console.log('Creating fallback profile due to error...');
-      const currentUser = await AuthService.getCurrentUser();
-      const fallbackProfile: UserProfile = {
-        id: userId,
-        email: currentUser?.email || 'unknown@email.com',
-        full_name: currentUser?.email?.split('@')[0] || 'User',
-        phone_number: '',
-        year: '',
-        major: '',
-        chapter_id: '',
-        position: '',
-        role: 'admin', // Default to admin to give access
-        dues_balance: 0,
-        is_active: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-      setProfile(fallbackProfile);
-      toast.error('Profile loading failed. Using temporary admin profile.');
+      // SECURITY: On any error, deny access and sign out
+      console.error('SECURITY: Profile loading error. Denying access.');
+      toast.error('Failed to load user profile. Please contact your administrator.');
+      // Sign out user for security
+      await AuthService.signOut();
+      setUser(null);
+      setProfile(null);
     }
   };
 
@@ -351,6 +335,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     isExec,
     isMember,
     hasAdminAccess,
+    isDeveloper,
 
     // Auth actions
     signUp,

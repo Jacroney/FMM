@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { FinancialProvider } from './context/FinancialContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { ChapterProvider } from './context/ChapterContext';
+import { ChapterThemeProvider } from './context/ChapterThemeContext';
 import AuthProtection from './components/PasswordProtection';
 import { FirstTimeSetup } from './components/FirstTimeSetup';
 import MainLayout from './layouts/MainLayout';
@@ -17,8 +18,7 @@ import Transactions from './pages/Transactions';
 import Budgets from './pages/Budgets';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
-import Members from './pages/Members';
-import { PlaidSync } from './pages/PlaidSync';
+import Dues from './pages/Dues';
 import RecurringTransactions from './pages/RecurringTransactions';
 
 function App() {
@@ -26,10 +26,11 @@ function App() {
     <ThemeProvider>
       <AuthProvider>
         <ChapterProvider>
-          <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-            <AuthProtection>
-              <FinancialProvider>
-                <AppRoutes />
+          <ChapterThemeProvider>
+            <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+              <AuthProtection>
+                <FinancialProvider>
+                  <AppRoutes />
                 <Toaster
                   position="top-right"
                   toastOptions={{
@@ -57,9 +58,10 @@ function App() {
                 />
                 <SpeedInsights />
                 <Analytics />
-              </FinancialProvider>
-            </AuthProtection>
-          </Router>
+                </FinancialProvider>
+              </AuthProtection>
+            </Router>
+          </ChapterThemeProvider>
         </ChapterProvider>
       </AuthProvider>
     </ThemeProvider>
@@ -156,8 +158,7 @@ const AppRoutes = () => {
           <Route path="recurring" element={<RecurringTransactions />} />
           <Route path="budgets" element={<Budgets />} />
           <Route path="reports" element={<Reports />} />
-          <Route path="members" element={<Members />} />
-          <Route path="plaid-sync" element={<PlaidSync />} />
+          <Route path="dues" element={<Dues />} />
           <Route path="settings" element={<Settings />} />
           <Route path="*" element={<NotFound />} />
         </Route>
