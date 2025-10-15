@@ -1,4 +1,4 @@
-# 🚀 FMM Treasury - Quick Reference Guide
+# 🚀 Greek Pay - Quick Reference Guide
 
 > **TL;DR** - Where to find everything
 
