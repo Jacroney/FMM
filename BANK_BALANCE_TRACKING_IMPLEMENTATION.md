@@ -2,7 +2,7 @@
 
 ## ✅ Implementation Complete
 
-This document summarizes the complete implementation of real-time bank balance tracking from Plaid for your KSig Treasurer app.
+This document summarizes the complete implementation of real-time bank balance tracking from Plaid for Greek Pay.
 
 ---
 

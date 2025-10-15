@@ -21,16 +21,18 @@ export class PlaidService {
         throw new Error('Not authenticated');
       }
 
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/plaid-create-link-token`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/plaid-create-link-token`;
+      console.log('Calling Plaid function at:', url);
+      console.log('Using Supabase URL:', import.meta.env.VITE_SUPABASE_URL);
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+          'Content-Type': 'application/json',
+        },
+      });
 
       if (!response.ok) {
         const error = await response.json();
@@ -62,6 +64,7 @@ export class PlaidService {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${session.access_token}`,
+            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ public_token: publicToken }),
@@ -98,6 +101,7 @@ export class PlaidService {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${session.access_token}`,
+            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ connection_id: connectionId }),

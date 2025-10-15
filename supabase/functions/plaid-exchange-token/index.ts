@@ -1,5 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { handleCorsPreflightRequest, corsJsonResponse } from '../_shared/cors.ts';
+import { createSupabaseClient, authenticateUser, sanitizeError, requireAdminOrExec } from '../_shared/auth.ts';
+import { validateString } from '../_shared/validation.ts';
 
 const PLAID_CLIENT_ID = Deno.env.get('PLAID_CLIENT_ID');
 const PLAID_SECRET = Deno.env.get('PLAID_SECRET');
@@ -12,67 +14,25 @@ const PLAID_API_URL = PLAID_ENV === 'production'
   : 'https://sandbox.plaid.com';
 
 serve(async (req) => {
-  // Handle CORS
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST',
-        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-      },
-    });
-  }
+  const origin = req.headers.get('origin');
+
+  // SECURITY: Handle CORS preflight
+  const corsResponse = handleCorsPreflightRequest(req);
+  if (corsResponse) return corsResponse;
 
   try {
-    // Get authorization header
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Missing authorization header' }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
+    // SECURITY: Authenticate user and get profile with role
+    const supabase = createSupabaseClient();
+    const user = await authenticateUser(req, supabase);
 
-    // Parse request body
-    const { public_token } = await req.json();
-    if (!public_token) {
-      return new Response(
-        JSON.stringify({ error: 'Missing public_token' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
+    // SECURITY: Only admins and exec can exchange tokens
+    requireAdminOrExec(user);
 
-    // Create Supabase client
+    // SECURITY: Validate input
+    const body = await req.json();
+    const public_token = validateString(body.public_token, 'public_token', 10, 500);
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Get user from token
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid authorization token' }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Get user's chapter from user_profiles
-    const { data: profile, error: profileError } = await supabase
-      .from('user_profiles')
-      .select('chapter_id')
-      .eq('id', user.id)
-      .single();
-
-    if (profileError || !profile) {
-      return new Response(
-        JSON.stringify({ error: 'User profile not found' }),
-        { status: 404, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log('Exchanging public token for access token...');
 
     // Exchange public token for access token
     const exchangeResponse = await fetch(`${PLAID_API_URL}/item/public_token/exchange`, {
@@ -88,19 +48,16 @@ serve(async (req) => {
     const exchangeData = await exchangeResponse.json();
 
     if (!exchangeResponse.ok) {
-      console.error('Plaid exchange error:', exchangeData);
-      return new Response(
-        JSON.stringify({
-          error: 'Failed to exchange token',
-          details: exchangeData,
-        }),
-        { status: exchangeResponse.status, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+      // SECURITY: Log error server-side only, don't expose details to client
+      console.error('[PLAID_ERROR] Token exchange failed');
+      return corsJsonResponse(
+        { error: 'Failed to exchange token' },
+        exchangeResponse.status,
+        origin
       );
     }
 
     const { access_token, item_id } = exchangeData;
-
-    console.log('Getting institution info...');
 
     // Get institution info
     const itemResponse = await fetch(`${PLAID_API_URL}/item/get`, {
@@ -140,8 +97,6 @@ serve(async (req) => {
       }
     }
 
-    console.log('Getting account info...');
-
     // Get accounts
     const accountsResponse = await fetch(`${PLAID_API_URL}/accounts/get`, {
       method: 'POST',
@@ -156,23 +111,20 @@ serve(async (req) => {
     const accountsData = await accountsResponse.json();
 
     if (!accountsResponse.ok) {
-      console.error('Plaid accounts error:', accountsData);
-      return new Response(
-        JSON.stringify({
-          error: 'Failed to fetch accounts',
-          details: accountsData,
-        }),
-        { status: accountsResponse.status, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+      // SECURITY: Log error server-side only
+      console.error('[PLAID_ERROR] Failed to fetch accounts');
+      return corsJsonResponse(
+        { error: 'Failed to fetch accounts' },
+        accountsResponse.status,
+        origin
       );
     }
-
-    console.log('Storing connection in database...');
 
     // Store connection in database
     const { data: connection, error: connectionError } = await supabase
       .from('plaid_connections')
       .insert({
-        chapter_id: profile.chapter_id,
+        chapter_id: user.chapter_id,
         institution_name: institutionName,
         institution_id: institutionId,
         access_token: access_token,
@@ -184,22 +136,19 @@ serve(async (req) => {
       .single();
 
     if (connectionError) {
-      console.error('Database error storing connection:', connectionError);
-      return new Response(
-        JSON.stringify({
-          error: 'Failed to store connection',
-          details: connectionError,
-        }),
-        { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+      // SECURITY: Log error server-side only
+      console.error('[DB_ERROR] Failed to store connection');
+      return corsJsonResponse(
+        { error: 'Failed to store connection' },
+        500,
+        origin
       );
     }
-
-    console.log('Storing accounts in database...');
 
     // Store accounts in database
     const accountsToInsert = accountsData.accounts.map((account: any) => ({
       connection_id: connection.id,
-      chapter_id: profile.chapter_id,
+      chapter_id: user.chapter_id,
       account_id: account.account_id,
       account_name: account.name,
       official_name: account.official_name,
@@ -218,73 +167,51 @@ serve(async (req) => {
       .insert(accountsToInsert);
 
     if (accountsError) {
-      console.error('Database error storing accounts:', accountsError);
+      // SECURITY: Log error server-side only
+      console.error('[DB_ERROR] Failed to store accounts');
       // Delete the connection if accounts fail to insert
       await supabase
         .from('plaid_connections')
         .delete()
         .eq('id', connection.id);
 
-      return new Response(
-        JSON.stringify({
-          error: 'Failed to store accounts',
-          details: accountsError,
-        }),
-        { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+      return corsJsonResponse(
+        { error: 'Failed to store accounts' },
+        500,
+        origin
       );
     }
 
-    console.log('Connection and accounts stored successfully!');
-
     // Trigger initial sync (optional - call the sync function)
+    // Note: We don't wait for this to complete to avoid timeouts
     try {
-      console.log('Triggering initial transaction sync...');
-      const syncResponse = await fetch(`${supabaseUrl}/functions/v1/plaid-sync-transactions`, {
+      await fetch(`${supabaseUrl}/functions/v1/plaid-sync-transactions`, {
         method: 'POST',
         headers: {
-          'Authorization': authHeader,
+          'Authorization': `Bearer ${req.headers.get('Authorization')?.replace('Bearer ', '')}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ connection_id: connection.id }),
       });
-
-      if (!syncResponse.ok) {
-        console.warn('Initial sync failed, but connection was created successfully');
-      }
     } catch (syncError) {
-      console.warn('Could not trigger initial sync:', syncError);
-      // Don't fail the whole request if sync fails
+      // SECURITY: Log but don't fail the request if sync fails
+      console.error('[SYNC_ERROR] Initial sync failed, connection created successfully');
     }
 
-    return new Response(
-      JSON.stringify({
+    // SECURITY: Return only necessary data to client
+    return corsJsonResponse(
+      {
         success: true,
         connection_id: connection.id,
         institution_name: institutionName,
         accounts_count: accountsData.accounts.length,
-      }),
-      {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-      }
+      },
+      200,
+      origin
     );
   } catch (error) {
-    console.error('Error exchanging token:', error);
-    return new Response(
-      JSON.stringify({
-        error: 'Internal server error',
-        message: error.message,
-      }),
-      {
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-      }
-    );
+    // SECURITY: Sanitize error for client response
+    const { error: errorMessage, statusCode } = sanitizeError(error);
+    return corsJsonResponse({ error: errorMessage }, statusCode, origin);
   }
 });
