@@ -19,6 +19,7 @@ import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 import Members from './pages/Members';
 import { PlaidSync } from './pages/PlaidSync';
+import RecurringTransactions from './pages/RecurringTransactions';
 
 function App() {
   return (
@@ -152,6 +153,7 @@ const AppRoutes = () => {
         <Route path="/" element={<MainLayout />}>
           <Route index element={<Dashboard />} />
           <Route path="transactions" element={<Transactions />} />
+          <Route path="recurring" element={<RecurringTransactions />} />
           <Route path="budgets" element={<Budgets />} />
           <Route path="reports" element={<Reports />} />
           <Route path="members" element={<Members />} />

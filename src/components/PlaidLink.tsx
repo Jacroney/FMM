@@ -1,125 +1,134 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { usePlaidLink } from 'react-plaid-link';
+import React, { useCallback, useState } from 'react';
+import { usePlaidLink, PlaidLinkOnSuccess, PlaidLinkOnExit } from 'react-plaid-link';
 import { PlaidService } from '../services/plaidService';
 import toast from 'react-hot-toast';
-import { Loader2, Building2 } from 'lucide-react';
+import { Building2, Loader2 } from 'lucide-react';
 
 interface PlaidLinkProps {
-  chapterId: string;
-  onSuccess?: (connectionId: string, institutionName: string) => void;
+  onSuccess?: () => void;
   onExit?: () => void;
+  className?: string;
+  buttonText?: string;
 }
 
-export function PlaidLink({ chapterId, onSuccess, onExit }: PlaidLinkProps) {
+export const PlaidLink: React.FC<PlaidLinkProps> = ({
+  onSuccess,
+  onExit,
+  className,
+  buttonText = 'Connect Bank Account',
+}) => {
   const [linkToken, setLinkToken] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Create link token on mount
-  useEffect(() => {
-    if (!chapterId) return;
-
-    const createToken = async () => {
+  // Handle successful connection
+  const handleOnSuccess: PlaidLinkOnSuccess = useCallback(
+    async (public_token, metadata) => {
       try {
-        setLoading(true);
-        const token = await PlaidService.createLinkToken(chapterId);
-        setLinkToken(token);
-      } catch (error) {
-        console.error('Error creating link token:', error);
-        toast.error('Failed to initialize Plaid Link');
-      } finally {
-        setLoading(false);
-      }
-    };
+        setIsLoading(true);
+        console.log('Plaid Link success, exchanging token...');
 
-    createToken();
-  }, [chapterId]);
+        // Exchange public token for access token
+        const result = await PlaidService.exchangePublicToken(public_token);
 
-  // Handle successful link
-  const onPlaidSuccess = useCallback(
-    async (publicToken: string, metadata: any) => {
-      try {
-        setLoading(true);
-        toast.loading('Connecting bank account...');
-
-        // Exchange token and save connection
-        const { connection_id, institution_name } = await PlaidService.exchangeToken(
-          publicToken,
-          chapterId
+        toast.success(
+          `Successfully connected ${result.institution_name} with ${result.accounts_count} account(s)!`,
+          { duration: 5000 }
         );
 
-        toast.dismiss();
-        toast.success(`${institution_name} connected successfully!`);
-
-        // Optionally auto-sync after connecting
-        toast.loading('Syncing transactions...');
-        const syncResult = await PlaidService.syncTransactions(connection_id, chapterId);
-        toast.dismiss();
-
-        if (syncResult.success) {
-          toast.success(`Synced ${syncResult.added} new transactions`);
-
-          // Auto-reconcile
-          if (syncResult.added > 0) {
-            toast.loading('Processing transactions...');
-            const reconcileResult = await PlaidService.reconcile(chapterId, 'plaid_txn_staging');
-            toast.dismiss();
-
-            if (reconcileResult?.success) {
-              toast.success(
-                `Processed ${reconcileResult.records_inserted} transactions`
-              );
-            }
-          }
+        if (onSuccess) {
+          onSuccess();
         }
-
-        onSuccess?.(connection_id, institution_name);
       } catch (error) {
-        console.error('Error in Plaid success handler:', error);
-        toast.dismiss();
-        toast.error('Failed to connect bank account');
+        console.error('Error exchanging token:', error);
+        toast.error(
+          error instanceof Error ? error.message : 'Failed to connect bank account'
+        );
       } finally {
-        setLoading(false);
+        setIsLoading(false);
       }
     },
-    [chapterId, onSuccess]
+    [onSuccess]
   );
 
-  const onPlaidExit = useCallback(
-    (error: any, metadata: any) => {
+  // Handle exit from Plaid Link
+  const handleOnExit: PlaidLinkOnExit = useCallback(
+    (error, metadata) => {
       if (error) {
-        console.error('Plaid Link exit error:', error);
+        console.error('Plaid Link error:', error);
         toast.error('Failed to connect bank account');
       }
-      onExit?.();
+
+      if (onExit) {
+        onExit();
+      }
     },
     [onExit]
   );
 
+  // Initialize Plaid Link
   const config = {
     token: linkToken,
-    onSuccess: onPlaidSuccess,
-    onExit: onPlaidExit,
+    onSuccess: handleOnSuccess,
+    onExit: handleOnExit,
   };
 
   const { open, ready } = usePlaidLink(config);
 
+  // Create link token when button is clicked
+  const handleClick = async () => {
+    if (linkToken) {
+      // Token already exists, open Plaid Link
+      open();
+    } else {
+      // Need to create a link token first
+      try {
+        setIsLoading(true);
+        const response = await PlaidService.createLinkToken();
+        setLinkToken(response.link_token);
+
+        // After setting token, open will be ready on next render
+        // We'll open it in a useEffect or just let user click again
+        toast.success('Ready to connect! Click again to continue.');
+      } catch (error) {
+        console.error('Error creating link token:', error);
+        toast.error(
+          error instanceof Error ? error.message : 'Failed to initialize connection'
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  };
+
+  // Auto-open when ready after token is created
+  React.useEffect(() => {
+    if (linkToken && ready && !isLoading) {
+      open();
+    }
+  }, [linkToken, ready, isLoading, open]);
+
   return (
     <button
-      onClick={() => open()}
-      disabled={!ready || loading}
-      className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+      onClick={handleClick}
+      disabled={isLoading || (linkToken !== null && !ready)}
+      className={
+        className ||
+        'flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-medium px-6 py-3 rounded-lg transition-colors duration-200'
+      }
     >
-      {loading ? (
+      {isLoading ? (
         <>
           <Loader2 className="h-5 w-5 animate-spin" />
-          <span>Loading...</span>
+          <span>Connecting...</span>
         </>
       ) : (
         <>
           <Building2 className="h-5 w-5" />
-          <span>Link Bank Account</span>
+          <span>{buttonText}</span>
         </>
       )}
     </button>
   );
-}
+};
+
+export default PlaidLink;
