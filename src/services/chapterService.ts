@@ -158,4 +158,54 @@ export class ChapterService {
       };
     }
   }
+
+  // ============================================================================
+  // BRANDING METHODS
+  // ============================================================================
+
+  /**
+   * Update chapter branding (colors, logo, greek letters)
+   */
+  static async updateBranding(
+    chapterId: string,
+    branding: {
+      greek_letters?: string;
+      primary_color?: string;
+      secondary_color?: string;
+      accent_color?: string;
+      logo_url?: string;
+      symbol_url?: string;
+      theme_config?: Chapter['theme_config'];
+    }
+  ): Promise<Chapter> {
+    return this.updateChapter(chapterId, branding);
+  }
+
+  /**
+   * Get chapter branding configuration
+   */
+  static async getChapterBranding(chapterId: string): Promise<{
+    greek_letters: string | null;
+    primary_color: string | null;
+    secondary_color: string | null;
+    accent_color: string | null;
+    logo_url: string | null;
+    symbol_url: string | null;
+    theme_config: Chapter['theme_config'] | null;
+  } | null> {
+    try {
+      const { data, error } = await supabase
+        .from('chapters')
+        .select('greek_letters, primary_color, secondary_color, accent_color, logo_url, symbol_url, theme_config')
+        .eq('id', chapterId)
+        .single();
+
+      if (error) throw error;
+
+      return data;
+    } catch (error) {
+      console.error('Error fetching chapter branding:', error);
+      return null;
+    }
+  }
 }
