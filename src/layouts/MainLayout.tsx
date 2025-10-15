@@ -72,7 +72,7 @@ const MainLayout: React.FC = () => {
         />
 
         <header className="sticky top-0 z-40 border-b border-[var(--brand-border)] bg-white/80 backdrop-blur dark:bg-gray-900/80">
-          <div className="flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <div className="flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:pr-28">
             <div className="flex items-center gap-3">
               <button
                 type="button"
@@ -91,21 +91,20 @@ const MainLayout: React.FC = () => {
                 <h1 className="text-lg font-semibold sm:text-xl">{pageTitle}</h1>
               </div>
             </div>
-            <div className="flex w-full flex-col gap-3 sm:max-w-sm sm:flex-row sm:items-center sm:justify-end">
+            <div className="flex w-full flex-col gap-3 sm:max-w-sm sm:flex-row sm:items-center sm:justify-center">
               <button
                 type="button"
                 onClick={() => setPaletteOpen(true)}
                 className="focus-ring inline-flex items-center justify-between rounded-xl border border-[var(--brand-border)] bg-white px-4 py-2 text-sm text-slate-500 shadow-sm transition-colors hover:bg-slate-100 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-300 dark:hover:bg-gray-700"
               >
-                <span>Search or jump…</span>
-                <span className="ml-3 hidden rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-400 sm:block">⌘K</span>
+                <span className="truncate">Search…</span>
+                <span className="ml-2 hidden rounded-md border border-slate-200 px-1.5 py-0.5 text-xs text-slate-400 sm:block">⌘K</span>
               </button>
-              <div className="w-full sm:w-auto">
-                <ChapterSelector />
-              </div>
+              <ChapterSelector />
             </div>
           </div>
         </header>
+
 
         <main className="px-4 py-6 sm:px-6 lg:px-8">
           <Outlet />

@@ -29,14 +29,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed = false }) => {
 
   return (
     <div
-      className={`fixed left-0 top-0 z-50 flex h-screen flex-col border-r border-gray-200 bg-gray-900 text-white shadow-xl transition-all duration-300 dark:border-gray-800 ${
+      className={`fixed left-0 top-0 z-50 flex h-screen flex-col border-r border-gray-200 bg-white text-gray-900 shadow-xl transition-all duration-300 dark:border-gray-800 dark:bg-gray-900 dark:text-white ${
         collapsed ? 'w-20' : 'w-64'
       }`}
     >
       <div className="flex h-full flex-col px-4 py-6">
         <div className={`flex items-center ${collapsed ? 'justify-center' : ''} mb-8`}> 
           <div className={`flex items-center ${collapsed ? 'justify-center' : ''}`}>
-            <div className="mr-0 flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/20 text-blue-300">
+            <div className="mr-0 flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/20 text-blue-600 dark:text-blue-300">
               <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
@@ -55,13 +55,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed = false }) => {
               className={`group flex items-center rounded-xl px-3 py-3 text-sm transition-all duration-200 ${
                 location.pathname === item.path
                   ? 'bg-blue-500/80 text-white shadow-md'
-                  : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white'
               } ${collapsed ? 'justify-center' : ''}`}
               title={collapsed ? item.title : undefined}
             >
               <div
                 className={`flex h-6 w-6 items-center justify-center ${
-                  location.pathname === item.path ? 'text-white' : 'text-gray-400 group-hover:text-white'
+                  location.pathname === item.path ? 'text-white' : 'text-gray-500 group-hover:text-gray-700 dark:text-gray-400 dark:group-hover:text-white'
                 } transition-colors duration-200`}
               >
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -76,10 +76,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed = false }) => {
         </nav>
         
         {/* Theme Toggle */}
-        <div className="mt-6 border-t border-gray-800 pt-4">
+        <div className="mt-6 border-t border-gray-300 dark:border-gray-800 pt-4">
           <button
             onClick={toggleTheme}
-            className={`flex w-full items-center justify-center rounded-lg border border-gray-800 bg-gray-900 px-3 py-2 text-sm transition-colors hover:bg-gray-800 ${collapsed ? 'px-2' : ''}`}
+            className={`flex w-full items-center justify-center rounded-lg border border-gray-300 bg-gray-100 px-3 py-2 text-sm transition-colors hover:bg-gray-200 dark:border-gray-800 dark:bg-gray-900 dark:hover:bg-gray-800 ${collapsed ? 'px-2' : ''}`}
             title="Toggle theme"
           >
             <span className="text-lg" aria-hidden="true">

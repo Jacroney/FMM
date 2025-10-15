@@ -255,9 +255,9 @@ const DuesManagementSection: React.FC<DuesManagementSectionProps> = ({ chapterId
           <button
             onClick={handleExport}
             disabled={memberDues.length === 0}
-            className="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Download className="w-3.5 h-3.5" />
+            <Download className="w-4 h-4" />
             Export
           </button>
         </div>

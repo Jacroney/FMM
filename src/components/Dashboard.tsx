@@ -100,7 +100,7 @@ export const Dashboard: React.FC = () => {
         >
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-              Bank Balance
+              Bank<br />Balance
             </h2>
             <div className="w-10 h-10 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

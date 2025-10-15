@@ -20,7 +20,7 @@ const AuthProtection = ({ children }) => {
   if (isAuthenticated) {
     return (
       <div>
-        <div className="fixed top-4 right-4 z-50 flex items-center">
+          <div className="fixed top-4 right-4 z-50 flex items-center">
           <button
             onClick={signOut}
             className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 transition-colors"
