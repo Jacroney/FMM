@@ -1,0 +1,8 @@
+# Test output
+coverage/
+*.log
+test-results/
+
+# Test credentials (if any)
+test-credentials.json
+.env.test.local

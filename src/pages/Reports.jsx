@@ -174,9 +174,9 @@ const Reports = () => {
       const imgX = (pdfWidth - canvas.width * ratio) / 2;
       const imgY = 24;
 
-      pdf.setFontSize(18);
-      pdf.text('Greek Pay Financial Report', pdfWidth / 2, 18, { align: 'center' });
-      pdf.addImage(imgData, 'PNG', imgX, imgY, canvas.width * ratio, canvas.height * ratio);
+      pdf.setFontSize(20);
+      pdf.text('Greek Pay Financial Report', pdfWidth / 2, 20, { align: 'center' });
+      pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
       pdf.save(`financial-report-${dateRange}-${Date.now()}.pdf`);
       toast.success('Report exported as PDF');
     } catch (error) {

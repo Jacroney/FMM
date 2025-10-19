@@ -7,6 +7,7 @@ import { PlaidService } from '../services/plaidService';
 import { RecurringTransaction } from '../services/types';
 import CashFlowForecastCard from './CashFlowForecastCard';
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import InsightsCard from './InsightsCard';
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('en-US', {
@@ -82,21 +83,24 @@ export const Dashboard: React.FC = () => {
   }, [transactions]);
 
   return (
-    <div className="space-y-8 p-4 sm:p-6 lg:p-8">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white">Financial Overview</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">Monitor your chapter's financial health</p>
-        </div>
-        <div className="text-sm text-gray-500 dark:text-gray-400">
-          Last updated: {new Date().toLocaleDateString()}
-        </div>
+    <div className="space-y-6 p-4 sm:p-6 lg:p-8">
+      <div>
+        <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white">Financial Overview</h1>
+        <p className="text-gray-500 dark:text-gray-400 mt-1">Monitor your chapter's financial health</p>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         {/* Bank Balance Card */}
         <div
           onClick={() => navigate('/plaid-sync')}
-          className="group bg-white dark:bg-gray-800 rounded-xl shadow-sm transition-all duration-300 p-6 border border-gray-200 dark:border-gray-700 hover:border-blue-200/60 dark:hover:border-blue-600/60 cursor-pointer"
+          className="group bg-white dark:bg-gray-800 rounded-xl shadow-sm transition-all duration-300 p-6 border border-gray-200 dark:border-gray-700 hover:border-blue-200/60 dark:hover:border-blue-600/60 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+          tabIndex={0}
+          role="button"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              navigate('/plaid-sync');
+            }
+          }}
         >
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">
@@ -196,7 +200,15 @@ export const Dashboard: React.FC = () => {
         {/* Next Recurring Card */}
         <div
           onClick={() => navigate('/recurring')}
-          className="group bg-white dark:bg-gray-800 rounded-xl shadow-sm transition-all duration-300 p-6 border border-gray-200 dark:border-gray-700 hover:border-purple-200/60 dark:hover:border-purple-600/60 cursor-pointer"
+          className="group bg-white dark:bg-gray-800 rounded-xl shadow-sm transition-all duration-300 p-6 border border-gray-200 dark:border-gray-700 hover:border-purple-200/60 dark:hover:border-purple-600/60 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2"
+          tabIndex={0}
+          role="button"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              navigate('/recurring');
+            }
+          }}
         >
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">Next Recurring</h2>
@@ -382,6 +394,9 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* AI Insights */}
+      <InsightsCard />
     </div>
   );
 }; 

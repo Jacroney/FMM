@@ -1,4 +1,4 @@
-# 📚 FMM Treasury App - Complete Codebase Map
+# 📚 Greek Pay App - Complete Codebase Map
 
 > **Last Updated:** October 2, 2025
 > **Version:** 1.0 with Plaid Integration
@@ -492,4 +492,4 @@ SELECT * FROM ingestion_audit ORDER BY started_at DESC LIMIT 10;
 
 **Version:** 1.0.0
 **Last Updated:** October 2, 2025
-**Maintained by:** FMM Treasury Team
+**Maintained by:** Greek Pay Team

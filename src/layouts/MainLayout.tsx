@@ -4,14 +4,14 @@ import { Bars3Icon, ChevronDoubleLeftIcon, ChevronDoubleRightIcon } from '@heroi
 import { Sidebar } from '../components/Sidebar';
 import { ChapterSelector } from '../components/ChapterSelector';
 import CommandPalette from '../components/CommandPalette';
+import { FloatingAIChat } from '../components/FloatingAIChat';
 
 const PAGE_TITLES: Record<string, string> = {
   '/': 'Greek Pay Dashboard',
   '/transactions': 'Transactions',
   '/budgets': 'Budgets',
+  '/dues': 'Dues Management',
   '/reports': 'Reports',
-  '/members': 'Members',
-  '/plaid-sync': 'Bank Sync',
   '/settings': 'Settings'
 };
 
@@ -110,6 +110,7 @@ const MainLayout: React.FC = () => {
           <Outlet />
         </main>
       </div>
+      <FloatingAIChat />
     </div>
   );
 };

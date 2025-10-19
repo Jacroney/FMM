@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { SupabaseConnectionTest } from '../components/SupabaseConnectionTest';
+import { PlaidSync } from './PlaidSync';
+import { ChapterBrandingConfig } from '../components/ChapterBrandingConfig';
 import { useAuth } from '../context/AuthContext';
 import { UserCircleIcon, EnvelopeIcon, PhoneIcon, AcademicCapIcon, BriefcaseIcon } from '@heroicons/react/24/outline';
 
@@ -291,8 +293,14 @@ const Settings = () => {
           </div>
         );
 
+      case 'branding':
+        return <ChapterBrandingConfig />;
+
       case 'database':
         return <SupabaseConnectionTest />;
+
+      case 'bank-sync':
+        return <PlaidSync />;
 
       default:
         return null;
@@ -306,7 +314,7 @@ const Settings = () => {
           <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Settings</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage your account and preferences</p>
         </div>
-        {activeTab !== 'profile' && activeTab !== 'database' && (
+        {activeTab !== 'profile' && activeTab !== 'database' && activeTab !== 'bank-sync' && activeTab !== 'branding' && (
           <button
             onClick={handleSave}
             disabled={isSaving}
@@ -350,8 +358,10 @@ const Settings = () => {
             {[
               { key: 'profile', label: 'Profile' },
               { key: 'organization', label: 'Organization' },
+              { key: 'branding', label: 'Branding' },
               { key: 'notifications', label: 'Notifications' },
               { key: 'security', label: 'Security' },
+              { key: 'bank-sync', label: 'Bank Sync' },
               { key: 'database', label: 'Database' }
             ].map((tab) => (
               <option key={tab.key} value={tab.key}>
@@ -366,8 +376,10 @@ const Settings = () => {
           {[
             { key: 'profile', label: 'Profile', icon: '👤' },
             { key: 'organization', label: 'Organization', icon: '🏢' },
+            { key: 'branding', label: 'Branding', icon: '🎨' },
             { key: 'notifications', label: 'Notifications', icon: '🔔' },
             { key: 'security', label: 'Security', icon: '🔐' },
+            { key: 'bank-sync', label: 'Bank Sync', icon: '🏦' },
             { key: 'database', label: 'Database', icon: '🗄️' }
           ].map((tab) => (
             <button

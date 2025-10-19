@@ -2,7 +2,7 @@
 
 ## ✅ Implementation Complete
 
-This document summarizes the complete implementation of the recurring transactions and cash flow forecasting system for the KSig Treasurer app.
+This document summarizes the complete implementation of the recurring transactions and cash flow forecasting system for Greek Pay.
 
 ---
 

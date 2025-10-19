@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { handleCorsPreflightRequest, corsJsonResponse } from '../_shared/cors.ts';
+import { createSupabaseClient, authenticateUser, sanitizeError, requireAdminOrExec } from '../_shared/auth.ts';
 
 const PLAID_CLIENT_ID = Deno.env.get('PLAID_CLIENT_ID');
 const PLAID_SECRET = Deno.env.get('PLAID_SECRET');
@@ -12,58 +13,22 @@ const PLAID_API_URL = PLAID_ENV === 'production'
   : 'https://sandbox.plaid.com';
 
 serve(async (req) => {
-  // Handle CORS
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST',
-        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-      },
-    });
-  }
+  const origin = req.headers.get('origin');
+
+  // SECURITY: Handle CORS preflight
+  const corsResponse = handleCorsPreflightRequest(req);
+  if (corsResponse) return corsResponse;
 
   try {
-    // Get authorization header
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Missing authorization header' }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
+    // SECURITY: Authenticate user and get profile with role
+    const supabase = createSupabaseClient();
+    const user = await authenticateUser(req, supabase);
 
-    // Create Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Get user from token
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid authorization token' }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Get user's chapter from user_profiles
-    const { data: profile, error: profileError } = await supabase
-      .from('user_profiles')
-      .select('chapter_id, name')
-      .eq('id', user.id)
-      .single();
-
-    if (profileError || !profile) {
-      return new Response(
-        JSON.stringify({ error: 'User profile not found' }),
-        { status: 404, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
+    // SECURITY: Only admins and exec can create Plaid connections
+    requireAdminOrExec(user);
 
     // Create Plaid link token
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const response = await fetch(`${PLAID_API_URL}/link/token/create`, {
       method: 'POST',
       headers: {
@@ -72,9 +37,9 @@ serve(async (req) => {
         'PLAID-SECRET': PLAID_SECRET!,
       },
       body: JSON.stringify({
-        client_name: 'FMM Treasurer',
+        client_name: 'Greek Pay',
         user: {
-          client_user_id: profile.chapter_id,
+          client_user_id: user.chapter_id,
         },
         products: ['transactions'],
         country_codes: ['US'],
@@ -91,49 +56,27 @@ serve(async (req) => {
     const data = await response.json();
 
     if (!response.ok) {
-      console.error('Plaid API error:', data);
-      return new Response(
-        JSON.stringify({
-          error: 'Failed to create link token',
-          details: data,
-        }),
-        {
-          status: response.status,
-          headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-          }
-        }
+      // SECURITY: Log error details server-side only
+      console.error('[PLAID_ERROR] Failed to create link token');
+      return corsJsonResponse(
+        { error: 'Failed to create link token' },
+        response.status,
+        origin
       );
     }
 
-    return new Response(
-      JSON.stringify({
+    // SECURITY: Return only necessary data to client
+    return corsJsonResponse(
+      {
         link_token: data.link_token,
         expiration: data.expiration,
-      }),
-      {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-      }
+      },
+      200,
+      origin
     );
   } catch (error) {
-    console.error('Error creating link token:', error);
-    return new Response(
-      JSON.stringify({
-        error: 'Internal server error',
-        message: error.message,
-      }),
-      {
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-      }
-    );
+    // SECURITY: Sanitize error for client response
+    const { error: errorMessage, statusCode } = sanitizeError(error);
+    return corsJsonResponse({ error: errorMessage }, statusCode, origin);
   }
 });

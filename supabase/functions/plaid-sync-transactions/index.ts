@@ -1,5 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { handleCorsPreflightRequest, corsJsonResponse } from '../_shared/cors.ts';
+import { createSupabaseClient, authenticateUser, sanitizeError, requireAdminOrExec } from '../_shared/auth.ts';
+import { validateUuid } from '../_shared/validation.ts';
 
 const PLAID_CLIENT_ID = Deno.env.get('PLAID_CLIENT_ID');
 const PLAID_SECRET = Deno.env.get('PLAID_SECRET');
@@ -48,14 +50,16 @@ async function autoCategorizeTransaction(
           }
         }
       } catch (regexError) {
-        console.warn('Invalid regex pattern:', rule.merchant_pattern);
+        // SECURITY: Log pattern errors server-side only
+        console.error('[CATEGORIZATION] Invalid regex pattern');
         continue;
       }
     }
 
     return null;
   } catch (error) {
-    console.error('Error in auto-categorization:', error);
+    // SECURITY: Log categorization errors server-side only
+    console.error('[CATEGORIZATION] Auto-categorization failed');
     return null;
   }
 }
@@ -86,7 +90,8 @@ async function getUncategorizedCategoryId(supabase: any, chapterId: string): Pro
 
     return category.id;
   } catch (error) {
-    console.error('Error getting uncategorized category:', error);
+    // SECURITY: Log errors server-side only
+    console.error('[DB_ERROR] Failed to get uncategorized category');
     return null;
   }
 }
@@ -116,84 +121,44 @@ async function getCurrentPeriodId(supabase: any, chapterId: string): Promise<str
 
     return period.id;
   } catch (error) {
-    console.error('Error getting current period:', error);
+    // SECURITY: Log errors server-side only
+    console.error('[DB_ERROR] Failed to get current period');
     return null;
   }
 }
 
 serve(async (req) => {
-  // Handle CORS
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST',
-        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-      },
-    });
-  }
+  const origin = req.headers.get('origin');
+
+  // SECURITY: Handle CORS preflight
+  const corsResponse = handleCorsPreflightRequest(req);
+  if (corsResponse) return corsResponse;
 
   try {
-    // Get authorization header
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Missing authorization header' }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
+    // SECURITY: Authenticate user and get profile with role
+    const supabase = createSupabaseClient();
+    const user = await authenticateUser(req, supabase);
 
-    // Parse request body
-    const { connection_id } = await req.json();
-    if (!connection_id) {
-      return new Response(
-        JSON.stringify({ error: 'Missing connection_id' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
+    // SECURITY: Only admins and exec can sync transactions
+    requireAdminOrExec(user);
 
-    // Create Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    // SECURITY: Validate input
+    const body = await req.json();
+    const connection_id = validateUuid(body.connection_id, 'connection_id');
 
-    // Get user from token
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid authorization token' }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Get user's chapter
-    const { data: profile, error: profileError } = await supabase
-      .from('user_profiles')
-      .select('chapter_id')
-      .eq('id', user.id)
-      .single();
-
-    if (profileError || !profile) {
-      return new Response(
-        JSON.stringify({ error: 'User profile not found' }),
-        { status: 404, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Get connection
+    // SECURITY: Verify user has access to this connection
     const { data: connection, error: connectionError } = await supabase
       .from('plaid_connections')
       .select('*')
       .eq('id', connection_id)
-      .eq('chapter_id', profile.chapter_id)
+      .eq('chapter_id', user.chapter_id)
       .single();
 
     if (connectionError || !connection) {
-      return new Response(
-        JSON.stringify({ error: 'Connection not found' }),
-        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      return corsJsonResponse(
+        { error: 'Connection not found or access denied' },
+        404,
+        origin
       );
     }
 
@@ -202,7 +167,7 @@ serve(async (req) => {
       .from('plaid_sync_history')
       .insert({
         connection_id: connection.id,
-        chapter_id: profile.chapter_id,
+        chapter_id: user.chapter_id,
         cursor_before: connection.cursor,
         sync_status: 'running',
       })
@@ -210,10 +175,9 @@ serve(async (req) => {
       .single();
 
     if (syncRecordError) {
-      console.error('Failed to create sync record:', syncRecordError);
+      // SECURITY: Log error server-side only
+      console.error('[DB_ERROR] Failed to create sync record');
     }
-
-    console.log('Starting transaction sync for connection:', connection.id);
 
     let cursor = connection.cursor;
     let hasMore = true;
@@ -223,8 +187,8 @@ serve(async (req) => {
     let accountsUpdated = 0;
 
     // Get current period and uncategorized category for this chapter
-    const periodId = await getCurrentPeriodId(supabase, profile.chapter_id);
-    const uncategorizedCategoryId = await getUncategorizedCategoryId(supabase, profile.chapter_id);
+    const periodId = await getCurrentPeriodId(supabase, user.chapter_id);
+    const uncategorizedCategoryId = await getUncategorizedCategoryId(supabase, user.chapter_id);
 
     if (!periodId || !uncategorizedCategoryId) {
       throw new Error('Chapter must have at least one budget period and category configured');
@@ -266,7 +230,8 @@ serve(async (req) => {
       const syncData = await syncResponse.json();
 
       if (!syncResponse.ok) {
-        console.error('Plaid sync error:', syncData);
+        // SECURITY: Log error server-side only
+        console.error('[PLAID_ERROR] Transaction sync failed');
 
         // Update sync record with error
         if (syncRecord) {
@@ -274,18 +239,16 @@ serve(async (req) => {
             .from('plaid_sync_history')
             .update({
               sync_status: 'failed',
-              error_message: JSON.stringify(syncData),
+              error_message: 'Plaid API error',
               completed_at: new Date().toISOString(),
             })
             .eq('id', syncRecord.id);
         }
 
-        return new Response(
-          JSON.stringify({
-            error: 'Failed to sync transactions',
-            details: syncData,
-          }),
-          { status: syncResponse.status, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+        return corsJsonResponse(
+          { error: 'Failed to sync transactions' },
+          syncResponse.status,
+          origin
         );
       }
 
@@ -293,7 +256,7 @@ serve(async (req) => {
       for (const transaction of syncData.added || []) {
         try {
           const merchantName = transaction.merchant_name || transaction.name || 'Unknown';
-          let categoryId = await autoCategorizeTransaction(supabase, merchantName, profile.chapter_id);
+          let categoryId = await autoCategorizeTransaction(supabase, merchantName, user.chapter_id);
 
           if (!categoryId) {
             categoryId = uncategorizedCategoryId;
@@ -304,7 +267,7 @@ serve(async (req) => {
           const { error: insertError } = await supabase
             .from('expenses')
             .insert({
-              chapter_id: profile.chapter_id,
+              chapter_id: user.chapter_id,
               category_id: categoryId,
               period_id: periodId,
               amount: Math.abs(transaction.amount), // Plaid returns negative for debits
@@ -320,12 +283,14 @@ serve(async (req) => {
             });
 
           if (insertError) {
-            console.error('Error inserting transaction:', insertError);
+            // SECURITY: Log error server-side only
+            console.error('[DB_ERROR] Failed to insert transaction');
           } else {
             totalAdded++;
           }
         } catch (txError) {
-          console.error('Error processing added transaction:', txError);
+          // SECURITY: Log error server-side only
+          console.error('[TRANSACTION_ERROR] Failed to process added transaction');
         }
       }
 
@@ -346,7 +311,8 @@ serve(async (req) => {
             totalModified++;
           }
         } catch (txError) {
-          console.error('Error processing modified transaction:', txError);
+          // SECURITY: Log error server-side only
+          console.error('[TRANSACTION_ERROR] Failed to process modified transaction');
         }
       }
 
@@ -365,15 +331,14 @@ serve(async (req) => {
             totalRemoved++;
           }
         } catch (txError) {
-          console.error('Error processing removed transaction:', txError);
+          // SECURITY: Log error server-side only
+          console.error('[TRANSACTION_ERROR] Failed to process removed transaction');
         }
       }
 
       // Update cursor
       cursor = syncData.next_cursor;
       hasMore = syncData.has_more;
-
-      console.log(`Batch complete. Added: ${syncData.added?.length || 0}, Modified: ${syncData.modified?.length || 0}, Removed: ${syncData.removed?.length || 0}`);
     }
 
     // Update account balances
@@ -436,38 +401,21 @@ serve(async (req) => {
         .eq('id', syncRecord.id);
     }
 
-    console.log('Sync complete!');
-
-    return new Response(
-      JSON.stringify({
+    // SECURITY: Return only necessary data to client
+    return corsJsonResponse(
+      {
         success: true,
         transactions_added: totalAdded,
         transactions_modified: totalModified,
         transactions_removed: totalRemoved,
         accounts_updated: accountsUpdated,
-      }),
-      {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-      }
+      },
+      200,
+      origin
     );
   } catch (error) {
-    console.error('Error syncing transactions:', error);
-    return new Response(
-      JSON.stringify({
-        error: 'Internal server error',
-        message: error.message,
-      }),
-      {
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-      }
-    );
+    // SECURITY: Sanitize error for client response
+    const { error: errorMessage, statusCode } = sanitizeError(error);
+    return corsJsonResponse({ error: errorMessage }, statusCode, origin);
   }
 });

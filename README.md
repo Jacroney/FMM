@@ -1,8 +1,8 @@
-# FMM Treasury – Fraternity Financial Management
+# Greek Pay – Fraternity Financial Management
 
 > **Modern financial management platform for fraternity chapters with automatic bank transaction syncing**
 
-FMM Treasury is a comprehensive web-based financial management system designed specifically for fraternity treasurers. Built with React, Supabase, and Plaid integration, it provides powerful tools for budgeting, transaction tracking, and financial reporting.
+Greek Pay is a comprehensive web-based financial management system designed specifically for fraternity treasurers. Built with React, Supabase, and Plaid integration, it provides powerful tools for budgeting, transaction tracking, and financial reporting.
 
 ## ✨ Key Features
 
@@ -301,7 +301,7 @@ This project is private to Jacroney and collaborators.
 
 **Version:** 1.0.0 with Plaid Integration
 **Last Updated:** October 2, 2025
-**Maintained by:** FMM Treasury Team
+**Maintained by:** Greek Pay Team
 
 ---
 
