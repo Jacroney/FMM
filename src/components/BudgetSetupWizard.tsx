@@ -48,6 +48,27 @@ const RECOMMENDED_CATEGORIES: RecommendedCategory[] = [
     suggestedAmount: 1200,
     required: false
   },
+  {
+    name: 'Cleaning Services',
+    type: 'Fixed Costs',
+    description: 'Regular house cleaning and janitorial services',
+    suggestedAmount: 600,
+    required: false
+  },
+  {
+    name: 'Security System',
+    type: 'Fixed Costs',
+    description: 'Alarm monitoring, cameras, and security equipment',
+    suggestedAmount: 300,
+    required: false
+  },
+  {
+    name: 'Legal & Compliance',
+    type: 'Fixed Costs',
+    description: 'Legal fees, chapter incorporation, compliance costs',
+    suggestedAmount: 400,
+    required: false
+  },
 
   // Operational Costs
   {
@@ -85,6 +106,62 @@ const RECOMMENDED_CATEGORIES: RecommendedCategory[] = [
     suggestedAmount: 200,
     required: false
   },
+  {
+    name: 'Food & Dining',
+    type: 'Operational Costs',
+    description: 'Chef, groceries, catering for chapter meetings',
+    suggestedAmount: 1500,
+    required: false
+  },
+  {
+    name: 'Apparel & Merchandise',
+    type: 'Operational Costs',
+    description: 'T-shirts, letters, promotional items',
+    suggestedAmount: 700,
+    required: false
+  },
+  {
+    name: 'Technology & Software',
+    type: 'Operational Costs',
+    description: 'Website hosting, management software, subscriptions',
+    suggestedAmount: 300,
+    required: false
+  },
+  {
+    name: 'Kitchen Equipment',
+    type: 'Operational Costs',
+    description: 'Appliances, cookware, dishes',
+    suggestedAmount: 400,
+    required: false
+  },
+  {
+    name: 'Furniture & Decorations',
+    type: 'Operational Costs',
+    description: 'House furnishings, decor, composite photos',
+    suggestedAmount: 600,
+    required: false
+  },
+  {
+    name: 'New Member Education',
+    type: 'Operational Costs',
+    description: 'Pledging materials, initiation supplies',
+    suggestedAmount: 500,
+    required: false
+  },
+  {
+    name: 'Awards & Recognition',
+    type: 'Operational Costs',
+    description: 'Scholarships, trophies, member awards',
+    suggestedAmount: 400,
+    required: false
+  },
+  {
+    name: 'Transportation',
+    type: 'Operational Costs',
+    description: 'Van rental, parking permits, gas',
+    suggestedAmount: 300,
+    required: false
+  },
 
   // Event Costs
   {
@@ -113,6 +190,20 @@ const RECOMMENDED_CATEGORIES: RecommendedCategory[] = [
     type: 'Event Costs',
     description: 'Alumni reunions and gatherings',
     suggestedAmount: 800,
+    required: false
+  },
+  {
+    name: 'Intramurals & Sports',
+    type: 'Event Costs',
+    description: 'Team registrations, equipment, jerseys',
+    suggestedAmount: 600,
+    required: false
+  },
+  {
+    name: 'Conferences & Conventions',
+    type: 'Event Costs',
+    description: 'Leadership conferences, regional events',
+    suggestedAmount: 1000,
     required: false
   }
 ];
@@ -205,8 +296,8 @@ const BudgetSetupWizard: React.FC<BudgetSetupWizardProps> = ({ chapterId, onComp
   const renderWelcome = () => (
     <div className="text-center py-12">
       <div className="mb-6">
-        <div className="w-20 h-20 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center mx-auto mb-4">
-          <DollarSign className="w-10 h-10 text-blue-600 dark:text-blue-400" />
+        <div className="w-20 h-20 bg-primary-100 dark:bg-primary-900 rounded-full flex items-center justify-center mx-auto mb-4">
+          <DollarSign className="w-10 h-10 text-primary dark:text-primary-400" />
         </div>
         <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
           Welcome to Budget Setup
@@ -217,14 +308,14 @@ const BudgetSetupWizard: React.FC<BudgetSetupWizardProps> = ({ chapterId, onComp
         </p>
       </div>
 
-      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6 max-w-2xl mx-auto mb-8">
+      <div className="bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-lg p-6 max-w-2xl mx-auto mb-8">
         <div className="flex items-start gap-3 text-left">
-          <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+          <Info className="w-5 h-5 text-primary dark:text-primary-400 flex-shrink-0 mt-0.5" />
           <div>
-            <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-1">
+            <h3 className="font-semibold text-primary-900 dark:text-primary-100 mb-1">
               What we'll set up:
             </h3>
-            <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
+            <ul className="text-sm text-primary-800 dark:text-primary-200 space-y-1">
               <li>• Budget categories tailored for fraternity chapters</li>
               <li>• A budget period (semester, quarter, or year)</li>
               <li>• Recommended budget allocations you can customize</li>
@@ -235,7 +326,7 @@ const BudgetSetupWizard: React.FC<BudgetSetupWizardProps> = ({ chapterId, onComp
 
       <button
         onClick={() => setStep('categories')}
-        className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 mx-auto"
+        className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 flex items-center gap-2 mx-auto"
       >
         Get Started
         <ArrowRight className="w-4 h-4" />
@@ -278,14 +369,14 @@ const BudgetSetupWizard: React.FC<BudgetSetupWizardProps> = ({ chapterId, onComp
                       onClick={() => !isRequired && toggleCategory(category.name)}
                       className={`p-4 rounded-lg border-2 transition-all cursor-pointer ${
                         isSelected
-                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                          ? 'border-primary bg-primary-50 dark:bg-primary-900/20'
                           : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                       } ${isRequired ? 'opacity-75 cursor-not-allowed' : ''}`}
                     >
                       <div className="flex items-start gap-3">
                         <div className={`flex-shrink-0 mt-0.5 w-5 h-5 rounded flex items-center justify-center ${
                           isSelected
-                            ? 'bg-blue-600 text-white'
+                            ? 'bg-primary text-white'
                             : 'border-2 border-gray-300 dark:border-gray-600'
                         }`}>
                           {isSelected && <Check className="w-3 h-3" />}
@@ -304,7 +395,7 @@ const BudgetSetupWizard: React.FC<BudgetSetupWizardProps> = ({ chapterId, onComp
                           <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                             {category.description}
                           </p>
-                          <p className="text-sm text-blue-600 dark:text-blue-400 mt-1">
+                          <p className="text-sm text-primary dark:text-primary-400 mt-1">
                             Suggested: ${category.suggestedAmount.toLocaleString()}
                           </p>
                         </div>
@@ -328,7 +419,7 @@ const BudgetSetupWizard: React.FC<BudgetSetupWizardProps> = ({ chapterId, onComp
           <button
             onClick={() => setStep('period')}
             disabled={selectedCategories.size === 0}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Next: Budget Period
             <ArrowRight className="w-4 h-4" />
@@ -422,7 +513,7 @@ const BudgetSetupWizard: React.FC<BudgetSetupWizardProps> = ({ chapterId, onComp
         <button
           onClick={() => setStep('amounts')}
           disabled={!periodName.trim() || !startDate || !endDate}
-          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Next: Set Amounts
           <ArrowRight className="w-4 h-4" />
@@ -509,7 +600,7 @@ const BudgetSetupWizard: React.FC<BudgetSetupWizardProps> = ({ chapterId, onComp
           </button>
           <button
             onClick={() => setStep('review')}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+            className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 flex items-center gap-2"
           >
             Review & Finish
             <ArrowRight className="w-4 h-4" />
@@ -673,7 +764,7 @@ const BudgetSetupWizard: React.FC<BudgetSetupWizardProps> = ({ chapterId, onComp
                       <div
                         className={`w-8 h-8 rounded-full flex items-center justify-center ${
                           step === s
-                            ? 'bg-blue-600 text-white'
+                            ? 'bg-primary text-white'
                             : ['categories', 'period', 'amounts', 'review'].indexOf(step) >
                               ['categories', 'period', 'amounts', 'review'].indexOf(s as Step)
                             ? 'bg-green-500 text-white'

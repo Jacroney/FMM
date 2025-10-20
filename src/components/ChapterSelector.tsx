@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useChapter } from '../context/ChapterContext';
 import { ChapterService } from '../services/chapterService';
-import { Chapter } from '../services/types';
+import { FraternityService } from '../services/fraternityService';
+import { Chapter, Fraternity } from '../services/types';
 import {
   CheckIcon,
   ChevronUpDownIcon,
@@ -15,12 +16,33 @@ export const ChapterSelector: React.FC = () => {
   const { chapters, currentChapter, setCurrentChapter, refreshChapters } = useChapter();
   const [isOpen, setIsOpen] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [fraternities, setFraternities] = useState<Fraternity[]>([]);
+  const [loadingFraternities, setLoadingFraternities] = useState(true);
   const [newChapter, setNewChapter] = useState({
     name: '',
     school: '',
     member_count: 0,
-    fraternity_name: 'Kappa Sigma'
+    fraternity_id: ''
   });
+
+  // Fetch fraternities on component mount
+  useEffect(() => {
+    const fetchFraternities = async () => {
+      try {
+        const data = await FraternityService.getAllFraternities();
+        setFraternities(data);
+        // Set default fraternity to first one if available
+        if (data.length > 0) {
+          setNewChapter(prev => ({ ...prev, fraternity_id: data[0].id }));
+        }
+      } catch (error) {
+        console.error('Failed to fetch fraternities:', error);
+      } finally {
+        setLoadingFraternities(false);
+      }
+    };
+    fetchFraternities();
+  }, []);
 
   const handleCreateChapter = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,7 +55,7 @@ export const ChapterSelector: React.FC = () => {
         name: '',
         school: '',
         member_count: 0,
-        fraternity_name: 'Kappa Sigma'
+        fraternity_id: fraternities.length > 0 ? fraternities[0].id : ''
       });
     } catch (error) {
       console.error('Failed to create chapter:', error);
@@ -88,16 +110,23 @@ export const ChapterSelector: React.FC = () => {
               Fraternity
             </label>
             <select
-              value={newChapter.fraternity_name}
-              onChange={(e) => setNewChapter({ ...newChapter, fraternity_name: e.target.value })}
+              value={newChapter.fraternity_id}
+              onChange={(e) => setNewChapter({ ...newChapter, fraternity_id: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              disabled={loadingFraternities}
+              required
             >
-              <option value="Kappa Sigma">Kappa Sigma</option>
-              <option value="Sigma Alpha Epsilon">Sigma Alpha Epsilon</option>
-              <option value="Phi Delta Theta">Phi Delta Theta</option>
-              <option value="Beta Theta Pi">Beta Theta Pi</option>
-              <option value="Sigma Chi">Sigma Chi</option>
-              <option value="Other">Other</option>
+              {loadingFraternities ? (
+                <option value="">Loading fraternities...</option>
+              ) : fraternities.length === 0 ? (
+                <option value="">No fraternities available</option>
+              ) : (
+                fraternities.map((fraternity) => (
+                  <option key={fraternity.id} value={fraternity.id}>
+                    {fraternity.name} {fraternity.greek_letters ? `(${fraternity.greek_letters})` : ''}
+                  </option>
+                ))
+              )}
             </select>
           </div>
           <div className="flex space-x-3">

@@ -131,21 +131,38 @@ export interface SwitchTransaction {
   status: string;
 }
 
-export interface Chapter {
+export interface Fraternity {
   id: string;
   name: string;
-  school: string;
-  member_count: number;
-  fraternity_name: string;
+  greek_letters: string | null;
 
-  // Branding customization
-  greek_letters?: string;
+  // Official fraternity colors
+  primary_color: string;
+  secondary_color: string;
+  accent_color: string;
+
+  // Logo
+  logo_url: string | null;
+
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface Chapter {
+  id: string;
+  name: string; // e.g., "Cal Poly - Sigma Chi", "Nu-Alpha"
+  school: string; // e.g., "California Polytechnic State University"
+  member_count: number;
+  fraternity_id: string | null; // Link to fraternities table
+
+  // Optional: Chapter-specific color overrides (inherits from fraternity if not set)
   primary_color?: string;
   secondary_color?: string;
   accent_color?: string;
-  logo_url?: string;
-  symbol_url?: string;
   theme_config?: ChapterThemeConfig;
+
+  // Fraternity relationship (populated via JOIN for colors, logo, greek letters)
+  fraternity?: Fraternity;
 
   created_at?: string;
   updated_at?: string;

@@ -2,17 +2,27 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useChapter } from '../../context/ChapterContext';
 import { SignUpData } from '../../services/authService';
+import { supabase } from '../../services/supabaseClient';
+import { useSearchParams } from 'react-router-dom';
 
 interface SignupFormProps {
   onSwitchToLogin: () => void;
 }
 
+interface InvitationData {
+  email: string;
+  chapter_id: string;
+  role: 'admin' | 'exec' | 'member';
+}
+
 export const SignupForm: React.FC<SignupFormProps> = ({ onSwitchToLogin }) => {
   const { signUp, isLoading } = useAuth();
-  const { chapters } = useChapter();
+  const { chapters, loading: chaptersLoading, refreshChapters } = useChapter();
+  const [searchParams] = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
-  const [accessCode, setAccessCode] = useState('');
-  const [accessCodeError, setAccessCodeError] = useState('');
+  const [invitation, setInvitation] = useState<InvitationData | null>(null);
+  const [invitationError, setInvitationError] = useState('');
+  const [validatingInvitation, setValidatingInvitation] = useState(false);
   const [formData, setFormData] = useState<SignUpData>({
     email: '',
     password: '',
@@ -25,99 +35,77 @@ export const SignupForm: React.FC<SignupFormProps> = ({ onSwitchToLogin }) => {
     role: 'member'
   });
 
-  // Set default chapter if only one exists
+  // Validate invitation token from URL on component mount
   useEffect(() => {
-    if (chapters.length === 1 && !formData.chapter_id) {
-      setFormData(prev => ({ ...prev, chapter_id: chapters[0].id }));
+    const token = searchParams.get('token');
+    if (token) {
+      validateInvitationToken(token);
     }
-  }, [chapters, formData.chapter_id]);
+  }, [searchParams]);
 
-  // Generate chapter code from chapter info
-  const generateChapterCode = (chapterId: string): string => {
-    const chapter = chapters.find(c => c.id === chapterId);
-    if (!chapter) return '';
-
-    // Extract fraternity abbreviation (e.g., "Alpha Beta" -> "ab")
-    const fraternityWords = chapter.fraternity_name.toLowerCase().split(' ');
-    const fraternityAbbrev = fraternityWords
-      .map(word => word.charAt(0))
-      .join('');
-
-    // Extract school abbreviation (e.g., "California Polytechnic State University - San Luis Obispo" -> "slo")
-    // Look for common patterns like city names, or use first letters
-    let schoolAbbrev = '';
-    const schoolLower = chapter.school.toLowerCase();
-
-    // Check for common city/campus abbreviations
-    if (schoolLower.includes('san luis obispo') || schoolLower.includes('slo')) {
-      schoolAbbrev = 'slo';
-    } else if (schoolLower.includes('los angeles') || schoolLower.includes('ucla')) {
-      schoolAbbrev = 'la';
-    } else if (schoolLower.includes('berkeley')) {
-      schoolAbbrev = 'berkeley';
-    } else if (schoolLower.includes('san diego')) {
-      schoolAbbrev = 'sd';
-    } else {
-      // Fallback: use first letters of first two words
-      const schoolWords = chapter.school.split(' ').filter(w => w.length > 2);
-      schoolAbbrev = schoolWords.slice(0, 2).map(w => w.charAt(0)).join('').toLowerCase();
+  // Update form when invitation is validated
+  useEffect(() => {
+    if (invitation) {
+      setFormData(prev => ({
+        ...prev,
+        email: invitation.email,
+        chapter_id: invitation.chapter_id,
+        role: invitation.role
+      }));
     }
+  }, [invitation]);
 
-    return `${fraternityAbbrev}-${schoolAbbrev}`;
-  };
+  // Validate invitation token against database
+  const validateInvitationToken = async (token: string) => {
+    if (!token) return;
 
-  // Validate access code and determine role
-  const validateAccessCode = (code: string): { valid: boolean; role: 'admin' | 'exec' | 'member' } | null => {
-    if (!formData.chapter_id) {
-      return null;
+    try {
+      setValidatingInvitation(true);
+      setInvitationError('');
+
+      const { data, error } = await supabase.rpc('validate_invitation_token', {
+        p_token: token
+      });
+
+      if (error) {
+        console.error('Invitation validation error:', error);
+        setInvitationError('Failed to validate invitation. Please contact your administrator.');
+        return;
+      }
+
+      if (data && data.length > 0) {
+        const result = data[0];
+        if (result.is_valid) {
+          setInvitation({
+            email: result.email,
+            chapter_id: result.chapter_id,
+            role: result.role as 'admin' | 'exec' | 'member'
+          });
+        } else {
+          setInvitationError(result.error_message || 'Invalid or expired invitation');
+        }
+      } else {
+        setInvitationError('Invalid or expired invitation');
+      }
+    } catch (err) {
+      console.error('Failed to validate invitation:', err);
+      setInvitationError('Failed to validate invitation. Please try again.');
+    } finally {
+      setValidatingInvitation(false);
     }
-
-    const trimmedCode = code.trim().toLowerCase();
-    const chapterCode = generateChapterCode(formData.chapter_id);
-
-    if (!chapterCode) {
-      return null;
-    }
-
-    // Check for chapter-specific codes
-    // Format: {chapter-code}-{role}
-    // Example: ab-slo-admin, ab-slo-exec, ab-slo-member
-
-    if (trimmedCode === `${chapterCode}-admin`) {
-      return { valid: true, role: 'admin' };
-    }
-
-    if (trimmedCode === `${chapterCode}-exec`) {
-      return { valid: true, role: 'exec' };
-    }
-
-    if (trimmedCode === `${chapterCode}-member` || trimmedCode === chapterCode) {
-      return { valid: true, role: 'member' };
-    }
-
-    return null;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setAccessCodeError('');
 
-    // Validate access code
-    const codeValidation = validateAccessCode(accessCode);
-    if (!codeValidation) {
-      setAccessCodeError('Invalid access code. Please contact your chapter admin for the correct code.');
+    // If no invitation, user shouldn't be able to sign up
+    if (!invitation) {
+      setInvitationError('You need an invitation to sign up. Please contact your chapter admin.');
       return;
     }
 
-    // Update formData with the role based on access code
-    const signupData = {
-      ...formData,
-      role: codeValidation.role,
-      position: codeValidation.role === 'admin' ? 'Treasurer' : formData.position
-    };
-
-    console.log('Signup form submitted with:', signupData);
-    const success = await signUp(signupData);
+    console.log('Signup form submitted with:', formData);
+    const success = await signUp(formData);
     if (success) {
       // Clear form data
       setFormData({
@@ -127,14 +115,16 @@ export const SignupForm: React.FC<SignupFormProps> = ({ onSwitchToLogin }) => {
         phone_number: '',
         year: 'Freshman',
         major: '',
-        chapter_id: formData.chapter_id, // Keep chapter selection
+        chapter_id: '',
         position: 'Member',
         role: 'member'
       });
-      setAccessCode('');
-      setAccessCodeError('');
-      // Switch to login form after successful signup
-      onSwitchToLogin();
+      setInvitation(null);
+
+      // Automatically switch to login after 3 seconds so user can read the success message
+      setTimeout(() => {
+        onSwitchToLogin();
+      }, 3000);
     } else {
       console.error('Signup failed - check console for details');
     }
@@ -161,6 +151,57 @@ export const SignupForm: React.FC<SignupFormProps> = ({ onSwitchToLogin }) => {
     'Athletics Chair'
   ];
 
+  // Show loading state while validating invitation
+  if (validatingInvitation) {
+    return (
+      <div className="w-full max-w-md">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-300">Validating your invitation...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error if invitation validation failed
+  if (invitationError) {
+    return (
+      <div className="w-full max-w-md">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-6 text-center">
+          <div className="text-red-500 text-5xl mb-4">⚠️</div>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Invalid Invitation</h2>
+          <p className="text-red-600 dark:text-red-400 mb-4">{invitationError}</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Please contact your chapter administrator for a new invitation link.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show message if no invitation token provided
+  if (!invitation && !searchParams.get('token')) {
+    return (
+      <div className="w-full max-w-md">
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6 text-center">
+          <div className="text-blue-500 text-5xl mb-4">✉️</div>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Invitation Required</h2>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">
+            You need an invitation to create an account. Please check your email for an invitation link from your chapter administrator.
+          </p>
+          <button
+            onClick={onSwitchToLogin}
+            className="text-blue-600 hover:text-blue-500 dark:text-blue-400 font-medium"
+          >
+            Already have an account? Sign in
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const invitedChapter = chapters.find(c => c.id === invitation?.chapter_id);
+
   return (
     <div className="w-full max-w-md">
       <div className="text-center mb-8">
@@ -168,77 +209,18 @@ export const SignupForm: React.FC<SignupFormProps> = ({ onSwitchToLogin }) => {
           Join Your Chapter
         </h2>
         <p className="mt-2 text-gray-600 dark:text-gray-400">
-          Create your fraternity account
+          Create your account
         </p>
+        {invitation && invitedChapter && (
+          <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+            <p className="text-sm text-green-800 dark:text-green-300">
+              ✓ You've been invited to <strong>{invitedChapter.name}</strong> as <strong>{invitation.role}</strong>
+            </p>
+          </div>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Chapter Selection */}
-        <div>
-          <label htmlFor="chapter_id" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Chapter *
-          </label>
-          <select
-            id="chapter_id"
-            name="chapter_id"
-            required
-            value={formData.chapter_id}
-            onChange={handleChange}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm
-                     focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
-                     dark:bg-gray-700 dark:text-white [&>option]:dark:text-white [&>option]:dark:bg-gray-700"
-          >
-            <option value="">Select your chapter</option>
-            {chapters.map((chapter) => (
-              <option key={chapter.id} value={chapter.id}>
-                {chapter.name} - {chapter.school}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Access Code */}
-        <div>
-          <label htmlFor="access_code" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Access Code *
-          </label>
-          <input
-            id="access_code"
-            name="access_code"
-            type="text"
-            required
-            value={accessCode}
-            onChange={(e) => {
-              setAccessCode(e.target.value);
-              setAccessCodeError('');
-            }}
-            className={`w-full px-3 py-2 border rounded-lg shadow-sm placeholder-gray-400
-                     focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
-                     dark:bg-gray-700 dark:text-white dark:placeholder-gray-500 ${
-                       accessCodeError
-                         ? 'border-red-500 dark:border-red-500'
-                         : 'border-gray-300 dark:border-gray-600'
-                     }`}
-            placeholder="Enter your chapter access code"
-          />
-          {accessCodeError && (
-            <p className="mt-2 text-sm text-red-600 dark:text-red-400">{accessCodeError}</p>
-          )}
-          {formData.chapter_id && (
-            <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800">
-              <p className="text-xs text-blue-800 dark:text-blue-300">
-                📝 Your chapter code is: <code className="font-mono font-bold">{generateChapterCode(formData.chapter_id)}</code>
-              </p>
-              <p className="text-xs text-blue-700 dark:text-blue-400 mt-1">
-                Add <code className="font-mono">-admin</code>, <code className="font-mono">-exec</code>, or <code className="font-mono">-member</code> based on your role
-              </p>
-            </div>
-          )}
-          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-            💡 Contact your chapter admin to get the access code
-          </p>
-        </div>
-
         {/* Personal Information */}
         <div>
           <label htmlFor="full_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -270,11 +252,19 @@ export const SignupForm: React.FC<SignupFormProps> = ({ onSwitchToLogin }) => {
             required
             value={formData.email}
             onChange={handleChange}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm placeholder-gray-400
+            readOnly={!!invitation}
+            className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm placeholder-gray-400
                      focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
-                     dark:bg-gray-700 dark:text-white dark:placeholder-gray-500"
+                     dark:bg-gray-700 dark:text-white dark:placeholder-gray-500 ${
+                       invitation ? 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed' : ''
+                     }`}
             placeholder="john.doe@university.edu"
           />
+          {invitation && (
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              Email is set by your invitation and cannot be changed
+            </p>
+          )}
         </div>
 
         <div>
@@ -383,7 +373,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({ onSwitchToLogin }) => {
 
         <button
           type="submit"
-          disabled={isLoading || !formData.chapter_id}
+          disabled={isLoading || !invitation}
           className="w-full flex justify-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white
                    bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500
                    disabled:opacity-50 disabled:cursor-not-allowed dark:bg-blue-500 dark:hover:bg-blue-600"

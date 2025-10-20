@@ -12,7 +12,8 @@ import {
   XCircle,
   ChevronDown,
   ChevronUp,
-  Search
+  Search,
+  Receipt
 } from 'lucide-react';
 import { ExpenseDetail, BudgetCategory, BudgetPeriod } from '../services/types';
 import { ExpenseService } from '../services/expenseService';

@@ -65,6 +65,12 @@ export class AuthService {
 
       if (error) throw error;
 
+      // Profile will be automatically created by database trigger
+      // (see migration: 20250120000006_create_user_profile_trigger.sql)
+      if (data.user) {
+        console.log('User created successfully. Profile will be created by database trigger.');
+      }
+
       return { user: data.user, error: null };
     } catch (error) {
       return { user: null, error: error as Error };

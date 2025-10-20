@@ -6,7 +6,10 @@ export class ChapterService {
     try {
       const { data, error } = await supabase
         .from('chapters')
-        .select('*')
+        .select(`
+          *,
+          fraternity:fraternities(*)
+        `)
         .order('name', { ascending: true });
 
       if (error) {
@@ -24,7 +27,10 @@ export class ChapterService {
     try {
       const { data, error } = await supabase
         .from('chapters')
-        .select('*')
+        .select(`
+          *,
+          fraternity:fraternities(*)
+        `)
         .eq('id', id)
         .single();
 

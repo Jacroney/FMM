@@ -56,7 +56,7 @@ export const Dashboard: React.FC = () => {
         {/* Bank Balance Card */}
         <div
           onClick={() => navigate('/plaid-sync')}
-          className="group bg-white dark:bg-gray-800 rounded-xl shadow-sm transition-all duration-300 p-6 border border-gray-200 dark:border-gray-700 hover:border-blue-200/60 dark:hover:border-blue-600/60 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+          className="group bg-white dark:bg-gray-800 rounded-xl shadow-sm transition-all duration-300 p-6 border border-gray-200 dark:border-gray-700 hover:border-primary-200/60 dark:hover:border-primary-600/60 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           tabIndex={0}
           role="button"
           onKeyDown={(e) => {
@@ -70,7 +70,7 @@ export const Dashboard: React.FC = () => {
             <h2 className="text-sm font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">
               Bank Balance
             </h2>
-            <div className="w-10 h-10 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-lg bg-primary-100 text-primary flex items-center justify-center">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
               </svg>
@@ -78,12 +78,12 @@ export const Dashboard: React.FC = () => {
           </div>
           {loadingBankBalance ? (
             <div className="flex items-center gap-2">
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600"></div>
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
               <span className="text-sm text-gray-500 dark:text-gray-400">Loading...</span>
             </div>
           ) : (
             <>
-              <p className="text-3xl lg:text-4xl font-bold text-indigo-600 dark:text-indigo-400">
+              <p className="text-3xl lg:text-4xl font-bold text-primary dark:text-primary-400">
                 {formatCurrency(bankBalance)}
               </p>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-3">
@@ -116,16 +116,16 @@ export const Dashboard: React.FC = () => {
         </div>
 
         {/* Total Dues Card */}
-        <div className="group bg-white dark:bg-gray-800 rounded-xl shadow-sm transition-all duration-300 p-6 border border-gray-200 dark:border-gray-700 hover:border-blue-200/60 dark:hover:border-blue-600/60">
+        <div className="group bg-white dark:bg-gray-800 rounded-xl shadow-sm transition-all duration-300 p-6 border border-gray-200 dark:border-gray-700 hover:border-secondary-200/60 dark:hover:border-secondary-600/60">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">Total Dues</h2>
-            <div className="w-10 h-10 rounded-lg bg-sky-100 text-sky-600 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-lg bg-secondary-100 text-secondary flex items-center justify-center">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
               </svg>
             </div>
           </div>
-          <p className="text-3xl lg:text-4xl font-bold text-blue-600 dark:text-blue-400">
+          <p className="text-3xl lg:text-4xl font-bold text-secondary dark:text-secondary-400">
             {formatCurrency(totalDues)}
           </p>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-3">
@@ -136,7 +136,7 @@ export const Dashboard: React.FC = () => {
         {/* Next Recurring Card */}
         <div
           onClick={() => navigate('/recurring')}
-          className="group bg-white dark:bg-gray-800 rounded-xl shadow-sm transition-all duration-300 p-6 border border-gray-200 dark:border-gray-700 hover:border-purple-200/60 dark:hover:border-purple-600/60 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2"
+          className="group bg-white dark:bg-gray-800 rounded-xl shadow-sm transition-all duration-300 p-6 border border-gray-200 dark:border-gray-700 hover:border-accent-200/60 dark:hover:border-accent-600/60 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
           tabIndex={0}
           role="button"
           onKeyDown={(e) => {
@@ -148,7 +148,7 @@ export const Dashboard: React.FC = () => {
         >
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">Next Recurring</h2>
-            <div className="w-10 h-10 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-lg bg-accent-100 text-accent flex items-center justify-center">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
@@ -157,7 +157,7 @@ export const Dashboard: React.FC = () => {
           {nextRecurring ? (
             <>
               <p className={`text-2xl font-bold ${
-                nextRecurring.amount >= 0 ? 'text-green-600 dark:text-green-400' : 'text-purple-600 dark:text-purple-400'
+                nextRecurring.amount >= 0 ? 'text-green-600 dark:text-green-400' : 'text-accent dark:text-accent-400'
               }`}>
                 {formatCurrency(nextRecurring.amount)}
               </p>

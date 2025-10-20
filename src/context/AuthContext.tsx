@@ -178,7 +178,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
 
       if (user) {
-        toast.success('Account created successfully! Please check your email to verify your account.');
+        // Check if email confirmation is required
+        const emailConfirmationRequired = user.identities && user.identities.length === 0;
+
+        if (emailConfirmationRequired) {
+          toast.success('Account created! Please check your email to verify your account before signing in.', { duration: 6000 });
+        } else {
+          toast.success('Account created successfully! You can now sign in.', { duration: 4000 });
+        }
         return true;
       }
 

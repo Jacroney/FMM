@@ -29,3 +29,17 @@ dist-ssr
 *.sln
 *.sw?
 .vercel
+
+# SQL files (migrations should be managed in production)
+*.sql
+# Allow existing migrations that are already tracked
+!supabase/migrations/20250102000003_fix_missing_objects.sql
+!supabase/migrations/20250102000004_category_rules.sql
+!supabase/migrations/20250108000001_recurring_transactions.sql
+!supabase/migrations/20250110000001_plaid_integration.sql
+!supabase/migrations/20250113000001_ai_advisor.sql
+!supabase/migrations/20250115000001_chapter_branding.sql
+!supabase/migrations/20250115000001_payment_processing.sql
+!supabase/migrations/20250116000002_stripe_payments.sql
+!supabase/migrations/20250116000001_chapter_dues_stats.sql
+!supabase/migrations/20250115000002_seed_calpoly_chapters.sql

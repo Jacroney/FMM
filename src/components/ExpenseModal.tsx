@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { X, Plus, Check } from 'lucide-react';
 import { BudgetCategory, BudgetPeriod, Expense, ExpenseDetail } from '../services/types';
 import { ExpenseService } from '../services/expenseService';
+import toast from 'react-hot-toast';
 
 interface ExpenseModalProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ interface ExpenseModalProps {
   chapterId: string | null;
   existingExpense?: ExpenseDetail | null;
   mode?: 'create' | 'edit';
+  preselectedCategoryId?: string;
 }
 
 const ExpenseModal: React.FC<ExpenseModalProps> = ({
@@ -22,7 +24,8 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({
   currentPeriod,
   chapterId,
   existingExpense = null,
-  mode = 'create'
+  mode = 'create',
+  preselectedCategoryId
 }) => {
   const [formData, setFormData] = useState({
     category_id: '',
@@ -37,6 +40,14 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
   const [budgetInfo, setBudgetInfo] = useState<{ allocated: number; spent: number } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showCategoryCreate, setShowCategoryCreate] = useState(false);
+  const [newCategory, setNewCategory] = useState({
+    name: '',
+    type: 'Operational Costs' as 'Fixed Costs' | 'Operational Costs' | 'Event Costs',
+    description: ''
+  });
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false);
+  const [localCategories, setLocalCategories] = useState<BudgetCategory[]>(categories);
 
   // Initialize form with existing expense data if editing
   useEffect(() => {
@@ -54,7 +65,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({
     } else if (mode === 'create') {
       // Reset form for new expense
       setFormData({
-        category_id: '',
+        category_id: preselectedCategoryId || '',
         amount: '',
         description: '',
         transaction_date: new Date().toISOString().split('T')[0],
@@ -64,7 +75,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({
         notes: ''
       });
     }
-  }, [mode, existingExpense, isOpen]);
+  }, [mode, existingExpense, isOpen, preselectedCategoryId]);
 
   useEffect(() => {
     if (formData.category_id && currentPeriod) {
@@ -72,12 +83,16 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({
     }
   }, [formData.category_id, currentPeriod, chapterId]);
 
+  useEffect(() => {
+    setLocalCategories(categories);
+  }, [categories]);
+
   const loadBudgetInfo = async () => {
     if (!currentPeriod || !chapterId) return;
 
     try {
       const summary = await ExpenseService.getBudgetSummary(chapterId, currentPeriod.name);
-      const category = categories.find(c => c.id === formData.category_id);
+      const category = localCategories.find(c => c.id === formData.category_id);
       const budgetItem = summary.find(s => s.category === category?.name);
 
       if (budgetItem) {
@@ -88,6 +103,43 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({
       }
     } catch (error) {
       console.error('Error loading budget info:', error);
+    }
+  };
+
+  const handleCreateCategory = async () => {
+    if (!chapterId || !newCategory.name.trim()) {
+      toast.error('Please enter a category name');
+      return;
+    }
+
+    setIsCreatingCategory(true);
+    try {
+      const created = await ExpenseService.addCategory(chapterId, {
+        name: newCategory.name.trim(),
+        type: newCategory.type,
+        description: newCategory.description.trim() || null,
+        is_active: true
+      });
+
+      // Add to local categories list
+      setLocalCategories([...localCategories, created]);
+
+      // Auto-select the new category
+      setFormData({ ...formData, category_id: created.id });
+
+      // Reset form and hide
+      setNewCategory({ name: '', type: 'Operational Costs', description: '' });
+      setShowCategoryCreate(false);
+
+      toast.success('Category created successfully');
+
+      // Refresh parent component's categories
+      onSubmit();
+    } catch (error) {
+      console.error('Error creating category:', error);
+      toast.error('Failed to create category');
+    } finally {
+      setIsCreatingCategory(false);
     }
   };
 
@@ -167,7 +219,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({
               <option value="">Select a category</option>
               {['Fixed Costs', 'Operational Costs', 'Event Costs'].map(type => (
                 <optgroup key={type} label={type}>
-                  {categories
+                  {localCategories
                     .filter(c => c.type === type)
                     .map(category => (
                       <option key={category.id} value={category.id}>
@@ -177,17 +229,162 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({
                 </optgroup>
               ))}
             </select>
+
+            {/* Create New Category Button/Form */}
+            {!showCategoryCreate ? (
+              <button
+                type="button"
+                onClick={() => setShowCategoryCreate(true)}
+                className="mt-2 text-sm text-primary dark:text-primary-400 hover:text-primary-700 dark:hover:text-blue-300 flex items-center gap-1"
+              >
+                <Plus className="w-3 h-3" />
+                Create new category
+              </button>
+            ) : (
+              <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    value={newCategory.name}
+                    onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })}
+                    className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded focus:ring-2 focus:ring-blue-500 dark:bg-gray-600 dark:text-white"
+                    placeholder="Category name"
+                    disabled={isCreatingCategory}
+                  />
+                  <select
+                    value={newCategory.type}
+                    onChange={(e) => setNewCategory({ ...newCategory, type: e.target.value as any })}
+                    className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded focus:ring-2 focus:ring-blue-500 dark:bg-gray-600 dark:text-white"
+                    disabled={isCreatingCategory}
+                  >
+                    <option value="Fixed Costs">Fixed Costs</option>
+                    <option value="Operational Costs">Operational Costs</option>
+                    <option value="Event Costs">Event Costs</option>
+                  </select>
+                  <input
+                    type="text"
+                    value={newCategory.description}
+                    onChange={(e) => setNewCategory({ ...newCategory, description: e.target.value })}
+                    className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded focus:ring-2 focus:ring-blue-500 dark:bg-gray-600 dark:text-white"
+                    placeholder="Description (optional)"
+                    disabled={isCreatingCategory}
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleCreateCategory}
+                      disabled={isCreatingCategory || !newCategory.name.trim()}
+                      className="flex-1 px-3 py-1.5 text-sm bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1"
+                    >
+                      {isCreatingCategory ? (
+                        'Creating...'
+                      ) : (
+                        <>
+                          <Check className="w-3 h-3" />
+                          Create
+                        </>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowCategoryCreate(false);
+                        setNewCategory({ name: '', type: 'Operational Costs', description: '' });
+                      }}
+                      disabled={isCreatingCategory}
+                      className="px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
-          {budgetInfo && (
-            <div className="bg-blue-50 dark:bg-blue-900 p-3 rounded-lg text-sm">
-              <p className="text-blue-800 dark:text-blue-200">
-                Budget: ${budgetInfo.allocated.toFixed(2)} |
-                Spent: ${budgetInfo.spent.toFixed(2)} |
-                Remaining: ${(budgetInfo.allocated - budgetInfo.spent).toFixed(2)}
-              </p>
-            </div>
-          )}
+          {budgetInfo && (() => {
+            const percentUsed = budgetInfo.allocated > 0
+              ? (budgetInfo.spent / budgetInfo.allocated) * 100
+              : 0;
+            const remaining = budgetInfo.allocated - budgetInfo.spent;
+            const isOverBudget = percentUsed > 100;
+            const isNearLimit = percentUsed >= 80 && percentUsed <= 100;
+
+            // Determine color scheme
+            const colorClasses = isOverBudget
+              ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+              : isNearLimit
+              ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
+              : 'bg-primary-50 dark:bg-primary-900/20 border-primary-200 dark:border-primary-800';
+
+            const textClasses = isOverBudget
+              ? 'text-red-800 dark:text-red-200'
+              : isNearLimit
+              ? 'text-yellow-800 dark:text-yellow-200'
+              : 'text-primary-800 dark:text-primary-200';
+
+            const progressClasses = isOverBudget
+              ? 'bg-red-600 dark:bg-red-500'
+              : isNearLimit
+              ? 'bg-yellow-600 dark:bg-yellow-500'
+              : 'bg-primary dark:bg-primary-500';
+
+            return (
+              <div className={`p-3 rounded-lg border ${colorClasses}`}>
+                {/* Warning/Alert Message */}
+                {isOverBudget ? (
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-lg">🔴</span>
+                    <p className={`text-sm font-semibold ${textClasses}`}>
+                      Alert: {Math.round(percentUsed - 100)}% over budget!
+                    </p>
+                  </div>
+                ) : isNearLimit ? (
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-lg">🟡</span>
+                    <p className={`text-sm font-semibold ${textClasses}`}>
+                      Warning: {Math.round(percentUsed)}% of budget used
+                    </p>
+                  </div>
+                ) : (
+                  <p className={`text-sm font-semibold ${textClasses} mb-2`}>
+                    💰 Budget Status: {Math.round(percentUsed)}% used
+                  </p>
+                )}
+
+                {/* Budget Details */}
+                <div className={`text-sm ${textClasses} space-y-1`}>
+                  <div className="flex justify-between">
+                    <span>Budget:</span>
+                    <span className="font-medium">${budgetInfo.allocated.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Spent:</span>
+                    <span className="font-medium">${budgetInfo.spent.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>{isOverBudget ? 'Over by:' : 'Remaining:'}</span>
+                    <span className="font-medium">
+                      ${Math.abs(remaining).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="mt-2">
+                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+                    <div
+                      className={`h-2 rounded-full transition-all duration-300 ${progressClasses}`}
+                      style={{ width: `${Math.min(percentUsed, 100)}%` }}
+                    />
+                  </div>
+                  <p className={`text-xs ${textClasses} mt-1 text-right`}>
+                    {Math.round(percentUsed)}%
+                  </p>
+                </div>
+              </div>
+            );
+          })()}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -303,7 +500,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSubmitting ? 'Saving...' : mode === 'edit' ? 'Update Expense' : 'Add Expense'}
             </button>

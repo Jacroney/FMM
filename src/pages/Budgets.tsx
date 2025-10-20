@@ -19,7 +19,11 @@ import {
   Calendar,
   PieChart,
   Receipt,
-  List
+  List,
+  Filter,
+  Search,
+  Grid3x3,
+  LayoutGrid
 } from 'lucide-react';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { BudgetCardSkeleton, BudgetCategorySkeleton, ChartSkeleton } from '../components/Skeleton';
@@ -27,6 +31,8 @@ import ExpenseModal from '../components/ExpenseModal';
 import BudgetCharts from '../components/BudgetCharts';
 import ExpenseList from '../components/ExpenseList';
 import BudgetSetupWizard from '../components/BudgetSetupWizard';
+import BudgetCard from '../components/BudgetCard';
+import BudgetDetailModal from '../components/BudgetDetailModal';
 import { useChapter } from '../context/ChapterContext';
 import toast from 'react-hot-toast';
 
@@ -44,7 +50,7 @@ const Budgets: React.FC = () => {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['Fixed Costs', 'Operational Costs', 'Event Costs']));
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [currentPeriod, setCurrentPeriod] = useState<BudgetPeriod | null>(null);
-  const [viewMode, setViewMode] = useState<'overview' | 'expenses'>('overview');
+  const [viewMode, setViewMode] = useState<'grid' | 'charts' | 'expenses'>('grid');
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showPeriodModal, setShowPeriodModal] = useState(false);
   const [showSetupWizard, setShowSetupWizard] = useState(false);
@@ -61,6 +67,11 @@ const Budgets: React.FC = () => {
     fiscal_year: new Date().getFullYear(),
     is_current: false
   });
+  const [selectedBudget, setSelectedBudget] = useState<BudgetSummary | null>(null);
+  const [filterStatus, setFilterStatus] = useState<'all' | 'on-track' | 'warning' | 'over-budget'>('all');
+  const [filterType, setFilterType] = useState<'all' | 'Fixed Costs' | 'Operational Costs' | 'Event Costs'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'name' | 'spent' | 'percent'>('name');
 
   const loadData = useCallback(async () => {
     if (!currentChapter?.id) {
@@ -298,6 +309,49 @@ const Budgets: React.FC = () => {
     remaining: budgetSummary.reduce((sum, b) => sum + b.remaining, 0)
   }), [budgetSummary]);
 
+  // Filter and sort budgets
+  const filteredAndSortedBudgets = useMemo(() => {
+    let filtered = budgetSummary;
+
+    // Apply status filter
+    if (filterStatus !== 'all') {
+      filtered = filtered.filter(budget => {
+        if (filterStatus === 'over-budget') return budget.percent_used > 100;
+        if (filterStatus === 'warning') return budget.percent_used > 60 && budget.percent_used <= 100;
+        if (filterStatus === 'on-track') return budget.percent_used <= 60;
+        return true;
+      });
+    }
+
+    // Apply type filter
+    if (filterType !== 'all') {
+      filtered = filtered.filter(budget => budget.category_type === filterType);
+    }
+
+    // Apply search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(budget =>
+        budget.category.toLowerCase().includes(query) ||
+        budget.category_type.toLowerCase().includes(query)
+      );
+    }
+
+    // Sort
+    const sorted = [...filtered].sort((a, b) => {
+      if (sortBy === 'name') {
+        return a.category.localeCompare(b.category);
+      } else if (sortBy === 'spent') {
+        return b.spent - a.spent;
+      } else if (sortBy === 'percent') {
+        return b.percent_used - a.percent_used;
+      }
+      return 0;
+    });
+
+    return sorted;
+  }, [budgetSummary, filterStatus, filterType, searchQuery, sortBy]);
+
   if (loading) {
     return (
       <div className="p-6 space-y-6">
@@ -367,7 +421,7 @@ const Budgets: React.FC = () => {
         <div className="flex gap-3">
           <button
             onClick={() => setShowCategoryModal(true)}
-            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={!currentChapter?.id}
             title="Add new budget category"
           >
@@ -376,7 +430,7 @@ const Budgets: React.FC = () => {
           </button>
           <button
             onClick={() => setShowPeriodModal(true)}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={!currentChapter?.id}
             title="Add new budget period"
           >
@@ -415,15 +469,26 @@ const Budgets: React.FC = () => {
       {/* View Mode Tabs */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-1 inline-flex gap-1">
         <button
-          onClick={() => setViewMode('overview')}
+          onClick={() => setViewMode('grid')}
           className={`px-4 py-2 rounded-md flex items-center gap-2 transition-colors ${
-            viewMode === 'overview'
+            viewMode === 'grid'
+              ? 'bg-blue-600 text-white'
+              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+          }`}
+        >
+          <LayoutGrid className="w-4 h-4" />
+          Budget Grid
+        </button>
+        <button
+          onClick={() => setViewMode('charts')}
+          className={`px-4 py-2 rounded-md flex items-center gap-2 transition-colors ${
+            viewMode === 'charts'
               ? 'bg-blue-600 text-white'
               : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
           }`}
         >
           <PieChart className="w-4 h-4" />
-          Budget Overview
+          Analytics
         </button>
         <button
           onClick={() => setViewMode('expenses')}
@@ -434,99 +499,305 @@ const Budgets: React.FC = () => {
           }`}
         >
           <List className="w-4 h-4" />
-          All Expenses ({expenses.length})
+          Expenses ({expenses.length})
         </button>
       </div>
 
-      {/* Budget Overview View */}
-      {viewMode === 'overview' && (
+      {/* Budget Grid View */}
+      {viewMode === 'grid' && (
         <>
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Allocated Card */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 p-6 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border border-blue-200/50 dark:border-blue-700/50">
+        <div className="relative overflow-hidden bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div className="flex-1">
-              <p className="text-sm font-medium text-blue-700 dark:text-blue-300 mb-1">Total Allocated</p>
-              <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Total Allocated</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">
                 {formatCurrency(grandTotals.allocated)}
               </p>
             </div>
-            <div className="flex-shrink-0 w-12 h-12 bg-blue-500 dark:bg-blue-600 rounded-lg flex items-center justify-center shadow-lg">
-              <DollarSign className="w-6 h-6 text-white" />
+            <div className="flex-shrink-0 w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+              <DollarSign className="w-6 h-6 text-gray-600 dark:text-gray-400" />
             </div>
           </div>
         </div>
 
         {/* Total Spent Card */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 p-6 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border border-red-200/50 dark:border-red-700/50">
+        <div className="relative overflow-hidden bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div className="flex-1">
-              <p className="text-sm font-medium text-red-700 dark:text-red-300 mb-1">Total Spent</p>
-              <p className="text-2xl font-bold text-red-900 dark:text-red-100">
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Total Spent</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">
                 {formatCurrency(grandTotals.spent)}
               </p>
             </div>
-            <div className="flex-shrink-0 w-12 h-12 bg-red-500 dark:bg-red-600 rounded-lg flex items-center justify-center shadow-lg">
-              <TrendingDown className="w-6 h-6 text-white" />
+            <div className="flex-shrink-0 w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+              <TrendingDown className="w-6 h-6 text-gray-600 dark:text-gray-400" />
             </div>
           </div>
         </div>
 
         {/* Remaining Card */}
-        <div className={`relative overflow-hidden p-6 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 ${
-          grandTotals.remaining >= 0
-            ? 'bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border border-green-200/50 dark:border-green-700/50'
-            : 'bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 border border-orange-200/50 dark:border-orange-700/50'
-        }`}>
+        <div className="relative overflow-hidden bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border-2 border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div className="flex-1">
-              <p className={`text-sm font-medium mb-1 ${
-                grandTotals.remaining >= 0
-                  ? 'text-green-700 dark:text-green-300'
-                  : 'text-orange-700 dark:text-orange-300'
-              }`}>
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
                 Remaining
               </p>
               <p className={`text-2xl font-bold ${
                 grandTotals.remaining >= 0
-                  ? 'text-green-900 dark:text-green-100'
-                  : 'text-orange-900 dark:text-orange-100'
+                  ? 'text-green-600 dark:text-green-400'
+                  : 'text-red-600 dark:text-red-400'
               }`}>
                 {formatCurrency(grandTotals.remaining)}
               </p>
             </div>
-            <div className={`flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center shadow-lg ${
+            <div className={`flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center ${
               grandTotals.remaining >= 0
-                ? 'bg-green-500 dark:bg-green-600'
-                : 'bg-orange-500 dark:bg-orange-600'
+                ? 'bg-green-100 dark:bg-green-900/30'
+                : 'bg-red-100 dark:bg-red-900/30'
             }`}>
-              <TrendingUp className="w-6 h-6 text-white" />
+              <TrendingUp className={`w-6 h-6 ${
+                grandTotals.remaining >= 0
+                  ? 'text-green-600 dark:text-green-400'
+                  : 'text-red-600 dark:text-red-400'
+              }`} />
             </div>
           </div>
         </div>
 
         {/* Utilization Card */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 p-6 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border border-purple-200/50 dark:border-purple-700/50">
+        <div className="relative overflow-hidden bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div className="flex-1">
-              <p className="text-sm font-medium text-purple-700 dark:text-purple-300 mb-1">Utilization</p>
-              <p className="text-2xl font-bold text-purple-900 dark:text-purple-100">
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Utilization</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">
                 {grandTotals.allocated > 0
                   ? Math.round((grandTotals.spent / grandTotals.allocated) * 100)
                   : 0}%
               </p>
               {grandTotals.allocated > 0 && (
-                <div className="mt-2 w-full bg-purple-200 dark:bg-purple-800 rounded-full h-1.5">
+                <div className="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
                   <div
-                    className="bg-purple-600 dark:bg-purple-400 h-1.5 rounded-full transition-all duration-500"
+                    className={`h-1.5 rounded-full transition-all duration-500 ${
+                      (grandTotals.spent / grandTotals.allocated) * 100 > 100
+                        ? 'bg-red-500'
+                        : (grandTotals.spent / grandTotals.allocated) * 100 > 80
+                        ? 'bg-yellow-500'
+                        : 'bg-green-500'
+                    }`}
                     style={{ width: `${Math.min((grandTotals.spent / grandTotals.allocated) * 100, 100)}%` }}
                   />
                 </div>
               )}
             </div>
-            <div className="flex-shrink-0 w-12 h-12 bg-purple-500 dark:bg-purple-600 rounded-lg flex items-center justify-center shadow-lg">
-              <PieChart className="w-6 h-6 text-white" />
+            <div className="flex-shrink-0 w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+              <PieChart className="w-6 h-6 text-gray-600 dark:text-gray-400" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Filter and Sort Controls */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Search */}
+          <div className="lg:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Search Budgets
+            </label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by category name..."
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+              />
+            </div>
+          </div>
+
+          {/* Status Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Status
+            </label>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value as any)}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+            >
+              <option value="all">All Status</option>
+              <option value="on-track">On Track (&le;60%)</option>
+              <option value="warning">Warning (60-100%)</option>
+              <option value="over-budget">Over Budget (&gt;100%)</option>
+            </select>
+          </div>
+
+          {/* Type Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Category Type
+            </label>
+            <select
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value as any)}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+            >
+              <option value="all">All Types</option>
+              <option value="Fixed Costs">Fixed Costs</option>
+              <option value="Operational Costs">Operational Costs</option>
+              <option value="Event Costs">Event Costs</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Sort and Results Count */}
+        <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-gray-500" />
+            <span className="text-sm text-gray-600 dark:text-gray-400">
+              Showing <span className="font-semibold text-gray-900 dark:text-white">{filteredAndSortedBudgets.length}</span> of {budgetSummary.length} budgets
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-gray-600 dark:text-gray-400">Sort by:</label>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+              className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+            >
+              <option value="name">Name (A-Z)</option>
+              <option value="spent">Amount Spent</option>
+              <option value="percent">% Used</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Budget Grid */}
+      {filteredAndSortedBudgets.length === 0 ? (
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-12 text-center shadow-sm border border-gray-200 dark:border-gray-700">
+          <div className="max-w-md mx-auto">
+            <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+              <LayoutGrid className="w-8 h-8 text-gray-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No budgets found</h3>
+            <p className="text-gray-600 dark:text-gray-400">
+              {searchQuery || filterStatus !== 'all' || filterType !== 'all'
+                ? 'Try adjusting your filters or search query.'
+                : 'Start by setting budget allocations for your categories.'}
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {filteredAndSortedBudgets.map((budget) => (
+            <BudgetCard
+              key={`${budget.category}-${budget.period}`}
+              budget={budget}
+              onClick={() => setSelectedBudget(budget)}
+            />
+          ))}
+        </div>
+      )}
+        </>
+      )}
+
+      {/* Charts View */}
+      {viewMode === 'charts' && (
+        <>
+          {/* Summary Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total Allocated Card */}
+        <div className="relative overflow-hidden bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Total Allocated</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                {formatCurrency(grandTotals.allocated)}
+              </p>
+            </div>
+            <div className="flex-shrink-0 w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+              <DollarSign className="w-6 h-6 text-gray-600 dark:text-gray-400" />
+            </div>
+          </div>
+        </div>
+
+        {/* Total Spent Card */}
+        <div className="relative overflow-hidden bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Total Spent</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                {formatCurrency(grandTotals.spent)}
+              </p>
+            </div>
+            <div className="flex-shrink-0 w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+              <TrendingDown className="w-6 h-6 text-gray-600 dark:text-gray-400" />
+            </div>
+          </div>
+        </div>
+
+        {/* Remaining Card */}
+        <div className="relative overflow-hidden bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border-2 border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
+                Remaining
+              </p>
+              <p className={`text-2xl font-bold ${
+                grandTotals.remaining >= 0
+                  ? 'text-green-600 dark:text-green-400'
+                  : 'text-red-600 dark:text-red-400'
+              }`}>
+                {formatCurrency(grandTotals.remaining)}
+              </p>
+            </div>
+            <div className={`flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center ${
+              grandTotals.remaining >= 0
+                ? 'bg-green-100 dark:bg-green-900/30'
+                : 'bg-red-100 dark:bg-red-900/30'
+            }`}>
+              <TrendingUp className={`w-6 h-6 ${
+                grandTotals.remaining >= 0
+                  ? 'text-green-600 dark:text-green-400'
+                  : 'text-red-600 dark:text-red-400'
+              }`} />
+            </div>
+          </div>
+        </div>
+
+        {/* Utilization Card */}
+        <div className="relative overflow-hidden bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Utilization</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                {grandTotals.allocated > 0
+                  ? Math.round((grandTotals.spent / grandTotals.allocated) * 100)
+                  : 0}%
+              </p>
+              {grandTotals.allocated > 0 && (
+                <div className="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+                  <div
+                    className={`h-1.5 rounded-full transition-all duration-500 ${
+                      (grandTotals.spent / grandTotals.allocated) * 100 > 100
+                        ? 'bg-red-500'
+                        : (grandTotals.spent / grandTotals.allocated) * 100 > 80
+                        ? 'bg-yellow-500'
+                        : 'bg-green-500'
+                    }`}
+                    style={{ width: `${Math.min((grandTotals.spent / grandTotals.allocated) * 100, 100)}%` }}
+                  />
+                </div>
+              )}
+            </div>
+            <div className="flex-shrink-0 w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+              <PieChart className="w-6 h-6 text-gray-600 dark:text-gray-400" />
             </div>
           </div>
         </div>
@@ -534,187 +805,13 @@ const Budgets: React.FC = () => {
 
       {/* Budget Charts */}
       {budgetSummary.length > 0 && (
-        <div className="mb-6">
+        <div>
           <BudgetCharts budgetSummary={budgetSummary} />
         </div>
       )}
-
-      {/* Budget Categories */}
-      {['Fixed Costs', 'Operational Costs', 'Event Costs'].map(categoryType => {
-        const totals = calculateCategoryTotals(categoryType);
-        const categoryBudgets = budgetSummary.filter(b => b.category_type === categoryType);
-        const isExpanded = expandedCategories.has(categoryType);
-        const utilizationPercent = totals.allocated > 0 ? (totals.spent / totals.allocated) * 100 : 0;
-
-        return (
-          <div key={categoryType} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-md transition-shadow">
-            {/* Category Header */}
-            <div
-              className="p-6 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200"
-              onClick={() => toggleCategory(categoryType)}
-            >
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg transition-transform duration-200" style={{ transform: isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)' }}>
-                    <ChevronDown className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                      {categoryType}
-                    </h2>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                      {totals.count} {totals.count === 1 ? 'category' : 'categories'}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-6 text-sm">
-                  <div className="text-right">
-                    <p className="text-gray-500 dark:text-gray-400 text-xs">Allocated</p>
-                    <p className="font-semibold text-gray-900 dark:text-white">{formatCurrency(totals.allocated)}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-gray-500 dark:text-gray-400 text-xs">Spent</p>
-                    <p className="font-semibold text-gray-900 dark:text-white">{formatCurrency(totals.spent)}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-gray-500 dark:text-gray-400 text-xs">Remaining</p>
-                    <p className={`font-semibold ${totals.remaining >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                      {formatCurrency(totals.remaining)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Progress bar */}
-              <div className="relative">
-                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 overflow-hidden">
-                  <div
-                    className={`h-2.5 rounded-full transition-all duration-500 ${
-                      utilizationPercent > 100 ? 'bg-gradient-to-r from-red-500 to-red-600' :
-                      utilizationPercent > 80 ? 'bg-gradient-to-r from-yellow-500 to-yellow-600' :
-                      'bg-gradient-to-r from-green-500 to-green-600'
-                    }`}
-                    style={{ width: `${Math.min(utilizationPercent, 100)}%` }}
-                  />
-                </div>
-                <div className="flex justify-between mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  <span>{Math.round(utilizationPercent)}% utilized</span>
-                  {utilizationPercent > 100 && (
-                    <span className="text-red-600 dark:text-red-400 font-medium">Over budget by {Math.round(utilizationPercent - 100)}%</span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Category Items */}
-            <div className={`transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}>
-              <div className="divide-y divide-gray-200 dark:divide-gray-700 bg-gray-50 dark:bg-gray-900/50">
-                {categoryBudgets.map((budget, index) => (
-                  <div
-                    key={`${budget.category}-${budget.period}`}
-                    className="p-6 hover:bg-white dark:hover:bg-gray-800 transition-all duration-200"
-                    style={{
-                      transitionDelay: isExpanded ? `${index * 50}ms` : '0ms'
-                    }}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-3">
-                          <h3 className="font-semibold text-lg text-gray-900 dark:text-white">{budget.category}</h3>
-                          <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${
-                            budget.percent_used > 100 ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' :
-                            budget.percent_used > 80 ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300' :
-                            'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
-                          }`}>
-                            {getStatusIcon(budget.percent_used)}
-                            <span>{Math.round(budget.percent_used)}%</span>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-3 gap-4 mb-4">
-                          <div className="bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Allocated</p>
-                            <p className="font-semibold text-gray-900 dark:text-white">{formatCurrency(budget.allocated)}</p>
-                          </div>
-                          <div className="bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Spent</p>
-                            <p className="font-semibold text-gray-900 dark:text-white">{formatCurrency(budget.spent)}</p>
-                          </div>
-                          <div className="bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Remaining</p>
-                            <p className={`font-semibold ${budget.remaining >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                              {formatCurrency(budget.remaining)}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Enhanced Progress Bar */}
-                        <div className="relative">
-                          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
-                            <div
-                              className={`h-3 rounded-full transition-all duration-500 ${
-                                budget.percent_used > 100 ? 'bg-gradient-to-r from-red-500 to-red-600' :
-                                budget.percent_used > 80 ? 'bg-gradient-to-r from-yellow-500 to-yellow-600' :
-                                budget.percent_used > 60 ? 'bg-gradient-to-r from-blue-500 to-blue-600' :
-                                'bg-gradient-to-r from-green-500 to-green-600'
-                              } shadow-sm`}
-                              style={{ width: `${Math.min(budget.percent_used, 100)}%` }}
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 ml-6">
-                        {editingBudget === `${budget.category}-${budget.period}` ? (
-                          <div className="flex flex-col gap-2">
-                            <div className="flex gap-2 items-center">
-                              <span className="text-sm text-gray-600 dark:text-gray-400">$</span>
-                              <input
-                                type="number"
-                                value={editValue}
-                                onChange={(e) => setEditValue(Number(e.target.value))}
-                                className="w-32 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                                autoFocus
-                              />
-                            </div>
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => handleUpdateBudget(budget.category, editValue)}
-                                className="px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors font-medium"
-                              >
-                                Save
-                              </button>
-                              <button
-                                onClick={() => setEditingBudget(null)}
-                                className="px-3 py-1.5 bg-gray-500 text-white text-sm rounded-lg hover:bg-gray-600 transition-colors font-medium"
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => {
-                              setEditingBudget(`${budget.category}-${budget.period}`);
-                              setEditValue(budget.allocated);
-                            }}
-                            className="p-3 text-gray-600 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all"
-                            title="Edit budget allocation"
-                          >
-                            <Edit2 className="w-5 h-5" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        );
-      })}
         </>
       )}
+
 
       {/* Expenses List View */}
       {viewMode === 'expenses' && (
@@ -802,7 +899,7 @@ const Budgets: React.FC = () => {
               </button>
               <button
                 onClick={handleCreateCategory}
-                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
                 Create Category
               </button>
@@ -918,13 +1015,26 @@ const Budgets: React.FC = () => {
               </button>
               <button
                 onClick={handleCreatePeriod}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
                 Create Period
               </button>
             </div>
           </div>
         </div>
+      )}
+
+      {/* Budget Detail Modal */}
+      {selectedBudget && (
+        <BudgetDetailModal
+          budget={selectedBudget}
+          isOpen={!!selectedBudget}
+          onClose={() => setSelectedBudget(null)}
+          onBudgetUpdate={handleUpdateBudget}
+          chapterId={currentChapter?.id || null}
+          categories={categories}
+          currentPeriod={currentPeriod}
+        />
       )}
     </div>
   );

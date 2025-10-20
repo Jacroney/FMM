@@ -8,7 +8,6 @@ interface ChapterTheme {
   accentColor: string;
   greekLetters: string;
   logoUrl: string | null;
-  symbolUrl: string | null;
 }
 
 interface ChapterThemeContextType {
@@ -22,7 +21,6 @@ const DEFAULT_THEME: ChapterTheme = {
   accentColor: '#60A5FA', // blue-400
   greekLetters: '',
   logoUrl: null,
-  symbolUrl: null,
 };
 
 const ChapterThemeContext = createContext<ChapterThemeContextType | undefined>(undefined);
@@ -74,6 +72,7 @@ const generateColorShades = (hex: string) => {
 
 /**
  * Injects CSS custom properties into the document root
+ * Priority: Chapter-specific colors > Fraternity colors > Default theme
  */
 const injectThemeVariables = (chapter: Chapter | null) => {
   const root = document.documentElement;
@@ -89,9 +88,21 @@ const injectThemeVariables = (chapter: Chapter | null) => {
     return;
   }
 
-  const primaryColor = chapter.primary_color || DEFAULT_THEME.primaryColor;
-  const secondaryColor = chapter.secondary_color || DEFAULT_THEME.secondaryColor;
-  const accentColor = chapter.accent_color || DEFAULT_THEME.accentColor;
+  // Determine colors: Chapter-specific override OR fraternity colors OR defaults
+  const primaryColor =
+    chapter.primary_color ||
+    chapter.fraternity?.primary_color ||
+    DEFAULT_THEME.primaryColor;
+
+  const secondaryColor =
+    chapter.secondary_color ||
+    chapter.fraternity?.secondary_color ||
+    DEFAULT_THEME.secondaryColor;
+
+  const accentColor =
+    chapter.accent_color ||
+    chapter.fraternity?.accent_color ||
+    DEFAULT_THEME.accentColor;
 
   // Set base color variables
   root.style.setProperty('--color-primary', primaryColor);
@@ -103,12 +114,13 @@ const injectThemeVariables = (chapter: Chapter | null) => {
   root.style.setProperty('--color-secondary-rgb', hexToRgb(secondaryColor));
   root.style.setProperty('--color-accent-rgb', hexToRgb(accentColor));
 
-  // Apply theme config if available
-  if (chapter.theme_config) {
-    if (chapter.theme_config.fontFamily) {
-      root.style.setProperty('--font-family', chapter.theme_config.fontFamily);
+  // Apply theme config if available (check both chapter and fraternity)
+  const themeConfig = chapter.theme_config || chapter.fraternity?.theme_config;
+  if (themeConfig) {
+    if (themeConfig.fontFamily) {
+      root.style.setProperty('--font-family', themeConfig.fontFamily);
     }
-    if (chapter.theme_config.borderRadius) {
+    if (themeConfig.borderRadius) {
       const radiusMap = {
         none: '0',
         sm: '0.125rem',
@@ -116,7 +128,7 @@ const injectThemeVariables = (chapter: Chapter | null) => {
         lg: '0.5rem',
         xl: '0.75rem',
       };
-      root.style.setProperty('--border-radius', radiusMap[chapter.theme_config.borderRadius]);
+      root.style.setProperty('--border-radius', radiusMap[themeConfig.borderRadius]);
     }
   }
 };
@@ -130,12 +142,24 @@ export const ChapterThemeProvider: React.FC<ChapterThemeProviderProps> = ({ chil
   }, [currentChapter]);
 
   const theme: ChapterTheme = {
-    primaryColor: currentChapter?.primary_color || DEFAULT_THEME.primaryColor,
-    secondaryColor: currentChapter?.secondary_color || DEFAULT_THEME.secondaryColor,
-    accentColor: currentChapter?.accent_color || DEFAULT_THEME.accentColor,
-    greekLetters: currentChapter?.greek_letters || DEFAULT_THEME.greekLetters,
-    logoUrl: currentChapter?.logo_url || DEFAULT_THEME.logoUrl,
-    symbolUrl: currentChapter?.symbol_url || DEFAULT_THEME.symbolUrl,
+    primaryColor:
+      currentChapter?.primary_color ||
+      currentChapter?.fraternity?.primary_color ||
+      DEFAULT_THEME.primaryColor,
+    secondaryColor:
+      currentChapter?.secondary_color ||
+      currentChapter?.fraternity?.secondary_color ||
+      DEFAULT_THEME.secondaryColor,
+    accentColor:
+      currentChapter?.accent_color ||
+      currentChapter?.fraternity?.accent_color ||
+      DEFAULT_THEME.accentColor,
+    greekLetters:
+      currentChapter?.fraternity?.greek_letters ||
+      DEFAULT_THEME.greekLetters,
+    logoUrl:
+      currentChapter?.fraternity?.logo_url ||
+      DEFAULT_THEME.logoUrl,
   };
 
   const value: ChapterThemeContextType = {

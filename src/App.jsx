@@ -20,6 +20,7 @@ import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 import Dues from './pages/Dues';
 import RecurringTransactions from './pages/RecurringTransactions';
+import Invitations from './pages/Invitations';
 
 function App() {
   return (
@@ -159,6 +160,7 @@ const AppRoutes = () => {
           <Route path="budgets" element={<Budgets />} />
           <Route path="reports" element={<Reports />} />
           <Route path="dues" element={<Dues />} />
+          <Route path="invitations" element={<Invitations />} />
           <Route path="settings" element={<Settings />} />
           <Route path="*" element={<NotFound />} />
         </Route>
