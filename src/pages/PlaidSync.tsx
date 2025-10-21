@@ -9,6 +9,8 @@ import {
   AlertCircle,
   Clock,
   CreditCard,
+  TestTube2,
+  ShieldCheck,
 } from 'lucide-react';
 import { PlaidService } from '../services/plaidService';
 import { useChapter } from '../context/ChapterContext';
@@ -73,9 +75,22 @@ const ConnectionCard: React.FC<ConnectionCardProps> = ({
               <Building2 className="h-6 w-6 text-blue-600 dark:text-blue-400" />
             </div>
             <div className="flex-1">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                {connection.institution_name || 'Unknown Institution'}
-              </h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  {connection.institution_name || 'Unknown Institution'}
+                </h3>
+                {connection.environment === 'sandbox' ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 text-xs font-medium rounded">
+                    <TestTube2 className="h-3 w-3" />
+                    Sandbox
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 text-xs font-medium rounded">
+                    <ShieldCheck className="h-3 w-3" />
+                    Production
+                  </span>
+                )}
+              </div>
               <div className="mt-1 flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
                 <span>{connection.account_count} account(s)</span>
                 <span>•</span>
@@ -266,7 +281,7 @@ export function PlaidSync() {
               Connect your bank accounts and automatically sync transactions
             </p>
           </div>
-          <PlaidLink onSuccess={loadData} />
+          <PlaidLink onSuccess={loadData} showEnvironmentToggle={true} />
         </div>
       </div>
 
@@ -307,7 +322,7 @@ export function PlaidSync() {
               your balance in real-time.
             </p>
 
-            <PlaidLink onSuccess={loadData} />
+            <PlaidLink onSuccess={loadData} showEnvironmentToggle={true} />
 
             <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-lg p-4 max-w-lg mx-auto mt-8">
               <div className="flex items-start gap-3">

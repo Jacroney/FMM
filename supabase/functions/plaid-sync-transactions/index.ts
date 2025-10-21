@@ -3,15 +3,35 @@ import { handleCorsPreflightRequest, corsJsonResponse } from '../_shared/cors.ts
 import { createSupabaseClient, authenticateUser, sanitizeError, requireAdminOrExec } from '../_shared/auth.ts';
 import { validateUuid } from '../_shared/validation.ts';
 
-const PLAID_CLIENT_ID = Deno.env.get('PLAID_CLIENT_ID');
-const PLAID_SECRET = Deno.env.get('PLAID_SECRET');
-const PLAID_ENV = Deno.env.get('PLAID_ENV') || 'sandbox';
+// SECURITY: Separate credentials for sandbox and production
+const PLAID_CLIENT_ID_SANDBOX = Deno.env.get('PLAID_CLIENT_ID');
+const PLAID_SECRET_SANDBOX = Deno.env.get('PLAID_SECRET');
+const PLAID_CLIENT_ID_PRODUCTION = Deno.env.get('PLAID_CLIENT_ID_PRODUCTION');
+const PLAID_SECRET_PRODUCTION = Deno.env.get('PLAID_SECRET_PRODUCTION');
 
-const PLAID_API_URL = PLAID_ENV === 'production'
-  ? 'https://production.plaid.com'
-  : PLAID_ENV === 'development'
-  ? 'https://development.plaid.com'
-  : 'https://sandbox.plaid.com';
+// Helper to get credentials based on environment
+function getPlaidCredentials(environment: string): { clientId: string; secret: string; apiUrl: string } {
+  if (environment === 'production') {
+    if (!PLAID_CLIENT_ID_PRODUCTION || !PLAID_SECRET_PRODUCTION) {
+      throw new Error('Production Plaid credentials not configured');
+    }
+    return {
+      clientId: PLAID_CLIENT_ID_PRODUCTION,
+      secret: PLAID_SECRET_PRODUCTION,
+      apiUrl: 'https://production.plaid.com',
+    };
+  } else {
+    // Default to sandbox for safety
+    if (!PLAID_CLIENT_ID_SANDBOX || !PLAID_SECRET_SANDBOX) {
+      throw new Error('Sandbox Plaid credentials not configured');
+    }
+    return {
+      clientId: PLAID_CLIENT_ID_SANDBOX,
+      secret: PLAID_SECRET_SANDBOX,
+      apiUrl: 'https://sandbox.plaid.com',
+    };
+  }
+}
 
 // Helper function to auto-categorize transactions using category rules
 async function autoCategorizeTransaction(
@@ -162,6 +182,12 @@ serve(async (req) => {
       );
     }
 
+    // Get credentials for the connection's environment
+    const environment = connection.environment || 'sandbox'; // Default to sandbox if not set
+    const { clientId, secret, apiUrl } = getPlaidCredentials(environment);
+
+    console.log(`[PLAID] Syncing transactions for environment: ${environment}`);
+
     // Create sync history record
     const { data: syncRecord, error: syncRecordError } = await supabase
       .from('plaid_sync_history')
@@ -217,12 +243,12 @@ serve(async (req) => {
         syncBody.cursor = cursor;
       }
 
-      const syncResponse = await fetch(`${PLAID_API_URL}/transactions/sync`, {
+      const syncResponse = await fetch(`${apiUrl}/transactions/sync`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'PLAID-CLIENT-ID': PLAID_CLIENT_ID!,
-          'PLAID-SECRET': PLAID_SECRET!,
+          'PLAID-CLIENT-ID': clientId,
+          'PLAID-SECRET': secret,
         },
         body: JSON.stringify(syncBody),
       });
@@ -297,7 +323,8 @@ serve(async (req) => {
       // Process modified transactions
       for (const transaction of syncData.modified || []) {
         try {
-          const { error: updateError } = await supabase
+          // Try to update existing transaction
+          const { data: updated, error: updateError } = await supabase
             .from('expenses')
             .update({
               amount: Math.abs(transaction.amount),
@@ -305,9 +332,51 @@ serve(async (req) => {
               vendor: transaction.merchant_name,
               transaction_date: transaction.date,
             })
-            .eq('plaid_transaction_id', transaction.transaction_id);
+            .eq('plaid_transaction_id', transaction.transaction_id)
+            .select();
 
-          if (!updateError) {
+          if (updateError) {
+            console.error('[DB_ERROR] Failed to update transaction');
+            continue;
+          }
+
+          // If no rows were updated, transaction doesn't exist - insert it instead
+          if (!updated || updated.length === 0) {
+            console.log('[PLAID] Modified transaction not found, inserting:', transaction.transaction_id);
+
+            const merchantName = transaction.merchant_name || transaction.name || 'Unknown';
+            let categoryId = await autoCategorizeTransaction(supabase, merchantName, user.chapter_id);
+
+            if (!categoryId) {
+              categoryId = uncategorizedCategoryId;
+            }
+
+            const accountDbId = accountIdMap.get(transaction.account_id);
+
+            const { error: insertError } = await supabase
+              .from('expenses')
+              .insert({
+                chapter_id: user.chapter_id,
+                category_id: categoryId,
+                period_id: periodId,
+                amount: Math.abs(transaction.amount),
+                description: transaction.name,
+                vendor: transaction.merchant_name,
+                transaction_date: transaction.date,
+                payment_method: 'ACH',
+                status: 'completed',
+                source: 'PLAID',
+                plaid_transaction_id: transaction.transaction_id,
+                account_id: accountDbId || null,
+                created_by: user.id,
+              });
+
+            if (insertError) {
+              console.error('[DB_ERROR] Failed to insert modified transaction');
+            } else {
+              totalAdded++; // Count as added since we inserted it
+            }
+          } else {
             totalModified++;
           }
         } catch (txError) {
@@ -342,12 +411,12 @@ serve(async (req) => {
     }
 
     // Update account balances
-    const balanceResponse = await fetch(`${PLAID_API_URL}/accounts/balance/get`, {
+    const balanceResponse = await fetch(`${apiUrl}/accounts/balance/get`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'PLAID-CLIENT-ID': PLAID_CLIENT_ID!,
-        'PLAID-SECRET': PLAID_SECRET!,
+        'PLAID-CLIENT-ID': clientId,
+        'PLAID-SECRET': secret,
       },
       body: JSON.stringify({ access_token: connection.access_token }),
     });

@@ -162,6 +162,17 @@ const ExpenseList: React.FC<ExpenseListProps> = ({
     pending: filteredAndSortedExpenses.filter(e => e.status === 'pending').reduce((sum, exp) => sum + exp.amount, 0),
   };
 
+  // Calculate correct colspan based on visible columns
+  const calculateColspan = () => {
+    let cols = 5; // Base columns: Date, Description, Vendor, Amount, Status
+    if (showCategoryColumn) cols++;
+    if (showPeriodColumn) cols++;
+    if (showActions) cols++;
+    return cols;
+  };
+
+  const colspan = calculateColspan();
+
   return (
     <div className="space-y-4">
       {/* Search and Summary */}
@@ -283,7 +294,7 @@ const ExpenseList: React.FC<ExpenseListProps> = ({
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
               {filteredAndSortedExpenses.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                  <td colSpan={colspan} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
                     No expenses found. {searchTerm && 'Try adjusting your search.'}
                   </td>
                 </tr>
@@ -354,7 +365,7 @@ const ExpenseList: React.FC<ExpenseListProps> = ({
                     {/* Expanded Details Row */}
                     {expandedRow === expense.id && (
                       <tr className="bg-gray-50 dark:bg-gray-700">
-                        <td colSpan={8} className="px-4 py-4">
+                        <td colSpan={colspan} className="px-4 py-4">
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                             <div>
                               <p className="text-gray-500 dark:text-gray-400 mb-1">Payment Method</p>

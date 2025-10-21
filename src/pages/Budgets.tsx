@@ -421,7 +421,7 @@ const Budgets: React.FC = () => {
         <div className="flex gap-3">
           <button
             onClick={() => setShowCategoryModal(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg hover:bg-gray-800 dark:hover:bg-gray-200 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={!currentChapter?.id}
             title="Add new budget category"
           >
@@ -430,7 +430,7 @@ const Budgets: React.FC = () => {
           </button>
           <button
             onClick={() => setShowPeriodModal(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={!currentChapter?.id}
             title="Add new budget period"
           >
@@ -447,7 +447,7 @@ const Budgets: React.FC = () => {
                 setSelectedPeriodId(period.id);
               }
             }}
-            className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:text-white [&>option]:dark:text-white [&>option]:dark:bg-gray-700"
+            className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-400 dark:text-white [&>option]:dark:text-white [&>option]:dark:bg-gray-700"
           >
             {periods.map(period => (
               <option key={period.id} value={period.name}>
@@ -457,7 +457,7 @@ const Budgets: React.FC = () => {
           </select>
           <button
             onClick={() => setShowExpenseModal(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={!currentChapter?.id}
           >
             <Plus className="w-4 h-4" />
@@ -467,40 +467,42 @@ const Budgets: React.FC = () => {
       </div>
 
       {/* View Mode Tabs */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-1 inline-flex gap-1">
-        <button
-          onClick={() => setViewMode('grid')}
-          className={`px-4 py-2 rounded-md flex items-center gap-2 transition-colors ${
-            viewMode === 'grid'
-              ? 'bg-blue-600 text-white'
-              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-          }`}
-        >
-          <LayoutGrid className="w-4 h-4" />
-          Budget Grid
-        </button>
-        <button
-          onClick={() => setViewMode('charts')}
-          className={`px-4 py-2 rounded-md flex items-center gap-2 transition-colors ${
-            viewMode === 'charts'
-              ? 'bg-blue-600 text-white'
-              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-          }`}
-        >
-          <PieChart className="w-4 h-4" />
-          Analytics
-        </button>
-        <button
-          onClick={() => setViewMode('expenses')}
-          className={`px-4 py-2 rounded-md flex items-center gap-2 transition-colors ${
-            viewMode === 'expenses'
-              ? 'bg-blue-600 text-white'
-              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-          }`}
-        >
-          <List className="w-4 h-4" />
-          Expenses ({expenses.length})
-        </button>
+      <div className="border-b border-gray-200 dark:border-gray-700">
+        <div className="flex gap-6">
+          <button
+            onClick={() => setViewMode('grid')}
+            className={`px-1 py-3 flex items-center gap-2 border-b-2 transition-colors ${
+              viewMode === 'grid'
+                ? 'border-gray-900 dark:border-gray-100 text-gray-900 dark:text-white font-medium'
+                : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300'
+            }`}
+          >
+            <LayoutGrid className="w-4 h-4" />
+            Budget Grid
+          </button>
+          <button
+            onClick={() => setViewMode('charts')}
+            className={`px-1 py-3 flex items-center gap-2 border-b-2 transition-colors ${
+              viewMode === 'charts'
+                ? 'border-gray-900 dark:border-gray-100 text-gray-900 dark:text-white font-medium'
+                : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300'
+            }`}
+          >
+            <PieChart className="w-4 h-4" />
+            Analytics
+          </button>
+          <button
+            onClick={() => setViewMode('expenses')}
+            className={`px-1 py-3 flex items-center gap-2 border-b-2 transition-colors ${
+              viewMode === 'expenses'
+                ? 'border-gray-900 dark:border-gray-100 text-gray-900 dark:text-white font-medium'
+                : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300'
+            }`}
+          >
+            <List className="w-4 h-4" />
+            Expenses ({expenses.length})
+          </button>
+        </div>
       </div>
 
       {/* Budget Grid View */}
@@ -509,69 +511,61 @@ const Budgets: React.FC = () => {
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Allocated Card */}
-        <div className="relative overflow-hidden bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200 dark:border-gray-700">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div className="flex-1">
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Total Allocated</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Allocated</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
                 {formatCurrency(grandTotals.allocated)}
               </p>
             </div>
-            <div className="flex-shrink-0 w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
-              <DollarSign className="w-6 h-6 text-gray-600 dark:text-gray-400" />
+            <div className="flex-shrink-0">
+              <DollarSign className="w-5 h-5 text-gray-400" />
             </div>
           </div>
         </div>
 
         {/* Total Spent Card */}
-        <div className="relative overflow-hidden bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200 dark:border-gray-700">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div className="flex-1">
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Total Spent</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Spent</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
                 {formatCurrency(grandTotals.spent)}
               </p>
             </div>
-            <div className="flex-shrink-0 w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
-              <TrendingDown className="w-6 h-6 text-gray-600 dark:text-gray-400" />
+            <div className="flex-shrink-0">
+              <TrendingDown className="w-5 h-5 text-gray-400" />
             </div>
           </div>
         </div>
 
         {/* Remaining Card */}
-        <div className="relative overflow-hidden bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border-2 border-gray-200 dark:border-gray-700">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div className="flex-1">
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
                 Remaining
               </p>
               <p className={`text-2xl font-bold ${
-                grandTotals.remaining >= 0
-                  ? 'text-green-600 dark:text-green-400'
-                  : 'text-red-600 dark:text-red-400'
+                grandTotals.remaining < 0
+                  ? 'text-red-600 dark:text-red-400'
+                  : 'text-gray-900 dark:text-white'
               }`}>
                 {formatCurrency(grandTotals.remaining)}
               </p>
             </div>
-            <div className={`flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center ${
-              grandTotals.remaining >= 0
-                ? 'bg-green-100 dark:bg-green-900/30'
-                : 'bg-red-100 dark:bg-red-900/30'
-            }`}>
-              <TrendingUp className={`w-6 h-6 ${
-                grandTotals.remaining >= 0
-                  ? 'text-green-600 dark:text-green-400'
-                  : 'text-red-600 dark:text-red-400'
-              }`} />
+            <div className="flex-shrink-0">
+              <TrendingUp className="w-5 h-5 text-gray-400" />
             </div>
           </div>
         </div>
 
         {/* Utilization Card */}
-        <div className="relative overflow-hidden bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200 dark:border-gray-700">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div className="flex-1">
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Utilization</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Utilization</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
                 {grandTotals.allocated > 0
                   ? Math.round((grandTotals.spent / grandTotals.allocated) * 100)
@@ -580,54 +574,48 @@ const Budgets: React.FC = () => {
               {grandTotals.allocated > 0 && (
                 <div className="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
                   <div
-                    className={`h-1.5 rounded-full transition-all duration-500 ${
-                      (grandTotals.spent / grandTotals.allocated) * 100 > 100
-                        ? 'bg-red-500'
-                        : (grandTotals.spent / grandTotals.allocated) * 100 > 80
-                        ? 'bg-yellow-500'
-                        : 'bg-green-500'
-                    }`}
+                    className="h-1.5 rounded-full bg-gray-900 dark:bg-gray-100"
                     style={{ width: `${Math.min((grandTotals.spent / grandTotals.allocated) * 100, 100)}%` }}
                   />
                 </div>
               )}
             </div>
-            <div className="flex-shrink-0 w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
-              <PieChart className="w-6 h-6 text-gray-600 dark:text-gray-400" />
+            <div className="flex-shrink-0">
+              <PieChart className="w-5 h-5 text-gray-400" />
             </div>
           </div>
         </div>
       </div>
 
       {/* Filter and Sort Controls */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm border border-gray-200 dark:border-gray-700">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Search */}
           <div className="lg:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-sm text-gray-600 dark:text-gray-400 mb-2">
               Search Budgets
             </label>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search by category name..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-400 dark:bg-gray-700 dark:text-white"
               />
             </div>
           </div>
 
           {/* Status Filter */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-sm text-gray-600 dark:text-gray-400 mb-2">
               Status
             </label>
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value as any)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-400 dark:bg-gray-700 dark:text-white"
             >
               <option value="all">All Status</option>
               <option value="on-track">On Track (&le;60%)</option>
@@ -638,13 +626,13 @@ const Budgets: React.FC = () => {
 
           {/* Type Filter */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-sm text-gray-600 dark:text-gray-400 mb-2">
               Category Type
             </label>
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value as any)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-400 dark:bg-gray-700 dark:text-white"
             >
               <option value="all">All Types</option>
               <option value="Fixed Costs">Fixed Costs</option>
@@ -656,11 +644,8 @@ const Budgets: React.FC = () => {
 
         {/* Sort and Results Count */}
         <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-          <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-gray-500" />
-            <span className="text-sm text-gray-600 dark:text-gray-400">
-              Showing <span className="font-semibold text-gray-900 dark:text-white">{filteredAndSortedBudgets.length}</span> of {budgetSummary.length} budgets
-            </span>
+          <div className="text-sm text-gray-600 dark:text-gray-400">
+            Showing <span className="font-medium text-gray-900 dark:text-white">{filteredAndSortedBudgets.length}</span> of {budgetSummary.length} budgets
           </div>
 
           <div className="flex items-center gap-2">
@@ -668,7 +653,7 @@ const Budgets: React.FC = () => {
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as any)}
-              className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+              className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-400 dark:bg-gray-700 dark:text-white"
             >
               <option value="name">Name (A-Z)</option>
               <option value="spent">Amount Spent</option>
@@ -680,12 +665,10 @@ const Budgets: React.FC = () => {
 
       {/* Budget Grid */}
       {filteredAndSortedBudgets.length === 0 ? (
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-12 text-center shadow-sm border border-gray-200 dark:border-gray-700">
+        <div className="bg-white dark:bg-gray-800 rounded-lg p-12 text-center shadow-sm border border-gray-200 dark:border-gray-700">
           <div className="max-w-md mx-auto">
-            <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
-              <LayoutGrid className="w-8 h-8 text-gray-400" />
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No budgets found</h3>
+            <LayoutGrid className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No budgets found</h3>
             <p className="text-gray-600 dark:text-gray-400">
               {searchQuery || filterStatus !== 'all' || filterType !== 'all'
                 ? 'Try adjusting your filters or search query.'
@@ -713,69 +696,61 @@ const Budgets: React.FC = () => {
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Allocated Card */}
-        <div className="relative overflow-hidden bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200 dark:border-gray-700">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div className="flex-1">
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Total Allocated</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Allocated</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
                 {formatCurrency(grandTotals.allocated)}
               </p>
             </div>
-            <div className="flex-shrink-0 w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
-              <DollarSign className="w-6 h-6 text-gray-600 dark:text-gray-400" />
+            <div className="flex-shrink-0">
+              <DollarSign className="w-5 h-5 text-gray-400" />
             </div>
           </div>
         </div>
 
         {/* Total Spent Card */}
-        <div className="relative overflow-hidden bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200 dark:border-gray-700">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div className="flex-1">
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Total Spent</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Spent</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
                 {formatCurrency(grandTotals.spent)}
               </p>
             </div>
-            <div className="flex-shrink-0 w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
-              <TrendingDown className="w-6 h-6 text-gray-600 dark:text-gray-400" />
+            <div className="flex-shrink-0">
+              <TrendingDown className="w-5 h-5 text-gray-400" />
             </div>
           </div>
         </div>
 
         {/* Remaining Card */}
-        <div className="relative overflow-hidden bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border-2 border-gray-200 dark:border-gray-700">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div className="flex-1">
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
                 Remaining
               </p>
               <p className={`text-2xl font-bold ${
-                grandTotals.remaining >= 0
-                  ? 'text-green-600 dark:text-green-400'
-                  : 'text-red-600 dark:text-red-400'
+                grandTotals.remaining < 0
+                  ? 'text-red-600 dark:text-red-400'
+                  : 'text-gray-900 dark:text-white'
               }`}>
                 {formatCurrency(grandTotals.remaining)}
               </p>
             </div>
-            <div className={`flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center ${
-              grandTotals.remaining >= 0
-                ? 'bg-green-100 dark:bg-green-900/30'
-                : 'bg-red-100 dark:bg-red-900/30'
-            }`}>
-              <TrendingUp className={`w-6 h-6 ${
-                grandTotals.remaining >= 0
-                  ? 'text-green-600 dark:text-green-400'
-                  : 'text-red-600 dark:text-red-400'
-              }`} />
+            <div className="flex-shrink-0">
+              <TrendingUp className="w-5 h-5 text-gray-400" />
             </div>
           </div>
         </div>
 
         {/* Utilization Card */}
-        <div className="relative overflow-hidden bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200 dark:border-gray-700">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div className="flex-1">
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Utilization</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Utilization</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
                 {grandTotals.allocated > 0
                   ? Math.round((grandTotals.spent / grandTotals.allocated) * 100)
@@ -784,20 +759,14 @@ const Budgets: React.FC = () => {
               {grandTotals.allocated > 0 && (
                 <div className="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
                   <div
-                    className={`h-1.5 rounded-full transition-all duration-500 ${
-                      (grandTotals.spent / grandTotals.allocated) * 100 > 100
-                        ? 'bg-red-500'
-                        : (grandTotals.spent / grandTotals.allocated) * 100 > 80
-                        ? 'bg-yellow-500'
-                        : 'bg-green-500'
-                    }`}
+                    className="h-1.5 rounded-full bg-gray-900 dark:bg-gray-100"
                     style={{ width: `${Math.min((grandTotals.spent / grandTotals.allocated) * 100, 100)}%` }}
                   />
                 </div>
               )}
             </div>
-            <div className="flex-shrink-0 w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
-              <PieChart className="w-6 h-6 text-gray-600 dark:text-gray-400" />
+            <div className="flex-shrink-0">
+              <PieChart className="w-5 h-5 text-gray-400" />
             </div>
           </div>
         </div>
@@ -893,13 +862,13 @@ const Budgets: React.FC = () => {
                   setShowCategoryModal(false);
                   setNewCategory({ name: '', type: 'Operational Costs', description: '' });
                 }}
-                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg"
               >
                 Cancel
               </button>
               <button
                 onClick={handleCreateCategory}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="px-4 py-2 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg hover:bg-gray-800 dark:hover:bg-gray-200"
               >
                 Create Category
               </button>
@@ -1009,13 +978,13 @@ const Budgets: React.FC = () => {
                     is_current: false
                   });
                 }}
-                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg"
               >
                 Cancel
               </button>
               <button
                 onClick={handleCreatePeriod}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="px-4 py-2 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg hover:bg-gray-800 dark:hover:bg-gray-200"
               >
                 Create Period
               </button>

@@ -11,9 +11,32 @@ import {
 
 export class PlaidService {
   /**
+   * Get the current Plaid environment from localStorage or env variable
+   * Default to production for safety unless explicitly set to sandbox
+   */
+  static getEnvironment(): 'sandbox' | 'production' {
+    // Check localStorage first (for user preference)
+    const stored = localStorage.getItem('plaid_environment');
+    if (stored === 'sandbox' || stored === 'production') {
+      return stored;
+    }
+
+    // Fall back to env variable (default to production)
+    const envSetting = import.meta.env.VITE_PLAID_ENV;
+    return envSetting === 'sandbox' ? 'sandbox' : 'production';
+  }
+
+  /**
+   * Set the Plaid environment preference
+   */
+  static setEnvironment(environment: 'sandbox' | 'production'): void {
+    localStorage.setItem('plaid_environment', environment);
+  }
+
+  /**
    * Create a Plaid Link token to initialize the Plaid Link component
    */
-  static async createLinkToken(): Promise<PlaidLinkTokenResponse> {
+  static async createLinkToken(environment?: 'sandbox' | 'production'): Promise<PlaidLinkTokenResponse> {
     try {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
@@ -21,9 +44,11 @@ export class PlaidService {
         throw new Error('Not authenticated');
       }
 
+      const env = environment || this.getEnvironment();
       const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/plaid-create-link-token`;
       console.log('Calling Plaid function at:', url);
       console.log('Using Supabase URL:', import.meta.env.VITE_SUPABASE_URL);
+      console.log('Using Plaid environment:', env);
 
       const response = await fetch(url, {
         method: 'POST',
@@ -32,6 +57,7 @@ export class PlaidService {
           'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({ environment: env }),
       });
 
       if (!response.ok) {
@@ -50,13 +76,19 @@ export class PlaidService {
   /**
    * Exchange public token for access token after user connects their bank
    */
-  static async exchangePublicToken(publicToken: string): Promise<PlaidExchangeResponse> {
+  static async exchangePublicToken(
+    publicToken: string,
+    environment?: 'sandbox' | 'production'
+  ): Promise<PlaidExchangeResponse> {
     try {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
       if (sessionError || !session) {
         throw new Error('Not authenticated');
       }
+
+      const env = environment || this.getEnvironment();
+      console.log('Exchanging token for environment:', env);
 
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/plaid-exchange-token`,
@@ -67,7 +99,10 @@ export class PlaidService {
             'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ public_token: publicToken }),
+          body: JSON.stringify({
+            public_token: publicToken,
+            environment: env,
+          }),
         }
       );
 
