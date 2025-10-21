@@ -296,7 +296,7 @@ serve(async (req) => {
               chapter_id: user.chapter_id,
               category_id: categoryId,
               period_id: periodId,
-              amount: Math.abs(transaction.amount), // Plaid returns negative for debits
+              amount: transaction.amount, // Preserve sign: negative=debit/expense, positive=credit/deposit
               description: transaction.name,
               vendor: transaction.merchant_name,
               transaction_date: transaction.date,
@@ -327,7 +327,7 @@ serve(async (req) => {
           const { data: updated, error: updateError } = await supabase
             .from('expenses')
             .update({
-              amount: Math.abs(transaction.amount),
+              amount: transaction.amount, // Preserve sign: negative=debit/expense, positive=credit/deposit
               description: transaction.name,
               vendor: transaction.merchant_name,
               transaction_date: transaction.date,
@@ -359,7 +359,7 @@ serve(async (req) => {
                 chapter_id: user.chapter_id,
                 category_id: categoryId,
                 period_id: periodId,
-                amount: Math.abs(transaction.amount),
+                amount: transaction.amount, // Preserve sign: negative=debit/expense, positive=credit/deposit
                 description: transaction.name,
                 vendor: transaction.merchant_name,
                 transaction_date: transaction.date,

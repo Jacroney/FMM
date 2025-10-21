@@ -11,10 +11,15 @@ export class TransactionService {
 
     try {
       const { data, error } = await supabase
-        .from('transactions')
-        .select('*')
+        .from('expenses')
+        .select(`
+          *,
+          budget_categories (
+            name
+          )
+        `)
         .eq('chapter_id', chapterId)
-        .order('date', { ascending: false });
+        .order('transaction_date', { ascending: false });
 
       if (error) throw error;
 
@@ -22,10 +27,10 @@ export class TransactionService {
       return (data || []).map(tx => ({
         id: tx.id,
         chapter_id: tx.chapter_id,
-        date: new Date(tx.date),
+        date: new Date(tx.transaction_date),
         amount: tx.amount,
         description: tx.description,
-        category: tx.category,
+        category: tx.budget_categories?.name || 'Uncategorized',
         source: tx.source,
         status: tx.status
       }));
@@ -44,22 +49,27 @@ export class TransactionService {
 
     try {
       const { data, error } = await supabase
-        .from('transactions')
-        .select('*')
+        .from('expenses')
+        .select(`
+          *,
+          budget_categories (
+            name
+          )
+        `)
         .eq('chapter_id', chapterId)
-        .gte('date', startDate.toISOString())
-        .lte('date', endDate.toISOString())
-        .order('date', { ascending: false });
+        .gte('transaction_date', startDate.toISOString())
+        .lte('transaction_date', endDate.toISOString())
+        .order('transaction_date', { ascending: false });
 
       if (error) throw error;
 
       return (data || []).map(tx => ({
         id: tx.id,
         chapter_id: tx.chapter_id,
-        date: new Date(tx.date),
+        date: new Date(tx.transaction_date),
         amount: tx.amount,
         description: tx.description,
-        category: tx.category,
+        category: tx.budget_categories?.name || 'Uncategorized',
         source: tx.source,
         status: tx.status
       }));
@@ -216,20 +226,25 @@ export class TransactionService {
 
     try {
       const { data, error } = await supabase
-        .from('transactions')
-        .select('*')
+        .from('expenses')
+        .select(`
+          *,
+          budget_categories (
+            name
+          )
+        `)
         .eq('chapter_id', chapterId)
-        .eq('category', category)
-        .order('date', { ascending: false });
+        .order('transaction_date', { ascending: false });
 
       if (error) throw error;
 
       return (data || []).map(tx => ({
         id: tx.id,
-        date: new Date(tx.date),
+        chapter_id: tx.chapter_id,
+        date: new Date(tx.transaction_date),
         amount: tx.amount,
         description: tx.description,
-        category: tx.category,
+        category: tx.budget_categories?.name || 'Uncategorized',
         source: tx.source,
         status: tx.status
       }));
@@ -253,8 +268,13 @@ export class TransactionService {
 
     try {
       const { data, error } = await supabase
-        .from('transactions')
-        .select('*')
+        .from('expenses')
+        .select(`
+          *,
+          budget_categories (
+            name
+          )
+        `)
         .eq('chapter_id', chapterId);
 
       if (error) throw error;
@@ -268,11 +288,12 @@ export class TransactionService {
 
       data?.forEach(tx => {
         stats.totalAmount += tx.amount;
-        
-        if (!stats.byCategory[tx.category]) {
-          stats.byCategory[tx.category] = 0;
+
+        const category = tx.budget_categories?.name || 'Uncategorized';
+        if (!stats.byCategory[category]) {
+          stats.byCategory[category] = 0;
         }
-        stats.byCategory[tx.category] += tx.amount;
+        stats.byCategory[category] += tx.amount;
 
         if (!stats.bySource[tx.source]) {
           stats.bySource[tx.source] = 0;
