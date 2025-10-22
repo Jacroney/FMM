@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { Chapter } from '../services/types';
 import { ChapterService } from '../services/chapterService';
 import { isDemoModeEnabled } from '../utils/env';
+import { DEMO_EVENT } from '../demo/demoMode';
 
 interface ChapterContextType {
   chapters: Chapter[];
@@ -25,9 +26,6 @@ interface ChapterProviderProps {
   children: ReactNode;
 }
 
-// DEMO MODE: Mock chapter data
-const DEMO_MODE = isDemoModeEnabled();
-
 const mockChapter: Chapter = {
   id: '00000000-0000-0000-0000-000000000001',
   name: 'Alpha Beta Chapter',
@@ -42,9 +40,10 @@ const mockChapter: Chapter = {
 };
 
 export const ChapterProvider: React.FC<ChapterProviderProps> = ({ children }) => {
-  const [chapters, setChapters] = useState<Chapter[]>(DEMO_MODE ? [mockChapter] : []);
-  const [currentChapter, setCurrentChapter] = useState<Chapter | null>(DEMO_MODE ? mockChapter : null);
-  const [loading, setLoading] = useState(!DEMO_MODE);
+  const initialDemoMode = isDemoModeEnabled();
+  const [chapters, setChapters] = useState<Chapter[]>(initialDemoMode ? [mockChapter] : []);
+  const [currentChapter, setCurrentChapter] = useState<Chapter | null>(initialDemoMode ? mockChapter : null);
+  const [loading, setLoading] = useState(!initialDemoMode);
 
   const refreshChapters = async () => {
     try {
@@ -80,11 +79,25 @@ export const ChapterProvider: React.FC<ChapterProviderProps> = ({ children }) =>
   };
 
   useEffect(() => {
-    // Only load chapters once the component mounts
-    // This will work for both auth and non-auth users
-    if (!DEMO_MODE) {
-      refreshChapters();
+    const applyMode = () => {
+      if (isDemoModeEnabled()) {
+        setChapters([mockChapter]);
+        setCurrentChapter(mockChapter);
+        setLoading(false);
+      } else {
+        setLoading(true);
+        refreshChapters();
+      }
+    };
+
+    applyMode();
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener(DEMO_EVENT, applyMode);
+      return () => window.removeEventListener(DEMO_EVENT, applyMode);
     }
+
+    return undefined;
   }, []);
 
   const value: ChapterContextType = {

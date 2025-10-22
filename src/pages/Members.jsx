@@ -279,12 +279,12 @@ const Members = () => {
             onClick={() => setShowImportModal(true)}
             className="bg-blue-600 dark:bg-blue-700 text-white px-4 py-2 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-800 transition-colors flex items-center"
           >
-            <span className="mr-2">📥</span>
+            <span className="mr-1.5">📥</span>
             Import Roster
           </button>
           <div className="relative group">
             <button className="bg-green-600 dark:bg-green-700 text-white px-4 py-2 rounded-lg hover:bg-green-700 dark:hover:bg-green-800 transition-colors flex items-center">
-              <span className="mr-2">📤</span>
+              <span className="mr-1.5">📤</span>
               Export
             </button>
             <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-2 hidden group-hover:block z-10">

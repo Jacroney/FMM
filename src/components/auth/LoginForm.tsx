@@ -2,11 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { SignInData } from '../../services/authService';
 
-interface LoginFormProps {
-  onSwitchToSignup: () => void;
-}
-
-export const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToSignup }) => {
+export const LoginForm: React.FC = () => {
   const { signIn, isLoading } = useAuth();
   const [formData, setFormData] = useState<SignInData>({
     email: '',
@@ -154,17 +150,6 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToSignup }) => {
         </button>
       </form>
 
-      <div className="mt-6 text-center">
-        <p className="text-sm text-gray-600 dark:text-gray-400">
-          Don't have an account?{' '}
-          <button
-            onClick={onSwitchToSignup}
-            className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400"
-          >
-            Sign up here
-          </button>
-        </p>
-      </div>
     </div>
   );
 };

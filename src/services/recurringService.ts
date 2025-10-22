@@ -5,6 +5,8 @@ import {
   AutomationAudit,
   ForecastBalance
 } from './types';
+import { isDemoModeEnabled } from '../utils/env';
+import { demoStore, demoHelpers } from '../demo/demoStore';
 
 export class RecurringService {
   // ============================================================================
@@ -17,6 +19,18 @@ export class RecurringService {
   static async getRecurringTransactions(
     chapterId: string
   ): Promise<RecurringTransactionDetail[]> {
+    if (isDemoModeEnabled()) {
+      return demoStore
+        .getState()
+        .recurring.filter(item => item.chapter_id === chapterId)
+        .map(item => ({
+          ...item,
+          category_name: 'Operational Costs',
+          category_type: 'Operational Costs',
+          period_name: 'FY25 – Spring'
+        }));
+    }
+
     const { data, error } = await supabase
       .from('recurring_transactions')
       .select(`
@@ -47,6 +61,14 @@ export class RecurringService {
   static async getRecurringTransaction(
     id: string
   ): Promise<RecurringTransaction> {
+    if (isDemoModeEnabled()) {
+      const item = demoStore.getState().recurring.find(rec => rec.id === id);
+      if (!item) {
+        throw new Error('Recurring transaction not found');
+      }
+      return { ...item };
+    }
+
     const { data, error } = await supabase
       .from('recurring_transactions')
       .select('*')
@@ -66,6 +88,17 @@ export class RecurringService {
   static async createRecurringTransaction(
     transaction: Omit<RecurringTransaction, 'id' | 'created_at' | 'updated_at'>
   ): Promise<RecurringTransaction> {
+    if (isDemoModeEnabled()) {
+      const newTransaction: RecurringTransaction = {
+        ...transaction,
+        id: demoHelpers.nextId(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      demoStore.setState({ recurring: [...demoStore.getState().recurring, newTransaction] });
+      return newTransaction;
+    }
+
     const { data, error } = await supabase
       .from('recurring_transactions')
       .insert([transaction])
@@ -86,6 +119,21 @@ export class RecurringService {
     id: string,
     updates: Partial<Omit<RecurringTransaction, 'id' | 'chapter_id' | 'created_at' | 'updated_at'>>
   ): Promise<RecurringTransaction> {
+    if (isDemoModeEnabled()) {
+      let updated: RecurringTransaction | undefined;
+      demoStore.setState({
+        recurring: demoStore.getState().recurring.map(item => {
+          if (item.id !== id) return item;
+          updated = { ...item, ...updates, updated_at: new Date().toISOString() } as RecurringTransaction;
+          return updated;
+        })
+      });
+      if (!updated) {
+        throw new Error('Recurring transaction not found');
+      }
+      return updated;
+    }
+
     const { data, error } = await supabase
       .from('recurring_transactions')
       .update(updates)
@@ -104,6 +152,11 @@ export class RecurringService {
    * Delete a recurring transaction
    */
   static async deleteRecurringTransaction(id: string): Promise<void> {
+    if (isDemoModeEnabled()) {
+      demoStore.setState({ recurring: demoStore.getState().recurring.filter(item => item.id !== id) });
+      return;
+    }
+
     const { error } = await supabase
       .from('recurring_transactions')
       .delete()
@@ -118,6 +171,15 @@ export class RecurringService {
    * Toggle auto-post status
    */
   static async toggleAutoPost(id: string, autoPost: boolean): Promise<void> {
+    if (isDemoModeEnabled()) {
+      demoStore.setState({
+        recurring: demoStore.getState().recurring.map(item =>
+          item.id === id ? { ...item, auto_post: autoPost } : item
+        )
+      });
+      return;
+    }
+
     await this.updateRecurringTransaction(id, { auto_post: autoPost });
   }
 
@@ -125,6 +187,15 @@ export class RecurringService {
    * Toggle active status
    */
   static async toggleActive(id: string, isActive: boolean): Promise<void> {
+    if (isDemoModeEnabled()) {
+      demoStore.setState({
+        recurring: demoStore.getState().recurring.map(item =>
+          item.id === id ? { ...item, is_active: isActive } : item
+        )
+      });
+      return;
+    }
+
     await this.updateRecurringTransaction(id, { is_active: isActive });
   }
 
@@ -139,6 +210,112 @@ export class RecurringService {
     chapterId: string,
     daysAhead: number = 90
   ): Promise<ForecastBalance[]> {
+    if (isDemoModeEnabled()) {
+      const state = demoStore.getState();
+      const startDate = new Date();
+      startDate.setHours(0, 0, 0, 0);
+      const endDate = new Date(startDate);
+      endDate.setDate(endDate.getDate() + daysAhead);
+
+      const baseBalance = state.transactions
+        .filter(tx => tx.chapter_id === chapterId)
+        .reduce((sum, tx) => sum + tx.amount, 0);
+
+      type Adjustment = {
+        amount: number;
+        hasRecurring: boolean;
+      };
+
+      const adjustments = new Map<string, Adjustment>();
+
+      const addAdjustment = (date: Date, amount: number) => {
+        const key = date.toISOString().split('T')[0];
+        const entry = adjustments.get(key) || { amount: 0, hasRecurring: false };
+        entry.amount += amount;
+        entry.hasRecurring = true;
+        adjustments.set(key, entry);
+      };
+
+      const advanceDate = (date: Date, frequency: RecurringTransaction['frequency']) => {
+        const next = new Date(date);
+        switch (frequency) {
+          case 'daily':
+            next.setDate(next.getDate() + 1);
+            break;
+          case 'weekly':
+            next.setDate(next.getDate() + 7);
+            break;
+          case 'biweekly':
+            next.setDate(next.getDate() + 14);
+            break;
+          case 'monthly':
+            next.setMonth(next.getMonth() + 1);
+            break;
+          case 'quarterly':
+            next.setMonth(next.getMonth() + 3);
+            break;
+          case 'yearly':
+            next.setFullYear(next.getFullYear() + 1);
+            break;
+          default:
+            next.setMonth(next.getMonth() + 1);
+            break;
+        }
+        return next;
+      };
+
+      state.recurring
+        .filter(item => item.chapter_id === chapterId && item.is_active)
+        .forEach(item => {
+          let occurrence = new Date(item.next_due_date);
+          occurrence.setHours(0, 0, 0, 0);
+
+          while (occurrence <= endDate) {
+            if (occurrence >= startDate) {
+              addAdjustment(occurrence, item.amount);
+            }
+            occurrence = advanceDate(occurrence, item.frequency);
+          }
+        });
+
+      const results: ForecastBalance[] = [];
+      let runningBalance = baseBalance;
+
+      for (let day = 0; day < daysAhead; day++) {
+        const date = new Date(startDate);
+        date.setDate(startDate.getDate() + day);
+        const key = date.toISOString().split('T')[0];
+        const adjustment = adjustments.get(key);
+
+        const sources: string[] = [];
+        if (day === 0) {
+          sources.push('actual');
+        }
+
+        let projected = runningBalance;
+        let dailyAmount = 0;
+
+        if (adjustment) {
+          projected += adjustment.amount;
+          dailyAmount = adjustment.amount;
+          runningBalance = projected;
+          if (adjustment.hasRecurring) {
+            sources.push('recurring');
+          }
+        }
+
+        results.push({
+          date: key,
+          chapter_id: chapterId,
+          daily_amount: dailyAmount,
+          sources,
+          projected_balance: projected
+        });
+      }
+
+      return results;
+    }
+
     const endDate = new Date();
     endDate.setDate(endDate.getDate() + daysAhead);
 
@@ -161,6 +338,12 @@ export class RecurringService {
    * Get next upcoming recurring transaction
    */
   static async getNextRecurring(chapterId: string): Promise<RecurringTransaction | null> {
+    if (isDemoModeEnabled()) {
+      const items = demoStore.getState().recurring.filter(item => item.chapter_id === chapterId && item.is_active);
+      if (items.length === 0) return null;
+      return { ...items.sort((a, b) => new Date(a.next_due_date).getTime() - new Date(b.next_due_date).getTime())[0] };
+    }
+
     const { data, error } = await supabase
       .from('recurring_transactions')
       .select('*')
@@ -190,6 +373,21 @@ export class RecurringService {
     result?: any;
     error?: string;
   }> {
+    if (isDemoModeEnabled()) {
+      demoStore.appendPlaidLog({
+        id: demoHelpers.nextId(),
+        time: 'Just now',
+        detail: 'Demo autopost processed recurring schedules',
+        status: 'success'
+      });
+      return {
+        success: true,
+        result: {
+          records_inserted: 2
+        }
+      };
+    }
+
     try {
       const { data, error } = await supabase.functions.invoke('process-recurring', {
         method: 'POST',

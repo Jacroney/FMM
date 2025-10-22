@@ -1,3 +1,5 @@
+import { DEMO_DISABLE_STORAGE_KEY, isDemoWindowFlagActive } from '../demo/demoMode';
+
 const toBoolean = (value: string | undefined, fallback = false): boolean => {
   if (typeof value !== 'string') return fallback;
   switch (value.trim().toLowerCase()) {
@@ -15,6 +17,17 @@ const toBoolean = (value: string | undefined, fallback = false): boolean => {
 };
 
 export const isDemoModeEnabled = (): boolean => {
+  if (typeof window !== 'undefined') {
+    try {
+      if (window.localStorage.getItem(DEMO_DISABLE_STORAGE_KEY) === 'true') {
+        return false;
+      }
+    } catch (error) {
+      console.warn('Unable to read demo disable flag:', error);
+    }
+  }
+  if (isDemoWindowFlagActive()) {
+    return true;
+  }
   return toBoolean(import.meta.env.VITE_APP_DEMO_MODE, false);
 };
-

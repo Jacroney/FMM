@@ -1,9 +1,18 @@
 import { supabase } from './supabaseClient';
 import { Transaction } from './types';
+import { isDemoModeEnabled } from '../utils/env';
+import { demoStore, demoHelpers } from '../demo/demoStore';
 
 export class TransactionService {
   // Fetch all transactions for a specific chapter
   static async fetchTransactions(chapterId: string): Promise<Transaction[]> {
+    if (isDemoModeEnabled()) {
+      const { transactions } = demoStore.getState();
+      return transactions
+        .filter(tx => tx.chapter_id === chapterId)
+        .map(tx => ({ ...tx, date: new Date(tx.date) }));
+    }
+
     if (!chapterId) {
       console.error('Chapter ID is required for fetchTransactions');
       return [];
@@ -42,6 +51,17 @@ export class TransactionService {
 
   // Fetch transactions by date range for a specific chapter
   static async fetchTransactionsByDateRange(chapterId: string, startDate: Date, endDate: Date): Promise<Transaction[]> {
+    if (isDemoModeEnabled()) {
+      const { transactions } = demoStore.getState();
+      return transactions
+        .filter(tx =>
+          tx.chapter_id === chapterId &&
+          tx.date >= startDate &&
+          tx.date <= endDate
+        )
+        .map(tx => ({ ...tx, date: new Date(tx.date) }));
+    }
+
     if (!chapterId) {
       console.error('Chapter ID is required for fetchTransactionsByDateRange');
       return [];
@@ -81,6 +101,16 @@ export class TransactionService {
 
   // Add a single transaction
   static async addTransaction(transaction: Omit<Transaction, 'id'>): Promise<Transaction> {
+    if (isDemoModeEnabled()) {
+      const newTx: Transaction = {
+        ...transaction,
+        id: demoHelpers.nextId(),
+        date: new Date(transaction.date)
+      };
+      demoStore.updateTransactions(txs => [newTx, ...txs]);
+      return newTx;
+    }
+
     try {
       const { data, error } = await supabase
         .from('transactions')
@@ -116,6 +146,16 @@ export class TransactionService {
 
   // Add multiple transactions (batch insert)
   static async addTransactions(transactions: Omit<Transaction, 'id'>[]): Promise<Transaction[]> {
+    if (isDemoModeEnabled()) {
+      const created = transactions.map(tx => ({
+        ...tx,
+        id: demoHelpers.nextId(),
+        date: new Date(tx.date)
+      }));
+      demoStore.updateTransactions(txs => [...created, ...txs]);
+      return created;
+    }
+
     try {
       const transactionsToInsert = transactions.map(tx => ({
         chapter_id: tx.chapter_id,
@@ -152,6 +192,25 @@ export class TransactionService {
 
   // Update a transaction
   static async updateTransaction(id: string, updates: Partial<Omit<Transaction, 'id'>>): Promise<Transaction> {
+    if (isDemoModeEnabled()) {
+      let updatedTx: Transaction | null = null;
+      demoStore.updateTransactions(txs =>
+        txs.map(tx => {
+          if (tx.id !== id) return tx;
+          updatedTx = {
+            ...tx,
+            ...updates,
+            date: updates.date ? new Date(updates.date) : tx.date
+          };
+          return updatedTx;
+        })
+      );
+      if (!updatedTx) {
+        throw new Error('Transaction not found');
+      }
+      return updatedTx;
+    }
+
     try {
       const updateData: any = {};
       
@@ -189,6 +248,11 @@ export class TransactionService {
 
   // Delete a transaction
   static async deleteTransaction(id: string): Promise<void> {
+    if (isDemoModeEnabled()) {
+      demoStore.updateTransactions(txs => txs.filter(tx => tx.id !== id));
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from('transactions')
@@ -204,6 +268,12 @@ export class TransactionService {
 
   // Delete multiple transactions
   static async deleteTransactions(ids: string[]): Promise<void> {
+    if (isDemoModeEnabled()) {
+      const set = new Set(ids);
+      demoStore.updateTransactions(txs => txs.filter(tx => !set.has(tx.id)));
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from('transactions')

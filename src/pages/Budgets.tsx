@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import { ExpenseService } from '../services/expenseService';
 import {
   BudgetSummary,
@@ -72,6 +73,15 @@ const Budgets: React.FC = () => {
   const [filterType, setFilterType] = useState<'all' | 'Fixed Costs' | 'Operational Costs' | 'Event Costs'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'spent' | 'percent'>('name');
+
+  const location = useLocation();
+  const isDemoRoute = location.pathname.startsWith('/demo');
+
+  useEffect(() => {
+    if (isDemoRoute && viewMode !== 'overview') {
+      setViewMode('overview');
+    }
+  }, [isDemoRoute, viewMode]);
 
   const loadData = useCallback(async () => {
     if (!currentChapter?.id) {
@@ -783,7 +793,7 @@ const Budgets: React.FC = () => {
 
 
       {/* Expenses List View */}
-      {viewMode === 'expenses' && (
+      {!isDemoRoute && viewMode === 'expenses' && (
         <ExpenseList
           expenses={expenses}
           onExpenseUpdated={handleExpenseSubmitted}

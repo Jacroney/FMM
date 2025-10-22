@@ -118,9 +118,9 @@ const ExpenseList: React.FC<ExpenseListProps> = ({
       if (!searchTerm) return true;
       const search = searchTerm.toLowerCase();
       return (
-        expense.description.toLowerCase().includes(search) ||
-        expense.category_name.toLowerCase().includes(search) ||
-        expense.vendor?.toLowerCase().includes(search) ||
+        (expense.description?.toLowerCase() || '').includes(search) ||
+        (expense.category_name?.toLowerCase() || '').includes(search) ||
+        (expense.vendor?.toLowerCase() || '').includes(search) ||
         expense.amount.toString().includes(search)
       );
     })
