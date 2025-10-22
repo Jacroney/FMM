@@ -6,6 +6,8 @@ import {
   BudgetPeriod,
   BudgetSummary
 } from './types';
+import { isDemoModeEnabled } from '../utils/env';
+import { demoStore, demoHelpers } from '../demo/demoStore';
 
 /**
  * Unified Expense Service
@@ -40,6 +42,19 @@ export class ExpenseService {
       limit?: number;
     }
   ): Promise<ExpenseDetail[]> {
+    if (isDemoModeEnabled()) {
+      const state = demoStore.getState();
+      return state.expenses.filter(expense => {
+        if (expense.chapter_id !== chapterId) return false;
+        if (options?.periodId && expense.period_id !== options.periodId) return false;
+        if (options?.categoryId && expense.category_id !== options.categoryId) return false;
+        if (options?.status && expense.status !== options.status) return false;
+        if (options?.startDate && expense.transaction_date < options.startDate) return false;
+        if (options?.endDate && expense.transaction_date > options.endDate) return false;
+        return true;
+      }).map(expense => ({ ...expense }));
+    }
+
     if (!chapterId) {
       console.error('Chapter ID is required');
       return [];
@@ -95,6 +110,11 @@ export class ExpenseService {
    * Get a single expense by ID with full details
    */
   static async getExpense(id: string): Promise<ExpenseDetail | null> {
+    if (isDemoModeEnabled()) {
+      const state = demoStore.getState();
+      return state.expenses.find(expense => expense.id === id) || null;
+    }
+
     try {
       const { data, error } = await supabase
         .from('expense_details')
@@ -114,6 +134,22 @@ export class ExpenseService {
    * Create a new expense
    */
   static async addExpense(chapterId: string, expense: Omit<Expense, 'id' | 'chapter_id' | 'created_at' | 'updated_at'>): Promise<Expense> {
+    if (isDemoModeEnabled()) {
+      const newExpense: ExpenseDetail = {
+        ...(expense as ExpenseDetail),
+        id: demoHelpers.nextId(),
+        chapter_id: chapterId,
+        category_name: 'Demo Category',
+        category_type: 'Operational Costs',
+        period_name: 'FY25 – Spring',
+        period_type: 'Semester',
+        fiscal_year: 2025,
+        budget_allocated: expense.amount * 2
+      };
+      demoStore.setState({ expenses: [newExpense, ...demoStore.getState().expenses] });
+      return newExpense;
+    }
+
     if (!chapterId) {
       throw new Error('Chapter ID is required');
     }
@@ -140,6 +176,22 @@ export class ExpenseService {
    * Bulk create expenses (useful for CSV import)
    */
   static async addExpenses(chapterId: string, expenses: Omit<Expense, 'id' | 'chapter_id' | 'created_at' | 'updated_at'>[]): Promise<Expense[]> {
+    if (isDemoModeEnabled()) {
+      const created: ExpenseDetail[] = expenses.map(exp => ({
+        ...(exp as ExpenseDetail),
+        id: demoHelpers.nextId(),
+        chapter_id: chapterId,
+        category_name: 'Demo Category',
+        category_type: 'Operational Costs',
+        period_name: 'FY25 – Spring',
+        period_type: 'Semester',
+        fiscal_year: 2025,
+        budget_allocated: exp.amount * 2
+      }));
+      demoStore.setState({ expenses: [...created, ...demoStore.getState().expenses] });
+      return created;
+    }
+
     if (!chapterId) {
       throw new Error('Chapter ID is required');
     }
@@ -167,6 +219,21 @@ export class ExpenseService {
    * Update an existing expense
    */
   static async updateExpense(id: string, updates: Partial<Omit<Expense, 'id' | 'chapter_id' | 'created_at' | 'updated_at'>>): Promise<Expense> {
+    if (isDemoModeEnabled()) {
+      let updated: ExpenseDetail | undefined;
+      demoStore.setState({
+        expenses: demoStore.getState().expenses.map(expense => {
+          if (expense.id !== id) return expense;
+          updated = { ...expense, ...updates } as ExpenseDetail;
+          return updated;
+        })
+      });
+      if (!updated) {
+        throw new Error('Expense not found');
+      }
+      return updated;
+    }
+
     try {
       const { data, error } = await supabase
         .from('expenses')
@@ -187,6 +254,13 @@ export class ExpenseService {
    * Delete an expense
    */
   static async deleteExpense(id: string): Promise<boolean> {
+    if (isDemoModeEnabled()) {
+      demoStore.setState({
+        expenses: demoStore.getState().expenses.filter(expense => expense.id !== id)
+      });
+      return true;
+    }
+
     try {
       const { error } = await supabase
         .from('expenses')
@@ -209,6 +283,10 @@ export class ExpenseService {
    * Get all active budget categories for a chapter
    */
   static async getCategories(chapterId: string): Promise<BudgetCategory[]> {
+    if (isDemoModeEnabled()) {
+      return demoStore.getState().budgetCategories.filter(cat => cat.chapter_id === chapterId).map(cat => ({ ...cat }));
+    }
+
     if (!chapterId) {
       console.error('Chapter ID is required');
       return [];
@@ -239,6 +317,17 @@ export class ExpenseService {
    * Create a new budget category
    */
   static async addCategory(chapterId: string, category: Omit<BudgetCategory, 'id' | 'chapter_id' | 'created_at' | 'updated_at'>): Promise<BudgetCategory> {
+    if (isDemoModeEnabled()) {
+      const newCategory: BudgetCategory = {
+        id: demoHelpers.nextId(),
+        chapter_id: chapterId,
+        is_active: true,
+        ...category
+      };
+      demoStore.setState({ budgetCategories: [newCategory, ...demoStore.getState().budgetCategories] });
+      return newCategory;
+    }
+
     if (!chapterId) {
       throw new Error('Chapter ID is required');
     }
@@ -265,6 +354,21 @@ export class ExpenseService {
    * Update a budget category
    */
   static async updateCategory(id: string, updates: Partial<Omit<BudgetCategory, 'id' | 'chapter_id' | 'created_at' | 'updated_at'>>): Promise<BudgetCategory> {
+    if (isDemoModeEnabled()) {
+      let updatedCategory: BudgetCategory | undefined;
+      demoStore.setState({
+        budgetCategories: demoStore.getState().budgetCategories.map(category => {
+          if (category.id !== id) return category;
+          updatedCategory = { ...category, ...updates } as BudgetCategory;
+          return updatedCategory;
+        })
+      });
+      if (!updatedCategory) {
+        throw new Error('Budget category not found');
+      }
+      return updatedCategory;
+    }
+
     try {
       const { data, error } = await supabase
         .from('budget_categories')
@@ -289,6 +393,10 @@ export class ExpenseService {
    * Get all budget periods for a chapter
    */
   static async getPeriods(chapterId: string): Promise<BudgetPeriod[]> {
+    if (isDemoModeEnabled()) {
+      return demoStore.getState().budgetPeriods.filter(period => period.chapter_id === chapterId).map(period => ({ ...period }));
+    }
+
     if (!chapterId) {
       console.error('Chapter ID is required');
       return [];
@@ -317,6 +425,11 @@ export class ExpenseService {
    * Get the current budget period for a chapter
    */
   static async getCurrentPeriod(chapterId: string): Promise<BudgetPeriod | null> {
+    if (isDemoModeEnabled()) {
+      const period = demoStore.getState().budgetPeriods.find(p => p.chapter_id === chapterId && p.is_current);
+      return period ? { ...period } : null;
+    }
+
     if (!chapterId) {
       console.error('Chapter ID is required');
       return null;
@@ -346,6 +459,17 @@ export class ExpenseService {
    * Create a new budget period
    */
   static async addPeriod(chapterId: string, period: Omit<BudgetPeriod, 'id' | 'chapter_id' | 'created_at'>): Promise<BudgetPeriod> {
+    if (isDemoModeEnabled()) {
+      const newPeriod: BudgetPeriod = {
+        id: demoHelpers.nextId(),
+        chapter_id: chapterId,
+        ...period,
+        created_at: new Date().toISOString()
+      } as BudgetPeriod;
+      demoStore.setState({ budgetPeriods: [newPeriod, ...demoStore.getState().budgetPeriods] });
+      return newPeriod;
+    }
+
     if (!chapterId) {
       throw new Error('Chapter ID is required');
     }
@@ -376,6 +500,13 @@ export class ExpenseService {
    * Get budget summary for a period
    */
   static async getBudgetSummary(chapterId: string, periodName?: string): Promise<BudgetSummary[]> {
+    if (isDemoModeEnabled()) {
+      return demoStore
+        .getState()
+        .budgetSummary.filter(summary => summary.chapter_id === chapterId && (!periodName || summary.period === periodName))
+        .map(summary => ({ ...summary }));
+    }
+
     if (!chapterId) {
       console.error('Chapter ID is required');
       return [];

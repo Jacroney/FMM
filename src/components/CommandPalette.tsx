@@ -8,13 +8,12 @@ interface CommandPaletteProps {
 }
 
 const ROUTES = [
-  { label: 'Dashboard', path: '/' },
-  { label: 'Transactions', path: '/transactions' },
-  { label: 'Budgets', path: '/budgets' },
-  { label: 'Reports', path: '/reports' },
-  { label: 'Members', path: '/members' },
-  { label: 'Bank Sync', path: '/plaid-sync' },
-  { label: 'Settings', path: '/settings' }
+  { label: 'Dashboard', path: '/app' },
+  { label: 'Transactions', path: '/app/transactions' },
+  { label: 'Budgets', path: '/app/budgets' },
+  { label: 'Reports', path: '/app/reports' },
+  { label: 'Dues management', path: '/app/dues' },
+  { label: 'Settings', path: '/app/settings' }
 ];
 
 const QUICK_ACTIONS = [

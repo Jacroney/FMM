@@ -1,25 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { Analytics } from '@vercel/analytics/react';
-import { AuthProvider, useAuth } from './context/AuthContext';
-import { FinancialProvider } from './context/FinancialContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { ChapterProvider } from './context/ChapterContext';
 import { ChapterThemeProvider } from './context/ChapterThemeContext';
-import AuthProtection from './components/PasswordProtection';
-import { FirstTimeSetup } from './components/FirstTimeSetup';
+import { FinancialProvider } from './context/FinancialContext';
+import AuthProtection from './components/AuthProtection';
 import MainLayout from './layouts/MainLayout';
 import { Dashboard } from './components/Dashboard';
 import { MemberDashboard } from './components/MemberDashboard';
-import { NotFound } from './components/NotFound';
+import { FirstTimeSetup } from './components/FirstTimeSetup';
 import Transactions from './pages/Transactions';
 import Budgets from './pages/Budgets';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 import Dues from './pages/Dues';
 import RecurringTransactions from './pages/RecurringTransactions';
+import { PlaidSync } from './pages/PlaidSync';
+import { NotFound } from './components/NotFound';
+import Home from './pages/Home';
+import Demo from './pages/Demo';
+import AuthPage from './pages/AuthPage';
 
 function App() {
   return (
@@ -28,38 +32,50 @@ function App() {
         <ChapterProvider>
           <ChapterThemeProvider>
             <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-              <AuthProtection>
-                <FinancialProvider>
-                  <AppRoutes />
-                <Toaster
-                  position="top-right"
-                  toastOptions={{
-                    duration: 4000,
-                    className: '',
-                    style: {
-                      background: 'var(--toast-bg, #363636)',
-                      color: 'var(--toast-text, #fff)',
-                    },
-                    success: {
-                      duration: 3000,
-                      iconTheme: {
-                        primary: '#22c55e',
-                        secondary: '#fff',
-                      },
-                    },
-                    error: {
-                      duration: 5000,
-                      iconTheme: {
-                        primary: '#ef4444',
-                        secondary: '#fff',
-                      },
-                    },
-                  }}
+              <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/demo/*" element={<Demo />} />
+                <Route path="/signin" element={<AuthPage />} />
+                <Route path="/signup" element={<AuthPage />} />
+                <Route
+                  path="/app/*"
+                  element={
+                    <AuthProtection>
+                      <FinancialProvider>
+                        <ProtectedAppRoutes />
+                      </FinancialProvider>
+                    </AuthProtection>
+                  }
                 />
-                <SpeedInsights />
-                <Analytics />
-                </FinancialProvider>
-              </AuthProtection>
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+              <Toaster
+                position="top-right"
+                toastOptions={{
+                  duration: 4000,
+                  className: '',
+                  style: {
+                    background: 'var(--toast-bg, #363636)',
+                    color: 'var(--toast-text, #fff)'
+                  },
+                  success: {
+                    duration: 3000,
+                    iconTheme: {
+                      primary: '#22c55e',
+                      secondary: '#fff'
+                    }
+                  },
+                  error: {
+                    duration: 5000,
+                    iconTheme: {
+                      primary: '#ef4444',
+                      secondary: '#fff'
+                    }
+                  }
+                }}
+              />
+              <SpeedInsights />
+              <Analytics />
             </Router>
           </ChapterThemeProvider>
         </ChapterProvider>
@@ -68,22 +84,19 @@ function App() {
   );
 }
 
-// Role-based routing component
-const AppRoutes = () => {
+const ProtectedAppRoutes = () => {
   const { hasAdminAccess, isMember, isLoading, profile, isAdmin, user } = useAuth();
   const [showFirstTimeSetup, setShowFirstTimeSetup] = useState(false);
   const [loadingTimeout, setLoadingTimeout] = useState(false);
 
-  // Check if admin needs first-time setup (you could add a setup_completed field to user_profiles)
   const needsFirstTimeSetup = isAdmin && profile?.phone_number === undefined;
 
-  // Add timeout for loading states
   useEffect(() => {
     if (isLoading || (!profile && user)) {
       const timer = setTimeout(() => {
         console.error('Loading timeout reached. Profile may have failed to load.');
         setLoadingTimeout(true);
-      }, 10000); // 10 second timeout
+      }, 10000);
 
       return () => clearTimeout(timer);
     }
@@ -91,41 +104,39 @@ const AppRoutes = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+      <div className="flex min-h-screen items-center justify-center bg-[var(--brand-surface)] dark:bg-gray-900">
         <div className="flex flex-col items-center gap-4">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <p className="text-gray-600 dark:text-gray-300">Loading application...</p>
+          <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-blue-600"></div>
+          <p className="text-sm text-slate-500 dark:text-slate-300">Loading application…</p>
         </div>
       </div>
     );
   }
 
-  // If user is authenticated but no profile is loaded yet, show loading with timeout
   if (!profile && user && !loadingTimeout) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+      <div className="flex min-h-screen items-center justify-center bg-[var(--brand-surface)] dark:bg-gray-900">
         <div className="flex flex-col items-center gap-4">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <p className="text-gray-600 dark:text-gray-300">Loading profile...</p>
-          <p className="text-sm text-gray-400">This is taking longer than usual...</p>
+          <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-blue-600"></div>
+          <p className="text-sm text-slate-500">Loading profile…</p>
+          <p className="text-xs text-slate-400">This is taking longer than usual…</p>
         </div>
       </div>
     );
   }
 
-  // If loading timed out, show error and allow user to continue
   if (loadingTimeout && user && !profile) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900 p-4">
+      <div className="flex min-h-screen items-center justify-center bg-[var(--brand-surface)] p-4 dark:bg-gray-900">
         <div className="max-w-md text-center">
-          <div className="text-red-500 text-6xl mb-4">⚠️</div>
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Profile Loading Failed</h2>
-          <p className="text-gray-600 dark:text-gray-300 mb-4">
+          <div className="mb-4 text-5xl">⚠️</div>
+          <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Profile loading failed</h2>
+          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
             There was an issue loading your profile. This may be due to database permissions.
           </p>
           <button
             onClick={() => window.location.reload()}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            className="mt-4 inline-flex items-center justify-center rounded-lg bg-[var(--brand-primary)] px-4 py-2 text-sm font-semibold text-white"
           >
             Retry
           </button>
@@ -134,12 +145,10 @@ const AppRoutes = () => {
     );
   }
 
-  // Show first-time setup for new admins
   if (needsFirstTimeSetup && !showFirstTimeSetup) {
     return <FirstTimeSetup onComplete={() => setShowFirstTimeSetup(true)} />;
   }
 
-  // Member view - only sees dues dashboard
   if (isMember) {
     return (
       <Routes>
@@ -148,17 +157,17 @@ const AppRoutes = () => {
     );
   }
 
-  // Admin/Exec view - full access to financial tools
   if (hasAdminAccess) {
     return (
       <Routes>
-        <Route path="/" element={<MainLayout />}>
+        <Route path="" element={<MainLayout />}>
           <Route index element={<Dashboard />} />
           <Route path="transactions" element={<Transactions />} />
           <Route path="recurring" element={<RecurringTransactions />} />
           <Route path="budgets" element={<Budgets />} />
           <Route path="reports" element={<Reports />} />
           <Route path="dues" element={<Dues />} />
+          <Route path="plaid-sync" element={<PlaidSync />} />
           <Route path="settings" element={<Settings />} />
           <Route path="*" element={<NotFound />} />
         </Route>
@@ -166,7 +175,6 @@ const AppRoutes = () => {
     );
   }
 
-  // Fallback
   return (
     <Routes>
       <Route path="*" element={<NotFound />} />

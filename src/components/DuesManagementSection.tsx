@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   DollarSign,
   Settings,
@@ -6,8 +6,6 @@ import {
   TrendingUp,
   AlertCircle,
   CheckCircle,
-  Calendar,
-  Plus,
   Download,
   RefreshCw,
   Edit2
@@ -23,16 +21,82 @@ import {
 import DuesConfigurationModal from './DuesConfigurationModal';
 import toast from 'react-hot-toast';
 
-interface DuesManagementSectionProps {
-  chapterId: string;
+const computeStatsFromSummaries = (
+  summaries: MemberDuesSummary[],
+  config: DuesConfiguration
+): ChapterDuesStats => {
+  const base: ChapterDuesStats = {
+    chapter_id: config.chapter_id,
+    period_name: config.period_name,
+    fiscal_year: config.fiscal_year,
+    total_members: summaries.length,
+    members_paid: 0,
+    members_pending: 0,
+    members_overdue: 0,
+    members_partial: 0,
+    total_expected: 0,
+    total_collected: 0,
+    total_outstanding: 0,
+    total_late_fees: 0,
+    payment_rate: 0
+  };
+
+  const aggregated = summaries.reduce((acc, summary) => {
+    acc.total_expected += summary.total_amount;
+    acc.total_collected += summary.amount_paid;
+    acc.total_outstanding += summary.balance;
+    acc.total_late_fees += summary.late_fee;
+
+    switch (summary.status) {
+      case 'paid':
+        acc.members_paid += 1;
+        break;
+      case 'overdue':
+        acc.members_overdue += 1;
+        break;
+      case 'partial':
+        acc.members_partial += 1;
+        break;
+      case 'pending':
+      default:
+        acc.members_pending += 1;
+        break;
+    }
+
+    return acc;
+  }, { ...base });
+
+  if (aggregated.total_expected > 0) {
+    aggregated.payment_rate = Number(
+      ((aggregated.total_collected / aggregated.total_expected) * 100).toFixed(1)
+    );
+  }
+
+  return aggregated;
+};
+
+interface DemoDuesData {
+  configurations: DuesConfiguration[];
+  current: DuesConfiguration;
+  memberSummaries: MemberDuesSummary[];
+  stats: ChapterDuesStats;
+  members: Member[];
 }
 
-const DuesManagementSection: React.FC<DuesManagementSectionProps> = ({ chapterId }) => {
-  const [configurations, setConfigurations] = useState<DuesConfiguration[]>([]);
-  const [currentConfig, setCurrentConfig] = useState<DuesConfiguration | null>(null);
-  const [memberDues, setMemberDues] = useState<MemberDuesSummary[]>([]);
-  const [stats, setStats] = useState<ChapterDuesStats | null>(null);
-  const [members, setMembers] = useState<Member[]>([]);
+interface DuesManagementSectionProps {
+  chapterId: string;
+  demoData?: DemoDuesData;
+}
+
+const DuesManagementSection: React.FC<DuesManagementSectionProps> = ({ chapterId, demoData }) => {
+  const isDemo = Boolean(demoData);
+  const demoSeedKeyRef = useRef<string | null>(null);
+
+  const [configurations, setConfigurations] = useState<DuesConfiguration[]>(demoData?.configurations ?? []);
+  const [currentConfig, setCurrentConfig] = useState<DuesConfiguration | null>(demoData?.current ?? null);
+  const [memberDues, setMemberDues] = useState<MemberDuesSummary[]>(demoData?.memberSummaries ?? []);
+  const [stats, setStats] = useState<ChapterDuesStats | null>(demoData?.stats ?? null);
+  const [, setMembers] = useState<Member[]>(demoData?.members ?? []);
 
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [editingConfig, setEditingConfig] = useState<DuesConfiguration | undefined>();
@@ -48,12 +112,34 @@ const DuesManagementSection: React.FC<DuesManagementSectionProps> = ({ chapterId
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
 
+  const applyDemoData = useCallback(() => {
+    if (!demoData) return;
+    setConfigurations(demoData.configurations);
+    setCurrentConfig(demoData.current);
+    setMemberDues(demoData.memberSummaries);
+    setStats(demoData.stats);
+    setMembers(demoData.members);
+  }, [demoData]);
+
   // Load data
   useEffect(() => {
+    if (isDemo) {
+      if (demoData) {
+        const key = `${demoData.current?.id ?? 'unknown'}-${demoData.memberSummaries.length}`;
+        if (demoSeedKeyRef.current !== key) {
+          applyDemoData();
+          demoSeedKeyRef.current = key;
+        }
+      }
+      return;
+    }
+
+    demoSeedKeyRef.current = null;
     loadData();
-  }, [chapterId]);
+  }, [chapterId, isDemo, applyDemoData, demoData]);
 
   const loadData = async () => {
+    if (isDemo) return;
     try {
       const [configs, current, membersData] = await Promise.all([
         DuesService.getConfigurations(chapterId),
@@ -87,6 +173,10 @@ const DuesManagementSection: React.FC<DuesManagementSectionProps> = ({ chapterId
   };
 
   const handleAutoAssignDues = async () => {
+    if (isDemo) {
+      toast.success('Demo: dues have already been assigned to each member.');
+      return;
+    }
     if (!currentConfig) {
       toast.error('Please create a dues configuration first');
       return;
@@ -115,6 +205,10 @@ const DuesManagementSection: React.FC<DuesManagementSectionProps> = ({ chapterId
   };
 
   const handleApplyLateFees = async () => {
+    if (isDemo) {
+      toast.success('Demo: late fees are already applied in this example.');
+      return;
+    }
     if (!currentConfig) {
       toast.error('No current configuration found');
       return;
@@ -141,11 +235,54 @@ const DuesManagementSection: React.FC<DuesManagementSectionProps> = ({ chapterId
     e.preventDefault();
     if (!selectedMemberDues) return;
 
+    const amountNumeric = parseFloat(paymentAmount || '0');
+    if (Number.isNaN(amountNumeric) || amountNumeric <= 0) {
+      toast.error('Enter a valid payment amount');
+      return;
+    }
+
+    if (isDemo) {
+      const remaining = selectedMemberDues.total_amount - selectedMemberDues.amount_paid;
+      const appliedAmount = Math.min(amountNumeric, remaining);
+
+      if (appliedAmount <= 0) {
+        toast.error('This member already has a zero balance.');
+        return;
+      }
+
+      const updatedSummaries = memberDues.map((summary) => {
+        if (summary.id !== selectedMemberDues.id) return summary;
+        const newAmountPaid = summary.amount_paid + appliedAmount;
+        const newBalance = Math.max(summary.total_amount - newAmountPaid, 0);
+        const newStatus = newBalance <= 0 ? 'paid' : newAmountPaid > 0 ? 'partial' : summary.status;
+        return {
+          ...summary,
+          amount_paid: newAmountPaid,
+          balance: newBalance,
+          status: newStatus,
+          paid_date: newStatus === 'paid' ? paymentDate : summary.paid_date,
+          is_overdue: newBalance > 0 ? summary.is_overdue : false,
+          days_overdue: newBalance > 0 ? summary.days_overdue : 0,
+          updated_at: new Date().toISOString()
+        };
+      });
+
+      setMemberDues(updatedSummaries);
+      if (currentConfig) {
+        setStats(computeStatsFromSummaries(updatedSummaries, currentConfig));
+      }
+
+      toast.success('Payment recorded (demo)');
+      setShowPaymentModal(false);
+      resetPaymentForm();
+      return;
+    }
+
     setIsProcessing(true);
     try {
       const result = await DuesService.recordPayment(
         selectedMemberDues.id,
-        parseFloat(paymentAmount),
+        amountNumeric,
         paymentMethod,
         paymentDate,
         paymentReference || undefined,

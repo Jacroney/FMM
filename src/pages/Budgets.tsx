@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import { ExpenseService } from '../services/expenseService';
 import {
   BudgetSummary,
@@ -61,6 +62,15 @@ const Budgets: React.FC = () => {
     fiscal_year: new Date().getFullYear(),
     is_current: false
   });
+
+  const location = useLocation();
+  const isDemoRoute = location.pathname.startsWith('/demo');
+
+  useEffect(() => {
+    if (isDemoRoute && viewMode !== 'overview') {
+      setViewMode('overview');
+    }
+  }, [isDemoRoute, viewMode]);
 
   const loadData = useCallback(async () => {
     if (!currentChapter?.id) {
@@ -425,17 +435,19 @@ const Budgets: React.FC = () => {
           <PieChart className="w-4 h-4" />
           Budget Overview
         </button>
-        <button
-          onClick={() => setViewMode('expenses')}
-          className={`px-4 py-2 rounded-md flex items-center gap-2 transition-colors ${
-            viewMode === 'expenses'
-              ? 'bg-blue-600 text-white'
-              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-          }`}
-        >
-          <List className="w-4 h-4" />
-          All Expenses ({expenses.length})
-        </button>
+        {!isDemoRoute && (
+          <button
+            onClick={() => setViewMode('expenses')}
+            className={`px-4 py-2 rounded-md flex items-center gap-2 transition-colors ${
+              viewMode === 'expenses'
+                ? 'bg-blue-600 text-white'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+            }`}
+          >
+            <List className="w-4 h-4" />
+            All Expenses ({expenses.length})
+          </button>
+        )}
       </div>
 
       {/* Budget Overview View */}
@@ -717,7 +729,7 @@ const Budgets: React.FC = () => {
       )}
 
       {/* Expenses List View */}
-      {viewMode === 'expenses' && (
+      {!isDemoRoute && viewMode === 'expenses' && (
         <ExpenseList
           expenses={expenses}
           onExpenseUpdated={handleExpenseSubmitted}

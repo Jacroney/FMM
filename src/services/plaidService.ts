@@ -8,6 +8,8 @@ import {
   PlaidExchangeResponse,
   PlaidSyncResponse,
 } from './types';
+import { isDemoModeEnabled } from '../utils/env';
+import { demoStore, demoHelpers } from '../demo/demoStore';
 
 export class PlaidService {
   /**
@@ -88,6 +90,22 @@ export class PlaidService {
    * Sync transactions for a specific connection
    */
   static async syncTransactions(connectionId: string): Promise<PlaidSyncResponse> {
+    if (isDemoModeEnabled()) {
+      demoStore.appendPlaidLog({
+        id: demoHelpers.nextId(),
+        time: 'Just now',
+        detail: 'Demo sync completed (sample data)',
+        status: 'success'
+      });
+      return {
+        success: true,
+        transactions_added: 4,
+        transactions_modified: 0,
+        transactions_removed: 0,
+        accounts_updated: 1
+      };
+    }
+
     try {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
@@ -125,6 +143,13 @@ export class PlaidService {
    * Get all active connections for the current chapter
    */
   static async getConnections(chapterId: string): Promise<PlaidConnectionWithDetails[]> {
+    if (isDemoModeEnabled()) {
+      return demoStore
+        .getState()
+        .plaidConnections.filter(conn => conn.chapter_id === chapterId)
+        .map(conn => ({ ...conn }));
+    }
+
     try {
       const { data, error } = await supabase
         .rpc('get_active_plaid_connections', { p_chapter_id: chapterId });
@@ -144,6 +169,10 @@ export class PlaidService {
    * Get a single connection by ID
    */
   static async getConnection(connectionId: string): Promise<PlaidConnection | null> {
+    if (isDemoModeEnabled()) {
+      return demoStore.getState().plaidConnections.find(conn => conn.id === connectionId) || null;
+    }
+
     try {
       const { data, error } = await supabase
         .from('plaid_connections')
@@ -166,6 +195,10 @@ export class PlaidService {
    * Get all accounts for a specific connection
    */
   static async getAccountsForConnection(connectionId: string): Promise<PlaidAccount[]> {
+    if (isDemoModeEnabled()) {
+      return (demoStore.getState().plaidAccounts[connectionId] || []).map(account => ({ ...account }));
+    }
+
     try {
       const { data, error } = await supabase
         .from('plaid_accounts')
@@ -189,6 +222,19 @@ export class PlaidService {
    * Get all accounts for the current chapter
    */
   static async getAllAccounts(chapterId: string): Promise<PlaidAccount[]> {
+    if (isDemoModeEnabled()) {
+      const state = demoStore.getState();
+      const connectionIds = state.plaidConnections.filter(conn => conn.chapter_id === chapterId).map(conn => conn.id);
+      const accounts: PlaidAccount[] = [];
+      connectionIds.forEach(id => {
+        const connAccounts = state.plaidAccounts[id];
+        if (connAccounts) {
+          accounts.push(...connAccounts.map(account => ({ ...account })));
+        }
+      });
+      return accounts;
+    }
+
     try {
       const { data, error } = await supabase
         .from('plaid_accounts')
@@ -212,6 +258,13 @@ export class PlaidService {
    * Get total bank balance across all connected accounts
    */
   static async getTotalBankBalance(chapterId: string): Promise<number> {
+    if (isDemoModeEnabled()) {
+      return demoStore
+        .getState()
+        .plaidConnections.filter(conn => conn.chapter_id === chapterId)
+        .reduce((sum, conn) => sum + (conn.total_balance || 0), 0);
+    }
+
     try {
       const { data, error } = await supabase
         .rpc('get_total_bank_balance', { p_chapter_id: chapterId });
@@ -231,6 +284,13 @@ export class PlaidService {
    * Deactivate a connection (soft delete)
    */
   static async deleteConnection(connectionId: string): Promise<void> {
+    if (isDemoModeEnabled()) {
+      demoStore.setState({
+        plaidConnections: demoStore.getState().plaidConnections.filter(conn => conn.id !== connectionId)
+      });
+      return;
+    }
+
     try {
       const { error } = await supabase
         .rpc('deactivate_plaid_connection', { p_connection_id: connectionId });
@@ -251,6 +311,24 @@ export class PlaidService {
     connectionId: string,
     limit: number = 10
   ): Promise<PlaidSyncHistory[]> {
+    if (isDemoModeEnabled()) {
+      return demoStore.getState().plaidLog.map(entry => ({
+        id: entry.id,
+        connection_id: connectionId,
+        chapter_id: demoStore.getState().chapter.id,
+        transactions_added: 0,
+        transactions_modified: 0,
+        transactions_removed: 0,
+        accounts_updated: 0,
+        cursor_before: null,
+        cursor_after: null,
+        sync_status: entry.status === 'warning' ? 'failed' : 'completed',
+        error_message: entry.status === 'warning' ? entry.detail : null,
+        started_at: new Date().toISOString(),
+        completed_at: new Date().toISOString()
+      })).slice(0, limit);
+    }
+
     try {
       const { data, error } = await supabase
         .from('plaid_sync_history')

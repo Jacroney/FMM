@@ -7,6 +7,8 @@ import { MemberService } from '../services/memberService';
 import { supabase } from '../services/supabaseClient';
 import { useChapter } from './ChapterContext';
 import { isDemoModeEnabled } from '../utils/env';
+import { demoStore } from '../demo/demoStore';
+import { DEMO_EVENT } from '../demo/demoMode';
 
 interface FinancialContextType {
   transactions: Transaction[];
@@ -32,165 +34,80 @@ interface FinancialContextType {
 const FinancialContext = createContext<FinancialContextType | undefined>(undefined);
 
 // DEMO MODE: Mock financial data
-const DEMO_MODE = isDemoModeEnabled();
-
-const demoChapterId = '00000000-0000-0000-0000-000000000001';
 const demoMemberDuesAmount = 150;
 
-const mockTransactions: Transaction[] = [
-  {
-    id: 'demo-tx-1',
-    chapter_id: demoChapterId,
-    date: new Date(),
-    description: 'Chapter Dues Collection - Fall 2024',
-    amount: 6750,
-    category: 'Dues',
-    source: 'MANUAL',
-    status: 'COMPLETED'
-  },
-  {
-    id: 'demo-tx-2',
-    chapter_id: demoChapterId,
-    date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-    description: 'Formal Event Venue Rental',
-    amount: -2500,
-    category: 'Events',
-    source: 'MANUAL',
-    status: 'COMPLETED'
-  },
-  {
-    id: 'demo-tx-3',
-    chapter_id: demoChapterId,
-    date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
-    description: 'Brotherhood Event - Bowling',
-    amount: -450,
-    category: 'Social',
-    source: 'MANUAL',
-    status: 'COMPLETED'
-  },
-  {
-    id: 'demo-tx-4',
-    chapter_id: demoChapterId,
-    date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-    description: 'Fundraiser Proceeds',
-    amount: 1200,
-    category: 'Fundraising',
-    source: 'MANUAL',
-    status: 'COMPLETED'
-  }
-];
-
-const mockBudgets: Budget[] = [
-  {
-    id: 'demo-budget-1',
-    chapter_id: demoChapterId,
-    name: 'Events - Fall 2024',
-    amount: 5000,
-    spent: 2500,
-    category: 'Events',
-    period: 'YEARLY',
-    startDate: new Date('2024-08-01'),
-    endDate: new Date('2024-12-15')
-  },
-  {
-    id: 'demo-budget-2',
-    chapter_id: demoChapterId,
-    name: 'Social - Fall 2024',
-    amount: 2000,
-    spent: 450,
-    category: 'Social',
-    period: 'YEARLY',
-    startDate: new Date('2024-08-01'),
-    endDate: new Date('2024-12-15')
-  },
-  {
-    id: 'demo-budget-3',
-    chapter_id: demoChapterId,
-    name: 'Recruitment - Fall 2024',
-    amount: 1500,
-    spent: 0,
-    category: 'Recruitment',
-    period: 'YEARLY',
-    startDate: new Date('2024-08-01'),
-    endDate: new Date('2024-12-15')
-  }
-];
-
-const mockMembers: Member[] = [
-  {
-    id: 'demo-member-1',
-    chapter_id: demoChapterId,
-    name: 'John Smith',
-    email: 'jsmith@university.edu',
-    status: 'Active',
-    year: 'Junior',
-    duesPaid: true,
-    paymentDate: new Date().toISOString(),
-    semester: 'Fall 2024',
-    lastUpdated: new Date().toISOString()
-  },
-  {
-    id: 'demo-member-2',
-    chapter_id: demoChapterId,
-    name: 'Mike Johnson',
-    email: 'mjohnson@university.edu',
-    status: 'Active',
-    year: 'Sophomore',
-    duesPaid: true,
-    paymentDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-    semester: 'Fall 2024',
-    lastUpdated: new Date().toISOString()
-  },
-  {
-    id: 'demo-member-3',
-    chapter_id: demoChapterId,
-    name: 'David Lee',
-    email: 'dlee@university.edu',
-    status: 'Active',
-    year: 'Senior',
-    duesPaid: true,
-    paymentDate: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
-    semester: 'Fall 2024',
-    lastUpdated: new Date().toISOString()
-  },
-  {
-    id: 'demo-member-4',
-    chapter_id: demoChapterId,
-    name: 'Chris Williams',
-    email: 'cwilliams@university.edu',
-    status: 'Active',
-    year: 'Freshman',
-    duesPaid: false,
-    paymentDate: null,
-    semester: 'Fall 2024',
-    lastUpdated: new Date().toISOString()
-  }
-];
+const getDemoData = () => {
+  const state = demoStore.getState();
+  const demoTransactions = state.transactions.map(tx => ({ ...tx, date: new Date(tx.date) }));
+  const demoBudgets = state.budgets.map(budget => ({
+    ...budget,
+    startDate: new Date(budget.startDate),
+    endDate: new Date(budget.endDate)
+  }));
+  const demoMembers = state.members.map(member => ({ ...member }));
+  return { demoTransactions, demoBudgets, demoMembers };
+};
 
 export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentChapter } = useChapter();
-  const [transactions, setTransactions] = useState<Transaction[]>(DEMO_MODE ? mockTransactions : []);
-  const [budgets, setBudgets] = useState<Budget[]>(DEMO_MODE ? mockBudgets : []);
-  const [members, setMembers] = useState<Member[]>(DEMO_MODE ? mockMembers : []);
-  const [totalBalance, setTotalBalance] = useState(0);
-  const [totalDues, setTotalDues] = useState(0);
+  const initialDemoMode = isDemoModeEnabled();
+  const initialDemo = initialDemoMode ? getDemoData() : null;
+
+  const [transactions, setTransactions] = useState<Transaction[]>(initialDemo?.demoTransactions ?? []);
+  const [budgets, setBudgets] = useState<Budget[]>(initialDemo?.demoBudgets ?? []);
+  const [members, setMembers] = useState<Member[]>(initialDemo?.demoMembers ?? []);
+  const [totalBalance, setTotalBalance] = useState(() => {
+    if (!initialDemo) return 0;
+    return initialDemo.demoTransactions.reduce((sum, t) => sum + t.amount, 0);
+  });
+  const [totalDues, setTotalDues] = useState(() => {
+    if (!initialDemo) return 0;
+    return initialDemo.demoMembers.filter(m => !m.duesPaid).length * demoMemberDuesAmount;
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const loadDemoData = useCallback(() => {
+    const { demoTransactions, demoBudgets, demoMembers } = getDemoData();
+    setTransactions(demoTransactions);
+    setBudgets(demoBudgets);
+    setMembers(demoMembers);
+    const balance = demoTransactions.reduce((sum, t) => sum + t.amount, 0);
+    setTotalBalance(balance);
+    const dues = demoMembers.filter(m => !m.duesPaid).length * demoMemberDuesAmount;
+    setTotalDues(dues);
+  }, []);
+
+  useEffect(() => {
+    const handleDemoEvent = () => {
+      if (!isDemoModeEnabled()) return;
+      loadDemoData();
+    };
+
+    handleDemoEvent();
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener(DEMO_EVENT, handleDemoEvent);
+      return () => window.removeEventListener(DEMO_EVENT, handleDemoEvent);
+    }
+
+    return undefined;
+  }, [loadDemoData]);
+
   // Load initial data from Supabase and set up real-time listeners
   useEffect(() => {
-    if (!DEMO_MODE && currentChapter?.id) {
+    if (isDemoModeEnabled()) {
+      loadDemoData();
+      return () => cleanupRealtimeListeners();
+    }
+
+    if (currentChapter?.id) {
       loadInitialData();
       setupRealtimeListeners();
-    } else if (DEMO_MODE) {
-      // Calculate totals for demo mode
-      const balance = mockTransactions.reduce((sum, t) => sum + t.amount, 0);
-      setTotalBalance(balance);
-      const dues = mockMembers.filter(m => !m.duesPaid).length * demoMemberDuesAmount;
-      setTotalDues(dues);
+      return () => cleanupRealtimeListeners();
     }
     return () => cleanupRealtimeListeners();
-  }, [currentChapter?.id]);
+  }, [currentChapter?.id, loadDemoData]);
 
   const loadInitialData = async () => {
     if (!currentChapter?.id) {
@@ -396,6 +313,10 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const refreshData = async () => {
+    if (isDemoModeEnabled()) {
+      loadDemoData();
+      return;
+    }
     await loadInitialData();
   };
 

@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useFinancial } from '../context/FinancialContext';
 import { useChapter } from '../context/ChapterContext';
 import { RecurringService } from '../services/recurringService';
 import { PlaidService } from '../services/plaidService';
 import { RecurringTransaction } from '../services/types';
+import { isDemoModeEnabled } from '../utils/env';
+import { demoStore } from '../demo/demoStore';
 import CashFlowForecastCard from './CashFlowForecastCard';
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import InsightsCard from './InsightsCard';
@@ -26,11 +28,29 @@ const formatDateLabel = (date: Date) =>
 
 export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { totalBalance, totalDues, transactions } = useFinancial();
   const { currentChapter } = useChapter();
   const [nextRecurring, setNextRecurring] = useState<RecurringTransaction | null>(null);
-  const [bankBalance, setBankBalance] = useState<number>(0);
+  
+  // Check if we're in demo mode based on current URL
+  const isInDemoMode = location.pathname.startsWith('/demo');
+  
+  const computeDemoBalance = (chapterId?: string) => {
+    const allConnections = demoStore.getState().plaidConnections;
+    const filteredConnections = allConnections.filter(conn => !chapterId || conn.chapter_id === chapterId);
+    const balance = filteredConnections.reduce((sum, conn) => sum + (conn.total_balance || 0), 0);
+    return balance;
+  };
+
+  // Helper function to get the correct route based on demo mode
+  const getRoute = (path: string) => {
+    return isInDemoMode ? `/demo${path}` : `/app${path}`;
+  };
+
+  const [bankBalance, setBankBalance] = useState<number>(isInDemoMode ? computeDemoBalance() : 0);
   const [loadingBankBalance, setLoadingBankBalance] = useState(true);
+
 
   useEffect(() => {
     const loadData = async () => {
@@ -43,8 +63,12 @@ export const Dashboard: React.FC = () => {
 
         // Load bank balance from Plaid
         setLoadingBankBalance(true);
-        const balance = await PlaidService.getTotalBankBalance(currentChapter.id);
-        setBankBalance(balance);
+        if (isInDemoMode) {
+          setBankBalance(computeDemoBalance(currentChapter.id));
+        } else {
+          const balance = await PlaidService.getTotalBankBalance(currentChapter.id);
+          setBankBalance(balance);
+        }
       } catch (error) {
         console.error('Error loading dashboard data:', error);
       } finally {
@@ -53,7 +77,7 @@ export const Dashboard: React.FC = () => {
     };
 
     loadData();
-  }, [currentChapter?.id]);
+  }, [currentChapter?.id, isInDemoMode]);
 
   const netTrend = useMemo<TrendPoint[]>(() => {
     const bucket = new Map<string, number>();
@@ -82,6 +106,8 @@ export const Dashboard: React.FC = () => {
     });
   }, [transactions]);
 
+  const displayedBankBalance = isInDemoMode ? totalBalance : bankBalance;
+
   return (
     <div className="space-y-6 p-4 sm:p-6 lg:p-8">
       <div>
@@ -90,18 +116,7 @@ export const Dashboard: React.FC = () => {
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         {/* Bank Balance Card */}
-        <div
-          onClick={() => navigate('/plaid-sync')}
-          className="group bg-white dark:bg-gray-800 rounded-xl shadow-sm transition-all duration-300 p-6 border border-gray-200 dark:border-gray-700 hover:border-blue-200/60 dark:hover:border-blue-600/60 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-          tabIndex={0}
-          role="button"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              navigate('/plaid-sync');
-            }
-          }}
-        >
+        <div className="group bg-white dark:bg-gray-800 rounded-xl shadow-sm transition-all duration-300 p-6 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">
               Bank<br />Balance
@@ -120,7 +135,7 @@ export const Dashboard: React.FC = () => {
           ) : (
             <>
               <p className="text-3xl lg:text-4xl font-bold text-indigo-600 dark:text-indigo-400">
-                {formatCurrency(bankBalance)}
+                {formatCurrency(displayedBankBalance)}
               </p>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-3">
                 Connected bank accounts
@@ -198,18 +213,7 @@ export const Dashboard: React.FC = () => {
         </div>
 
         {/* Next Recurring Card */}
-        <div
-          onClick={() => navigate('/recurring')}
-          className="group bg-white dark:bg-gray-800 rounded-xl shadow-sm transition-all duration-300 p-6 border border-gray-200 dark:border-gray-700 hover:border-purple-200/60 dark:hover:border-purple-600/60 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2"
-          tabIndex={0}
-          role="button"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              navigate('/recurring');
-            }
-          }}
-        >
+        <div className="group bg-white dark:bg-gray-800 rounded-xl shadow-sm transition-all duration-300 p-6 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">Next Recurring</h2>
             <div className="w-10 h-10 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center">
@@ -313,7 +317,7 @@ export const Dashboard: React.FC = () => {
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3">
             <button
-              onClick={() => navigate('/transactions')}
+              onClick={() => navigate(getRoute('/transactions'))}
               className="group w-full rounded-lg border border-sky-200 bg-sky-50 py-3 px-4 text-sm font-medium text-sky-700 transition-colors hover:bg-sky-100 focus-ring dark:border-sky-700/40 dark:bg-slate-800 dark:text-sky-300 dark:hover:bg-slate-700"
             >
               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -322,7 +326,7 @@ export const Dashboard: React.FC = () => {
               View Transactions
             </button>
             <button
-              onClick={() => navigate('/budgets')}
+              onClick={() => navigate(getRoute('/budgets'))}
               className="group w-full rounded-lg border border-emerald-200 bg-emerald-50 py-3 px-4 text-sm font-medium text-emerald-700 transition-colors hover:bg-emerald-100 focus-ring dark:border-emerald-700/40 dark:bg-slate-800 dark:text-emerald-300 dark:hover:bg-slate-700"
             >
               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -331,7 +335,7 @@ export const Dashboard: React.FC = () => {
               Manage Budgets
             </button>
             <button
-              onClick={() => navigate('/reports')}
+              onClick={() => navigate(getRoute('/reports'))}
               className="group w-full rounded-lg border border-violet-200 bg-violet-50 py-3 px-4 text-sm font-medium text-violet-700 transition-colors hover:bg-violet-100 focus-ring dark:border-violet-700/40 dark:bg-slate-800 dark:text-violet-300 dark:hover:bg-slate-700"
             >
               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -340,7 +344,7 @@ export const Dashboard: React.FC = () => {
               View Reports
             </button>
             <button
-              onClick={() => navigate('/members')}
+              onClick={() => navigate(getRoute('/dues'))}
               className="group w-full rounded-lg border border-amber-200 bg-amber-50 py-3 px-4 text-sm font-medium text-amber-700 transition-colors hover:bg-amber-100 focus-ring dark:border-amber-700/40 dark:bg-slate-800 dark:text-amber-300 dark:hover:bg-slate-700"
             >
               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

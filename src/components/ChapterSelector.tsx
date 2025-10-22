@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useChapter } from '../context/ChapterContext';
+import { isDemoModeEnabled } from '../utils/env';
 import { ChapterService } from '../services/chapterService';
 import { Chapter } from '../services/types';
 import {
@@ -39,6 +40,10 @@ export const ChapterSelector: React.FC = () => {
       console.error('Failed to create chapter:', error);
     }
   };
+
+  if (isDemoModeEnabled() && showCreateForm) {
+    setShowCreateForm(false);
+  }
 
   if (showCreateForm) {
     return (
@@ -178,18 +183,20 @@ export const ChapterSelector: React.FC = () => {
               )}
             </div>
           ))}
-          <div
-            className="relative cursor-default select-none py-2 pl-10 pr-4 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-gray-600"
-            onClick={() => {
-              setShowCreateForm(true);
-              setIsOpen(false);
-            }}
-          >
-            <div className="flex items-center">
-              <PlusIcon className="h-5 w-5 mr-2" />
-              <span className="font-medium">Create New Chapter</span>
+          {!isDemoModeEnabled() && (
+            <div
+              className="relative cursor-default select-none py-2 pl-10 pr-4 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-gray-600"
+              onClick={() => {
+                setShowCreateForm(true);
+                setIsOpen(false);
+              }}
+            >
+              <div className="flex items-center">
+                <PlusIcon className="h-5 w-5 mr-2" />
+                <span className="font-medium">Create New Chapter</span>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
     </div>

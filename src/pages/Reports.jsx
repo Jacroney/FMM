@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import toast from 'react-hot-toast';
@@ -9,7 +9,6 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
-  Legend,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -28,8 +27,16 @@ const Reports = () => {
   const [isExporting, setIsExporting] = useState(false);
 
   const metrics = useMemo(() => {
-    const now = new Date();
-    const startDate = new Date();
+    const transactionDates = transactions
+      .map((tx) => new Date(tx.date).getTime())
+      .filter((time) => !Number.isNaN(time));
+
+    const referenceNow = transactionDates.length
+      ? new Date(Math.max(...transactionDates))
+      : new Date();
+
+    const now = new Date(referenceNow);
+    const startDate = new Date(referenceNow);
 
     switch (dateRange) {
       case 'week':
@@ -71,11 +78,16 @@ const Reports = () => {
     const monthlyBuckets = new Map();
     filtered.forEach((tx) => {
       const date = new Date(tx.date);
-      const label = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-      if (!monthlyBuckets.has(label)) {
-        monthlyBuckets.set(label, { income: 0, expenses: 0 });
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      if (!monthlyBuckets.has(key)) {
+        monthlyBuckets.set(key, {
+          income: 0,
+          expenses: 0,
+          label: date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+          timestamp: new Date(date.getFullYear(), date.getMonth(), 1).getTime()
+        });
       }
-      const entry = monthlyBuckets.get(label);
+      const entry = monthlyBuckets.get(key);
       if (tx.amount > 0) {
         entry.income += tx.amount;
       } else {
@@ -83,9 +95,20 @@ const Reports = () => {
       }
     });
 
-    const monthlySpending = Array.from(monthlyBuckets.entries())
-      .map(([month, data]) => ({ month, income: data.income, expenses: data.expenses, net: data.income - data.expenses }))
-      .sort((a, b) => new Date(a.month) - new Date(b.month));
+    const monthlySpending = Array.from(monthlyBuckets.values())
+      .sort((a, b) => a.timestamp - b.timestamp)
+      .map(({ timestamp, label, income, expenses }) => ({
+        month: timestamp,
+        label,
+        income,
+        expenses,
+        net: income - expenses
+      }));
+
+    // Ensure the chart has a continuous line (duplicate last point if only one data point)
+    const chartSeries = monthlySpending.length === 1
+      ? [...monthlySpending, { ...monthlySpending[0], month: monthlySpending[0].month + 1 }]
+      : monthlySpending;
 
     const topCategories = Object.entries(expenseByCategory)
       .sort(([, a], [, b]) => b - a)
@@ -112,6 +135,7 @@ const Reports = () => {
       netIncome,
       topCategories,
       monthlySpending,
+      monthlyChartSeries: chartSeries,
       duesCollectionRate,
       paidMembers,
       unpaidMembers,
@@ -120,13 +144,12 @@ const Reports = () => {
     };
   }, [transactions, budgets, members, dateRange]);
 
-  const pieChartData = metrics.topCategories.map((item) => ({ name: item.category, value: item.value }));
   const duesChartData = [
     { name: 'Paid', value: metrics.paidMembers, fill: '#10b981' },
     { name: 'Unpaid', value: metrics.unpaidMembers, fill: '#f97316' }
   ];
 
-  const exportToCSV = () => {
+  const exportToCSV = useCallback(() => {
     if (!metrics.filtered.length) {
       toast.error('No transactions in the selected range.');
       return;
@@ -154,9 +177,9 @@ const Reports = () => {
 
     URL.revokeObjectURL(url);
     toast.success('Report exported as CSV');
-  };
+  }, [metrics.filtered, dateRange]);
 
-  const exportToPDF = async () => {
+  const exportToPDF = useCallback(async () => {
     const target = document.getElementById('report-content');
     if (!target) {
       toast.error('Nothing to export yet.');
@@ -167,6 +190,8 @@ const Reports = () => {
     try {
       const canvas = await html2canvas(target, { scale: 2, useCORS: true });
       const imgData = canvas.toDataURL('image/png');
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
@@ -185,7 +210,7 @@ const Reports = () => {
     } finally {
       setIsExporting(false);
     }
-  };
+  }, [dateRange]);
 
   useEffect(() => {
     const handler = () => {
@@ -196,7 +221,7 @@ const Reports = () => {
 
     window.addEventListener('export-reports-pdf', handler);
     return () => window.removeEventListener('export-reports-pdf', handler);
-  }, [isExporting]);
+  }, [isExporting, exportToPDF]);
 
   if (isLoading) {
     return (
@@ -317,15 +342,24 @@ const Reports = () => {
                 </div>
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={metrics.monthlySpending}>
+                      <AreaChart data={metrics.monthlyChartSeries}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                      <XAxis dataKey="month" tick={{ fill: '#64748b', fontSize: 12 }} tickLine={false} axisLine={false} />
+                      <XAxis
+                        dataKey="month"
+                        tickFormatter={(timestamp) => new Date(Number(timestamp)).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                        tick={{ fill: '#64748b', fontSize: 12 }}
+                        tickLine={false}
+                        axisLine={false}
+                      />
                       <YAxis tickFormatter={(value) => `$${value / 1000}k`} tick={{ fill: '#64748b', fontSize: 12 }} tickLine={false} axisLine={false} />
-                      <Tooltip formatter={(value) => formatterCurrency(value)} contentStyle={{ borderRadius: 12, border: '1px solid rgba(148,163,184,0.35)' }} />
-                      <Legend iconType="circle" />
-                      <Bar dataKey="income" fill="#2563eb" radius={[6, 6, 0, 0]} />
-                      <Bar dataKey="expenses" fill="#f97316" radius={[6, 6, 0, 0]} />
-                    </BarChart>
+                      <Tooltip
+                        formatter={(value) => formatterCurrency(value)}
+                        labelFormatter={(_, payload) => payload?.[0]?.payload?.label ?? ''}
+                        contentStyle={{ borderRadius: 12, border: '1px solid rgba(148,163,184,0.35)' }}
+                      />
+                      <Area type="monotone" dataKey="income" stroke="#2563eb" fill="#2563eb" strokeWidth={2} fillOpacity={0.15} name="Income" />
+                      <Area type="monotone" dataKey="expenses" stroke="#f97316" fill="#f97316" strokeWidth={2} fillOpacity={0.15} name="Expenses" />
+                    </AreaChart>
                   </ResponsiveContainer>
                 </div>
               </div>
@@ -339,7 +373,9 @@ const Reports = () => {
                     <div key={category} className="flex items-center justify-between">
                       <div>
                         <p className="text-sm font-medium text-slate-800 dark:text-slate-200 capitalize">{category}</p>
-                        <p className="text-xs text-slate-500">{((value / metrics.totalExpenses) * 100).toFixed(1)}% of spend</p>
+                        <p className="text-xs text-slate-500">
+                          {metrics.totalExpenses > 0 ? ((value / metrics.totalExpenses) * 100).toFixed(1) : '0.0'}% of spend
+                        </p>
                       </div>
                       <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
                         {formatterCurrency(Math.round(value))}

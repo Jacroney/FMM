@@ -1,8 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Papa from 'papaparse';
 import { MemberService } from '../services/memberService';
 import { useChapter } from '../context/ChapterContext';
 import DuesManagementSection from '../components/DuesManagementSection';
+import { demoStore } from '../demo/demoStore';
+import { useLocation } from 'react-router-dom';
+import {
+  DuesConfiguration,
+  MemberDuesSummary,
+  ChapterDuesStats,
+  Member
+} from '../services/types';
 
 const Dues = () => {
   const { currentChapter } = useChapter();
@@ -15,26 +23,150 @@ const Dues = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [notification, setNotification] = useState({ show: false, message: '', type: '' });
   const [activeTab, setActiveTab] = useState('roster'); // 'roster' or 'dues'
+  const location = useLocation();
+  const isDemoRoute = location.pathname.startsWith('/demo');
+  const demoDuesData = useMemo(() => {
+    if (!isDemoRoute || !currentChapter?.id) return undefined;
+    const state = demoStore.getState();
+    const membersList: Member[] = state.members.filter(member => member.chapter_id === currentChapter.id);
+
+    const config: DuesConfiguration = {
+      id: 'demo-dues-config-1',
+      chapter_id: currentChapter.id,
+      period_name: 'Winter 2025',
+      period_type: 'Semester',
+      period_start_date: '2025-01-01',
+      period_end_date: '2025-04-30',
+      fiscal_year: 2025,
+      is_current: true,
+      freshman_dues: 850,
+      sophomore_dues: 900,
+      junior_dues: 950,
+      senior_dues: 950,
+      graduate_dues: 700,
+      alumni_dues: 0,
+      pledge_dues: 600,
+      default_dues: 900,
+      late_fee_enabled: true,
+      late_fee_amount: 25,
+      late_fee_type: 'flat',
+      late_fee_grace_days: 5,
+      due_date: '2025-02-15',
+      notes: 'Demo dues configuration for Winter 2025',
+      created_at: '2024-12-15T12:00:00Z',
+      updated_at: '2025-01-05T12:00:00Z'
+    };
+
+    const patterns = [
+      { base: 950, adjustments: 0, late: 0, paid: 950, status: 'paid', note: 'Auto ACH payment received', dueDate: '2025-02-15', paidDate: '2025-01-20', overdue: false, daysOverdue: 0 },
+      { base: 900, adjustments: 0, late: 25, paid: 0, status: 'overdue', note: 'Late fee applied after grace period', dueDate: '2025-02-15', paidDate: null, overdue: true, daysOverdue: 12 },
+      { base: 900, adjustments: 0, late: 0, paid: 450, status: 'partial', note: '50% collected, payment plan active', dueDate: '2025-02-15', paidDate: '2025-02-10', overdue: false, daysOverdue: 0 },
+      { base: 950, adjustments: 0, late: 0, paid: 950, status: 'paid', note: 'Paid via credit card on file', dueDate: '2025-02-15', paidDate: '2025-01-25', overdue: false, daysOverdue: 0 },
+      { base: 900, adjustments: -100, late: 0, paid: 0, status: 'pending', note: 'Scholarship credit applied', dueDate: '2025-03-01', paidDate: null, overdue: false, daysOverdue: 0 },
+      { base: 850, adjustments: 0, late: 0, paid: 300, status: 'partial', note: 'Partial payment processed - campus job', dueDate: '2025-02-28', paidDate: '2025-02-05', overdue: false, daysOverdue: 0 },
+      { base: 900, adjustments: 0, late: 0, paid: 900, status: 'paid', note: 'Exec payroll deduction', dueDate: '2025-02-15', paidDate: '2025-02-12', overdue: false, daysOverdue: 0 },
+      { base: 880, adjustments: 0, late: 20, paid: 420, status: 'overdue', note: 'Reminder emails sent weekly', dueDate: '2025-02-10', paidDate: null, overdue: true, daysOverdue: 20 }
+    ];
+
+    const summaries: MemberDuesSummary[] = membersList.map((member, index) => {
+      const pattern = patterns[index % patterns.length];
+      const totalAmount = pattern.base + pattern.adjustments + pattern.late;
+      const amountPaid = Math.min(pattern.paid, totalAmount);
+      const balance = Math.max(totalAmount - amountPaid, 0);
+      const status = balance <= 0 ? 'paid' : pattern.status as MemberDuesSummary['status'];
+
+      return {
+        id: `demo-member-dues-${member.id}`,
+        chapter_id: currentChapter.id,
+        member_id: member.id,
+        config_id: config.id,
+        base_amount: pattern.base,
+        late_fee: pattern.late,
+        adjustments: pattern.adjustments,
+        total_amount: totalAmount,
+        amount_paid: amountPaid,
+        balance,
+        status,
+        assigned_date: '2025-01-05',
+        due_date: pattern.dueDate,
+        paid_date: status === 'paid' ? (pattern.paidDate || pattern.dueDate) : pattern.paidDate,
+        late_fee_applied_date: pattern.overdue ? '2025-02-21' : null,
+        notes: pattern.note,
+        adjustment_reason: pattern.adjustments !== 0 ? 'Scholarship credit' : null,
+        created_at: '2025-01-05T12:00:00Z',
+        updated_at: new Date().toISOString(),
+        member_name: member.name,
+        member_email: member.email,
+        member_year: member.year,
+        member_status: member.status,
+        chapter_name: state.chapter.name,
+        period_name: config.period_name,
+        period_type: config.period_type,
+        fiscal_year: config.fiscal_year,
+        is_overdue: pattern.overdue && balance > 0,
+        days_overdue: pattern.overdue && balance > 0 ? pattern.daysOverdue : 0
+      };
+    });
+
+    const stats: ChapterDuesStats = {
+      chapter_id: currentChapter.id,
+      period_name: config.period_name,
+      fiscal_year: config.fiscal_year,
+      total_members: summaries.length,
+      members_paid: summaries.filter(summary => summary.balance <= 0).length,
+      members_pending: summaries.filter(summary => summary.status === 'pending').length,
+      members_overdue: summaries.filter(summary => summary.status === 'overdue').length,
+      members_partial: summaries.filter(summary => summary.status === 'partial').length,
+      total_expected: summaries.reduce((sum, summary) => sum + summary.total_amount, 0),
+      total_collected: summaries.reduce((sum, summary) => sum + summary.amount_paid, 0),
+      total_outstanding: summaries.reduce((sum, summary) => sum + summary.balance, 0),
+      total_late_fees: summaries.reduce((sum, summary) => sum + summary.late_fee, 0),
+      payment_rate: 0
+    };
+
+    if (stats.total_expected > 0) {
+      stats.payment_rate = Number(((stats.total_collected / stats.total_expected) * 100).toFixed(1));
+    }
+
+    return {
+      configurations: [config],
+      current: config,
+      memberSummaries: summaries,
+      stats,
+      members: membersList
+    };
+  }, [isDemoRoute, currentChapter?.id]);
 
   // Load members on component mount and when chapter changes
   useEffect(() => {
     const loadMembers = async () => {
-      if (currentChapter) {
-        try {
-          setIsLoading(true);
-          const memberList = await MemberService.getMembers(currentChapter.id);
-          setMembers(memberList);
-        } catch (error) {
-          console.error('Failed to load members:', error);
-          showNotification('Failed to load members', 'error');
-        } finally {
-          setIsLoading(false);
+      if (!currentChapter) return;
+
+      if (isDemoRoute) {
+        if (demoDuesData?.members) {
+          setMembers(demoDuesData.members);
+        } else {
+          const state = demoStore.getState();
+          const demoMembers = state.members.filter(member => member.chapter_id === currentChapter.id);
+          setMembers(demoMembers);
         }
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        const memberList = await MemberService.getMembers(currentChapter.id);
+        setMembers(memberList);
+      } catch (error) {
+        console.error('Failed to load members:', error);
+        showNotification('Failed to load members', 'error');
+      } finally {
+        setIsLoading(false);
       }
     };
 
     loadMembers();
-  }, [currentChapter]);
+  }, [currentChapter, isDemoRoute, demoDuesData]);
 
   // Show notification
   const showNotification = (message, type = 'success') => {

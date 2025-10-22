@@ -1,5 +1,33 @@
 import { supabase } from './supabaseClient';
 import { User, Session } from '@supabase/supabase-js';
+import { isDemoModeEnabled } from '../utils/env';
+
+const demoUser = {
+  id: 'demo-user-id',
+  email: 'treasurer@demo.edu',
+  app_metadata: {},
+  user_metadata: {},
+  aud: 'authenticated',
+  created_at: new Date().toISOString()
+} as User;
+
+const demoProfileBase = {
+  id: 'demo-user-id',
+  chapter_id: '00000000-0000-0000-0000-000000000001',
+  email: 'treasurer@demo.edu',
+  full_name: 'Demo User',
+  phone_number: '(555) 123-4567',
+  year: 'Junior',
+  major: 'Finance',
+  position: 'Treasurer',
+  role: 'admin' as const,
+  dues_balance: 0,
+  is_active: true,
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString()
+};
+
+const getDemoProfile = (): UserProfile => ({ ...demoProfileBase });
 
 export interface UserProfile {
   id: string;
@@ -46,6 +74,10 @@ export interface MemberDuesInfo {
 export class AuthService {
   // Sign up new user
   static async signUp(signUpData: SignUpData): Promise<{ user: User | null; error: Error | null }> {
+    if (isDemoModeEnabled()) {
+      return { user: { ...demoUser, email: signUpData.email }, error: null };
+    }
+
     try {
       const { data, error } = await supabase.auth.signUp({
         email: signUpData.email,
@@ -73,6 +105,10 @@ export class AuthService {
 
   // Sign in user
   static async signIn(signInData: SignInData): Promise<{ user: User | null; error: Error | null }> {
+    if (isDemoModeEnabled()) {
+      return { user: demoUser, error: null };
+    }
+
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email: signInData.email,
@@ -89,6 +125,10 @@ export class AuthService {
 
   // Sign out user
   static async signOut(): Promise<{ error: Error | null }> {
+    if (isDemoModeEnabled()) {
+      return { error: null };
+    }
+
     try {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
@@ -100,6 +140,10 @@ export class AuthService {
 
   // Get current session
   static async getSession(): Promise<Session | null> {
+    if (isDemoModeEnabled()) {
+      return null;
+    }
+
     try {
       const { data: { session }, error } = await supabase.auth.getSession();
       if (error) throw error;
@@ -111,6 +155,10 @@ export class AuthService {
 
   // Get current user
   static async getCurrentUser(): Promise<User | null> {
+    if (isDemoModeEnabled()) {
+      return demoUser;
+    }
+
     try {
       const { data: { user }, error } = await supabase.auth.getUser();
       if (error) {
@@ -129,6 +177,10 @@ export class AuthService {
 
   // Get user profile
   static async getUserProfile(userId?: string): Promise<UserProfile | null> {
+    if (isDemoModeEnabled()) {
+      return getDemoProfile();
+    }
+
     try {
       const targetUserId = userId || (await this.getCurrentUser())?.id;
       if (!targetUserId) return null;
@@ -148,6 +200,12 @@ export class AuthService {
 
   // Update user profile
   static async updateUserProfile(updates: Partial<UserProfile>): Promise<{ profile: UserProfile | null; error: Error | null }> {
+    if (isDemoModeEnabled()) {
+      const profile = { ...getDemoProfile(), ...updates, updated_at: new Date().toISOString() } as UserProfile;
+      Object.assign(demoProfileBase, profile);
+      return { profile, error: null };
+    }
+
     try {
       const user = await this.getCurrentUser();
       if (!user) throw new Error('No authenticated user');
@@ -197,6 +255,12 @@ export class AuthService {
   }
 
   static async updateUserDuesBalance(userId: string, duesBalance: number): Promise<{ error: Error | null }> {
+    if (isDemoModeEnabled()) {
+      demoProfileBase.dues_balance = duesBalance;
+      demoProfileBase.updated_at = new Date().toISOString();
+      return { error: null };
+    }
+
     try {
       const currentUser = await this.getUserProfile();
       if (!currentUser || !['admin', 'exec'].includes(currentUser.role)) {
@@ -218,6 +282,10 @@ export class AuthService {
 
   // Get all users in chapter (admin/exec only)
   static async getChapterUsers(chapterId?: string): Promise<UserProfile[]> {
+    if (isDemoModeEnabled()) {
+      return [getDemoProfile()];
+    }
+
     try {
       const currentUser = await this.getUserProfile();
       if (!currentUser || !['admin', 'exec'].includes(currentUser.role)) {
@@ -242,6 +310,17 @@ export class AuthService {
 
   // Get member dues info (for member dashboard)
   static async getMemberDuesInfo(): Promise<MemberDuesInfo | null> {
+    if (isDemoModeEnabled()) {
+      return {
+        user_id: demoProfileBase.id,
+        full_name: demoProfileBase.full_name,
+        email: demoProfileBase.email,
+        dues_balance: demoProfileBase.dues_balance,
+        chapter_id: demoProfileBase.chapter_id,
+        chapter_name: 'Alpha Beta Chapter'
+      };
+    }
+
     try {
       const user = await this.getCurrentUser();
       if (!user) return null;
@@ -278,6 +357,10 @@ export class AuthService {
 
   // Check if user has admin/exec permissions
   static async hasAdminAccess(): Promise<boolean> {
+    if (isDemoModeEnabled()) {
+      return true;
+    }
+
     try {
       const profile = await this.getUserProfile();
       return profile ? ['admin', 'exec'].includes(profile.role) : false;
@@ -288,6 +371,10 @@ export class AuthService {
 
   // Check if user has admin permissions
   static async hasAdminRole(): Promise<boolean> {
+    if (isDemoModeEnabled()) {
+      return true;
+    }
+
     try {
       const profile = await this.getUserProfile();
       return profile ? profile.role === 'admin' : false;
@@ -298,6 +385,10 @@ export class AuthService {
 
   // Password reset
   static async resetPassword(email: string): Promise<{ error: Error | null }> {
+    if (isDemoModeEnabled()) {
+      return { error: null };
+    }
+
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email);
       if (error) throw error;
@@ -309,6 +400,11 @@ export class AuthService {
 
   // Subscribe to auth changes
   static onAuthStateChange(callback: (user: User | null) => void) {
+    if (isDemoModeEnabled()) {
+      callback(demoUser);
+      return { data: { subscription: { unsubscribe: () => undefined } } } as any;
+    }
+
     return supabase.auth.onAuthStateChange((_event, session) => {
       callback(session?.user || null);
     });

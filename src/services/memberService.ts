@@ -1,9 +1,15 @@
 import { supabase } from './supabaseClient';
 import { Member } from './types';
+import { isDemoModeEnabled } from '../utils/env';
+import { demoStore, demoHelpers } from '../demo/demoStore';
 
 export class MemberService {
   // Fetch all members for a specific chapter
   static async getMembers(chapterId: string): Promise<Member[]> {
+    if (isDemoModeEnabled()) {
+      return demoStore.getState().members.filter(member => member.chapter_id === chapterId).map(member => ({ ...member }));
+    }
+
     if (!chapterId) {
       console.error('Chapter ID is required for getMembers');
       return [];
@@ -38,6 +44,16 @@ export class MemberService {
 
   // Add a new member
   static async addMember(member: Omit<Member, 'id'>): Promise<Member> {
+    if (isDemoModeEnabled()) {
+      const newMember: Member = {
+        ...member,
+        id: demoHelpers.nextId(),
+        lastUpdated: new Date().toISOString()
+      };
+      demoStore.setState({ members: [newMember, ...demoStore.getState().members] });
+      return newMember;
+    }
+
     try {
       const { data, error } = await supabase
         .from('members')
@@ -77,6 +93,17 @@ export class MemberService {
 
   // Update member payment status
   static async updatePaymentStatus(memberId: string, duesPaid: boolean): Promise<void> {
+    if (isDemoModeEnabled()) {
+      demoStore.setState({
+        members: demoStore.getState().members.map(member =>
+          member.id === memberId
+            ? { ...member, duesPaid, paymentDate: duesPaid ? new Date().toISOString() : null, lastUpdated: new Date().toISOString() }
+            : member
+        )
+      });
+      return;
+    }
+
     try {
       const updateData = {
         dues_paid: duesPaid,
@@ -98,6 +125,21 @@ export class MemberService {
 
   // Update a member
   static async updateMember(id: string, updates: Partial<Omit<Member, 'id'>>): Promise<Member> {
+    if (isDemoModeEnabled()) {
+      let updatedMember: Member | undefined;
+      demoStore.setState({
+        members: demoStore.getState().members.map(member => {
+          if (member.id !== id) return member;
+          updatedMember = { ...member, ...updates, lastUpdated: new Date().toISOString() } as Member;
+          return updatedMember;
+        })
+      });
+      if (!updatedMember) {
+        throw new Error('Member not found');
+      }
+      return updatedMember;
+    }
+
     try {
       const updateData: any = {
         name: updates.name,
@@ -144,6 +186,11 @@ export class MemberService {
 
   // Delete a member
   static async deleteMember(id: string): Promise<void> {
+    if (isDemoModeEnabled()) {
+      demoStore.setState({ members: demoStore.getState().members.filter(member => member.id !== id) });
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from('members')

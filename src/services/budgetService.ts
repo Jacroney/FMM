@@ -1,8 +1,19 @@
 import { supabase } from './supabaseClient';
-import { BudgetSummary, BudgetCategory, BudgetPeriod, BudgetAllocation, Budget } from './types';
+import { BudgetSummary, BudgetCategory, BudgetPeriod, BudgetAllocation, Budget, Expense } from './types';
+import { isDemoModeEnabled } from '../utils/env';
+import { demoStore, demoHelpers } from '../demo/demoStore';
 
 export class BudgetService {
   static async fetchBudgets(chapterId: string) {
+    if (isDemoModeEnabled()) {
+      const { budgets } = demoStore.getState();
+      return budgets.filter(budget => budget.chapter_id === chapterId).map(budget => ({
+        ...budget,
+        startDate: new Date(budget.startDate),
+        endDate: new Date(budget.endDate)
+      }));
+    }
+
     if (!chapterId) {
       console.error('Chapter ID is required for fetchBudgets');
       return [];
@@ -54,6 +65,22 @@ export class BudgetService {
   }
 
   static async addBudget(budget: Omit<BudgetAllocation, 'id'>) {
+    if (isDemoModeEnabled()) {
+      const newBudget: Budget = {
+        id: demoHelpers.nextId(),
+        chapter_id: budget.chapter_id,
+        name: 'Budget allocation',
+        amount: budget.allocated,
+        spent: 0,
+        category: 'Custom',
+        period: 'YEARLY',
+        startDate: new Date(),
+        endDate: new Date()
+      };
+      demoStore.updateBudgets(budgets => [newBudget, ...budgets]);
+      return newBudget;
+    }
+
     if (!budget.chapter_id) {
       throw new Error('Chapter ID is required for addBudget');
     }
@@ -86,6 +113,24 @@ export class BudgetService {
   }
 
   static async updateBudget(id: string, updates: Partial<Omit<BudgetAllocation, 'id'>>) {
+    if (isDemoModeEnabled()) {
+      let updated: Budget | null = null;
+      demoStore.updateBudgets(budgets =>
+        budgets.map(budget => {
+          if (budget.id !== id) return budget;
+          updated = {
+            ...budget,
+            amount: updates.allocated ?? budget.amount
+          };
+          return updated;
+        })
+      );
+      if (!updated) {
+        throw new Error('Budget not found');
+      }
+      return updated;
+    }
+
     try {
       const { data, error } = await supabase
         .from('budgets')
@@ -115,6 +160,11 @@ export class BudgetService {
   }
 
   static async deleteBudget(id: string) {
+    if (isDemoModeEnabled()) {
+      demoStore.updateBudgets(budgets => budgets.filter(budget => budget.id !== id));
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from('budgets')
@@ -129,6 +179,11 @@ export class BudgetService {
   }
 
   static async getBudgetSummary(chapterId: string, periodName?: string) {
+    if (isDemoModeEnabled()) {
+      const { budgetSummary } = demoStore.getState();
+      return budgetSummary.filter(summary => summary.chapter_id === chapterId && (!periodName || summary.period === periodName));
+    }
+
     if (!chapterId) {
       console.error('Chapter ID is required for getBudgetSummary');
       return [];
@@ -159,6 +214,11 @@ export class BudgetService {
   }
 
   static async getBudgetCategories(chapterId: string) {
+    if (isDemoModeEnabled()) {
+      const { budgetCategories } = demoStore.getState();
+      return budgetCategories.filter(cat => cat.chapter_id === chapterId);
+    }
+
     if (!chapterId) {
       console.error('Chapter ID is required for getBudgetCategories');
       return [];
@@ -184,6 +244,11 @@ export class BudgetService {
   }
 
   static async getBudgetPeriods(chapterId: string) {
+    if (isDemoModeEnabled()) {
+      const { budgetPeriods } = demoStore.getState();
+      return budgetPeriods.filter(period => period.chapter_id === chapterId);
+    }
+
     if (!chapterId) {
       console.error('Chapter ID is required for getBudgetPeriods');
       return [];
@@ -208,6 +273,11 @@ export class BudgetService {
   }
 
   static async getCurrentPeriod(chapterId: string) {
+    if (isDemoModeEnabled()) {
+      const { budgetPeriods } = demoStore.getState();
+      return budgetPeriods.find(period => period.chapter_id === chapterId && period.is_current) || null;
+    }
+
     if (!chapterId) {
       console.error('Chapter ID is required for getCurrentPeriod');
       return null;
@@ -233,6 +303,42 @@ export class BudgetService {
   }
 
   static async updateBudgetAllocation(chapterId: string, categoryId: string, periodId: string, amount: number, notes?: string) {
+    if (isDemoModeEnabled()) {
+      let found = false;
+      demoStore.updateBudgets(budgets =>
+        budgets.map(budget => {
+          if (budget.category === categoryId && budget.period === periodId) {
+            found = true;
+            return { ...budget, amount };
+          }
+          return budget;
+        })
+      );
+      if (!found) {
+        demoStore.updateBudgets(budgets => [
+          {
+            id: demoHelpers.nextId(),
+            chapter_id: chapterId,
+            name: 'Allocation',
+            amount,
+            spent: 0,
+            category: categoryId,
+            period: 'YEARLY',
+            startDate: new Date(),
+            endDate: new Date()
+          },
+          ...budgets
+        ]);
+      }
+      return {
+        chapter_id: chapterId,
+        category_id: categoryId,
+        period_id: periodId,
+        allocated: amount,
+        notes: notes || null
+      };
+    }
+
     if (!chapterId) {
       throw new Error('Chapter ID is required for updateBudgetAllocation');
     }
@@ -261,6 +367,29 @@ export class BudgetService {
   }
 
   static async addExpense(chapterId: string, expense: Omit<Expense, 'id'>) {
+    if (isDemoModeEnabled()) {
+      demoStore.setState({
+        expenses: [
+          {
+            ...(expense as ExpenseDetail),
+            id: demoHelpers.nextId(),
+            chapter_id: chapterId,
+            category_name: 'Misc',
+            category_type: 'Operational Costs',
+            period_name: 'FY25 – Spring',
+            period_type: 'Semester',
+            fiscal_year: 2025,
+            budget_allocated: expense.amount * 2
+          },
+          ...demoStore.getState().expenses
+        ]
+      });
+      return {
+        ...expense,
+        id: demoHelpers.nextId()
+      } as Expense;
+    }
+
     if (!chapterId) {
       throw new Error('Chapter ID is required for addExpense');
     }
@@ -281,6 +410,15 @@ export class BudgetService {
   }
 
   static async getExpensesByCategory(chapterId: string, categoryId: string, periodId?: string) {
+    if (isDemoModeEnabled()) {
+      const { expenses } = demoStore.getState();
+      return expenses.filter(expense =>
+        expense.chapter_id === chapterId &&
+        expense.category_id === categoryId &&
+        (!periodId || expense.period_id === periodId)
+      );
+    }
+
     if (!chapterId) {
       throw new Error('Chapter ID is required for getExpensesByCategory');
     }
@@ -308,6 +446,13 @@ export class BudgetService {
   }
 
   static async deleteExpense(id: string) {
+    if (isDemoModeEnabled()) {
+      demoStore.setState({
+        expenses: demoStore.getState().expenses.filter(expense => expense.id !== id)
+      });
+      return true;
+    }
+
     try {
       const { error } = await supabase
         .from('expenses')
@@ -323,6 +468,11 @@ export class BudgetService {
   }
 
   static async getBudgetsByPeriod(chapterId: string, periodId: string) {
+    if (isDemoModeEnabled()) {
+      const { budgets } = demoStore.getState();
+      return budgets.filter(budget => budget.chapter_id === chapterId && budget.period === periodId);
+    }
+
     if (!chapterId) {
       throw new Error('Chapter ID is required for getBudgetsByPeriod');
     }
@@ -350,6 +500,27 @@ export class BudgetService {
   }
 
   static async getTotalsByPeriod(chapterId: string, periodName: string) {
+    if (isDemoModeEnabled()) {
+      const summaryData = await this.getBudgetSummary(chapterId, periodName);
+      const totals = {
+        'Fixed Costs': { allocated: 0, spent: 0, remaining: 0 },
+        'Operational Costs': { allocated: 0, spent: 0, remaining: 0 },
+        'Event Costs': { allocated: 0, spent: 0, remaining: 0 },
+        'Grand Total': { allocated: 0, spent: 0, remaining: 0 }
+      };
+      summaryData.forEach(item => {
+        if (item.category_type in totals) {
+          totals[item.category_type as 'Fixed Costs' | 'Operational Costs' | 'Event Costs'].allocated += item.allocated;
+          totals[item.category_type as 'Fixed Costs' | 'Operational Costs' | 'Event Costs'].spent += item.spent;
+          totals[item.category_type as 'Fixed Costs' | 'Operational Costs' | 'Event Costs'].remaining += item.remaining;
+        }
+        totals['Grand Total'].allocated += item.allocated;
+        totals['Grand Total'].spent += item.spent;
+        totals['Grand Total'].remaining += item.remaining;
+      });
+      return totals;
+    }
+
     if (!chapterId) {
       console.warn('Chapter ID is required for getTotalsByPeriod');
       return {

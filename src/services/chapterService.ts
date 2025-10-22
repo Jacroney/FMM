@@ -1,8 +1,14 @@
 import { supabase } from './supabaseClient';
 import { Chapter } from './types';
+import { isDemoModeEnabled } from '../utils/env';
+import { demoStore, demoHelpers } from '../demo/demoStore';
 
 export class ChapterService {
   static async getAllChapters(): Promise<Chapter[]> {
+    if (isDemoModeEnabled()) {
+      return demoStore.getState().chapters.map(chapter => ({ ...chapter }));
+    }
+
     try {
       const { data, error } = await supabase
         .from('chapters')
@@ -21,6 +27,10 @@ export class ChapterService {
   }
 
   static async getChapterById(id: string): Promise<Chapter | null> {
+    if (isDemoModeEnabled()) {
+      return demoStore.getState().chapters.find(chapter => chapter.id === id) || null;
+    }
+
     try {
       const { data, error } = await supabase
         .from('chapters')
@@ -39,6 +49,17 @@ export class ChapterService {
   }
 
   static async createChapter(chapter: Omit<Chapter, 'id' | 'created_at' | 'updated_at'>): Promise<Chapter> {
+    if (isDemoModeEnabled()) {
+      const newChapter: Chapter = {
+        ...chapter,
+        id: demoHelpers.nextId(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      demoStore.setState({ chapters: [...demoStore.getState().chapters, newChapter] });
+      return newChapter;
+    }
+
     try {
       const { data, error } = await supabase
         .from('chapters')
@@ -57,6 +78,21 @@ export class ChapterService {
   }
 
   static async updateChapter(id: string, updates: Partial<Chapter>): Promise<Chapter> {
+    if (isDemoModeEnabled()) {
+      let updatedChapter: Chapter | undefined;
+      demoStore.setState({
+        chapters: demoStore.getState().chapters.map(chapter => {
+          if (chapter.id !== id) return chapter;
+          updatedChapter = { ...chapter, ...updates, updated_at: new Date().toISOString() } as Chapter;
+          return updatedChapter;
+        })
+      });
+      if (!updatedChapter) {
+        throw new Error('Chapter not found');
+      }
+      return updatedChapter;
+    }
+
     try {
       const { data, error } = await supabase
         .from('chapters')
@@ -76,6 +112,11 @@ export class ChapterService {
   }
 
   static async deleteChapter(id: string): Promise<void> {
+    if (isDemoModeEnabled()) {
+      demoStore.setState({ chapters: demoStore.getState().chapters.filter(chapter => chapter.id !== id) });
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from('chapters')
@@ -91,6 +132,16 @@ export class ChapterService {
   }
 
   static async updateMemberCount(chapterId: string): Promise<void> {
+    if (isDemoModeEnabled()) {
+      const memberCount = demoStore.getState().members.filter(member => member.chapter_id === chapterId && member.status === 'Active').length;
+      demoStore.setState({
+        chapters: demoStore.getState().chapters.map(chapter =>
+          chapter.id === chapterId ? { ...chapter, member_count: memberCount } : chapter
+        )
+      });
+      return;
+    }
+
     try {
       // Get current member count for this chapter
       const { count, error: countError } = await supabase
@@ -121,6 +172,19 @@ export class ChapterService {
   }
 
   static async getChapterStats(chapterId: string) {
+    if (isDemoModeEnabled()) {
+      const members = demoStore.getState().members.filter(member => member.chapter_id === chapterId);
+      const totalMembers = members.length;
+      const activeMembers = members.filter(member => member.status === 'Active').length;
+      const paidMembers = members.filter(member => member.duesPaid).length;
+      return {
+        totalMembers,
+        activeMembers,
+        paidMembers,
+        duesPaymentRate: totalMembers ? ((paidMembers / totalMembers) * 100).toFixed(1) : '0'
+      };
+    }
+
     try {
       const [
         { count: totalMembers },
@@ -193,6 +257,20 @@ export class ChapterService {
     symbol_url: string | null;
     theme_config: Chapter['theme_config'] | null;
   } | null> {
+    if (isDemoModeEnabled()) {
+      const chapter = demoStore.getState().chapters.find(c => c.id === chapterId);
+      if (!chapter) return null;
+      return {
+        greek_letters: chapter.greek_letters || null,
+        primary_color: chapter.primary_color || null,
+        secondary_color: chapter.secondary_color || null,
+        accent_color: chapter.accent_color || null,
+        logo_url: chapter.logo_url || null,
+        symbol_url: chapter.symbol_url || null,
+        theme_config: chapter.theme_config || null
+      };
+    }
+
     try {
       const { data, error } = await supabase
         .from('chapters')

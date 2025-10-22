@@ -1,7 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-  LineChart,
-  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -15,6 +13,9 @@ import { TrendingUp, TrendingDown, AlertCircle, RefreshCw } from 'lucide-react';
 import { ForecastBalance } from '../services/types';
 import { RecurringService } from '../services/recurringService';
 import { useChapter } from '../context/ChapterContext';
+import { isDemoModeEnabled } from '../utils/env';
+import { demoStore } from '../demo/demoStore';
+import { DEMO_EVENT } from '../demo/demoMode';
 
 interface CashFlowForecastCardProps {
   className?: string;
@@ -22,13 +23,132 @@ interface CashFlowForecastCardProps {
 
 const CashFlowForecastCard: React.FC<CashFlowForecastCardProps> = ({ className = '' }) => {
   const { currentChapter } = useChapter();
+  const computeDemoFlag = useCallback(() => (
+    (currentChapter?.id === '00000000-0000-0000-0000-000000000001') || isDemoModeEnabled()
+  ), [currentChapter?.id]);
   const [forecastData, setForecastData] = useState<ForecastBalance[]>([]);
   const [loading, setLoading] = useState(true);
   const [daysAhead, setDaysAhead] = useState<30 | 60 | 90>(90);
+  const [demoMode, setDemoMode] = useState<boolean>(() => computeDemoFlag());
+  const isDemo = demoMode;
+
+  const generateDemoForecast = (chapterId: string, horizon: number): ForecastBalance[] => {
+    const state = demoStore.getState();
+    const startDate = new Date();
+    startDate.setHours(0, 0, 0, 0);
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + horizon);
+
+    const baseBalance = state.transactions
+      .filter(tx => tx.chapter_id === chapterId)
+      .reduce((sum, tx) => sum + tx.amount, 0);
+
+    type Adjustment = {
+      amount: number;
+      hasRecurring: boolean;
+    };
+
+    const adjustments = new Map<string, Adjustment>();
+
+    const addAdjustment = (date: Date, amount: number) => {
+      const key = date.toISOString().split('T')[0];
+      const entry = adjustments.get(key) || { amount: 0, hasRecurring: false };
+      entry.amount += amount;
+      entry.hasRecurring = true;
+      adjustments.set(key, entry);
+    };
+
+    const advanceDate = (date: Date, frequency: 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'yearly') => {
+      const next = new Date(date);
+      switch (frequency) {
+        case 'daily':
+          next.setDate(next.getDate() + 1);
+          break;
+        case 'weekly':
+          next.setDate(next.getDate() + 7);
+          break;
+        case 'biweekly':
+          next.setDate(next.getDate() + 14);
+          break;
+        case 'monthly':
+          next.setMonth(next.getMonth() + 1);
+          break;
+        case 'quarterly':
+          next.setMonth(next.getMonth() + 3);
+          break;
+        case 'yearly':
+          next.setFullYear(next.getFullYear() + 1);
+          break;
+        default:
+          next.setMonth(next.getMonth() + 1);
+      }
+      return next;
+    };
+
+    state.recurring
+      .filter(item => item.chapter_id === chapterId && item.is_active)
+      .forEach(item => {
+        let occurrence = new Date(item.next_due_date);
+        occurrence.setHours(0, 0, 0, 0);
+
+        while (occurrence <= endDate) {
+          if (occurrence >= startDate) {
+            addAdjustment(occurrence, item.amount);
+          }
+          occurrence = advanceDate(occurrence, item.frequency);
+        }
+      });
+
+    const results: ForecastBalance[] = [];
+    let runningBalance = baseBalance;
+
+    for (let day = 0; day < horizon; day++) {
+      const date = new Date(startDate);
+      date.setDate(startDate.getDate() + day);
+      const key = date.toISOString().split('T')[0];
+      const adjustment = adjustments.get(key);
+
+      let projected = runningBalance;
+      const sources: string[] = [];
+      const dailyAmount = adjustment?.amount ?? 0;
+
+      if (day === 0) {
+        sources.push('actual');
+      }
+
+      if (adjustment) {
+        projected += adjustment.amount;
+        runningBalance = projected;
+        if (adjustment.hasRecurring) {
+          sources.push('recurring');
+        }
+      }
+
+      results.push({
+        date: key,
+        chapter_id: chapterId,
+        daily_amount: dailyAmount,
+        sources,
+        projected_balance: projected
+      });
+    }
+
+    return results;
+  };
+
+  useEffect(() => {
+    const handler = () => setDemoMode(computeDemoFlag());
+    if (typeof window !== 'undefined') {
+      handler();
+      window.addEventListener(DEMO_EVENT, handler);
+      return () => window.removeEventListener(DEMO_EVENT, handler);
+    }
+    return undefined;
+  }, [computeDemoFlag]);
 
   useEffect(() => {
     loadForecast();
-  }, [currentChapter?.id, daysAhead]);
+  }, [currentChapter?.id, daysAhead, isDemo]);
 
   const loadForecast = async () => {
     if (!currentChapter?.id) {
@@ -39,8 +159,13 @@ const CashFlowForecastCard: React.FC<CashFlowForecastCardProps> = ({ className =
 
     try {
       setLoading(true);
-      const data = await RecurringService.getForecastBalance(currentChapter.id, daysAhead);
-      setForecastData(data);
+      if (isDemo) {
+        const data = generateDemoForecast(currentChapter.id, daysAhead);
+        setForecastData(data);
+      } else {
+        const data = await RecurringService.getForecastBalance(currentChapter.id, daysAhead);
+        setForecastData(data);
+      }
     } catch (error) {
       console.error('Error loading forecast:', error);
     } finally {
@@ -60,7 +185,6 @@ const CashFlowForecastCard: React.FC<CashFlowForecastCardProps> = ({ className =
   const currentBalance = chartData.length > 0 ? chartData[0].balance : 0;
   const futureBalance = chartData.length > 0 ? chartData[chartData.length - 1].balance : 0;
   const changeAmount = futureBalance - currentBalance;
-  const changePercent = currentBalance !== 0 ? (changeAmount / Math.abs(currentBalance)) * 100 : 0;
   const minBalance = Math.min(...chartData.map(d => d.balance));
   const willGoNegative = minBalance < 0;
 
