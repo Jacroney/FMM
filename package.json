@@ -11,7 +11,8 @@
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
-    "test:run": "vitest run"
+    "test:run": "vitest run",
+    "validate": "npm run lint && npm run build"
   },
   "dependencies": {
     "@headlessui/react": "^1.7.18",
