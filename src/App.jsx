@@ -25,6 +25,8 @@ import { NotFound } from './components/NotFound';
 import Home from './pages/Home';
 import Demo from './pages/Demo';
 import AuthPage from './pages/AuthPage';
+import PaymentSuccess from './pages/PaymentSuccess';
+import PaymentFailure from './pages/PaymentFailure';
 
 function App() {
   return (
@@ -153,6 +155,8 @@ const ProtectedAppRoutes = () => {
   if (isMember) {
     return (
       <Routes>
+        <Route path="payment-success" element={<PaymentSuccess />} />
+        <Route path="payment-failure" element={<PaymentFailure />} />
         <Route path="*" element={<MemberDashboard />} />
       </Routes>
     );
@@ -171,6 +175,8 @@ const ProtectedAppRoutes = () => {
           <Route path="invitations" element={<Invitations />} />
           <Route path="plaid-sync" element={<PlaidSync />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="payment-success" element={<PaymentSuccess />} />
+          <Route path="payment-failure" element={<PaymentFailure />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>

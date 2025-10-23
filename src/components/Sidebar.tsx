@@ -55,12 +55,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, basePath, m
       }`}
     >
       <div className="flex h-full flex-col px-4 py-6">
-        <div className={`flex items-center ${collapsed ? 'justify-center' : ''} mb-8`}> 
+        <div className={`flex items-center ${collapsed ? 'justify-center' : ''} mb-8`}>
           <div className={`flex items-center ${collapsed ? 'justify-center' : ''}`}>
-            <div className="mr-0 flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/20 text-blue-600 dark:text-blue-300">
-              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+            <div className="mr-0 flex h-14 w-14 items-center justify-center">
+              {/* Light mode: blue bg, white letters */}
+              <img
+                src="/GreekPay-logo-transparent.png"
+                alt="Greek Pay Logo"
+                className="h-full w-full object-contain block dark:hidden"
+              />
+              {/* Dark mode: white bg, blue letters */}
+              <img
+                src="/GreekPay-logo-transparent.png"
+                alt="Greek Pay Logo"
+                className="h-full w-full object-contain hidden dark:block invert"
+              />
             </div>
             <h1 className={`ml-3 text-xl font-semibold tracking-tight ${collapsed ? 'hidden' : 'block'}`}>
               Greek Pay

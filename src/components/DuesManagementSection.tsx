@@ -19,6 +19,8 @@ import {
   Member
 } from '../services/types';
 import DuesConfigurationModal from './DuesConfigurationModal';
+import PayDuesButton from './PayDuesButton';
+import StripeConnectSetup from './StripeConnectSetup';
 import toast from 'react-hot-toast';
 
 const computeStatsFromSummaries = (
@@ -400,6 +402,15 @@ const DuesManagementSection: React.FC<DuesManagementSectionProps> = ({ chapterId
         </div>
       </div>
 
+      {/* Stripe Connect Setup Section */}
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+          <DollarSign className="w-5 h-5 mr-2" />
+          Online Payment Setup
+        </h3>
+        <StripeConnectSetup chapterId={chapterId} onSetupComplete={loadData} />
+      </div>
+
       {/* Current Configuration Info */}
       {currentConfig && (
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6">
@@ -612,13 +623,23 @@ const DuesManagementSection: React.FC<DuesManagementSectionProps> = ({ chapterId
                     {getStatusBadge(dues.status)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <button
-                      onClick={() => openPaymentModal(dues)}
-                      disabled={dues.balance <= 0}
-                      className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Record Payment
-                    </button>
+                    <div className="flex gap-2">
+                      {/* Online Payment Button */}
+                      <PayDuesButton
+                        memberDues={dues}
+                        onPaymentSuccess={loadData}
+                        variant="small"
+                      />
+                      {/* Admin Manual Payment Button */}
+                      <button
+                        onClick={() => openPaymentModal(dues)}
+                        disabled={dues.balance <= 0 || isDemo}
+                        className="px-3 py-1.5 bg-gray-600 dark:bg-gray-700 text-white text-xs rounded hover:bg-gray-700 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Record manual payment (admin only)"
+                      >
+                        Record
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
