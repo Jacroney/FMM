@@ -36,9 +36,10 @@ import BudgetCard from '../components/BudgetCard';
 import BudgetDetailModal from '../components/BudgetDetailModal';
 import { useChapter } from '../context/ChapterContext';
 import toast from 'react-hot-toast';
+import { demoStore } from '../demo/demoStore';
 
 const Budgets: React.FC = () => {
-  const { currentChapter } = useChapter();
+  const { chapters, currentChapter, setCurrentChapter } = useChapter();
   const [budgetSummary, setBudgetSummary] = useState<BudgetSummary[]>([]);
   const [expenses, setExpenses] = useState<ExpenseDetail[]>([]);
   const [periods, setPeriods] = useState<BudgetPeriod[]>([]);
@@ -52,6 +53,7 @@ const Budgets: React.FC = () => {
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [currentPeriod, setCurrentPeriod] = useState<BudgetPeriod | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'charts' | 'expenses'>('grid');
+
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showPeriodModal, setShowPeriodModal] = useState(false);
   const [showSetupWizard, setShowSetupWizard] = useState(false);
@@ -78,12 +80,54 @@ const Budgets: React.FC = () => {
   const isDemoRoute = location.pathname.startsWith('/demo');
 
   useEffect(() => {
-    if (isDemoRoute && viewMode !== 'overview') {
-      setViewMode('overview');
+    if (isDemoRoute && !currentChapter && chapters.length > 0) {
+      setCurrentChapter(chapters[0]);
     }
-  }, [isDemoRoute, viewMode]);
+  }, [isDemoRoute, currentChapter, chapters, setCurrentChapter]);
+
+  // Remove the effect that forces grid view in demo mode
+  // useEffect(() => {
+  //   if (isDemoRoute && viewMode !== 'grid') {
+  //     setViewMode('grid');
+  //   }
+  // }, [isDemoRoute, viewMode]);
 
   const loadData = useCallback(async () => {
+    if (isDemoRoute) {
+      const state = demoStore.getState();
+      const chapterId = currentChapter?.id || state.chapter.id;
+
+      const periodsData = state.budgetPeriods
+        .filter(period => period.chapter_id === chapterId)
+        .map(period => ({ ...period }));
+
+      const categoriesData = state.budgetCategories
+        .filter(category => category.chapter_id === chapterId)
+        .map(category => ({ ...category }));
+
+      const expensesData = state.expenses
+        .filter(expense => expense.chapter_id === chapterId)
+        .map(expense => ({ ...expense }));
+
+      const summaryData = state.budgetSummary
+        .filter(summary => summary.chapter_id === chapterId)
+        .map(summary => ({ ...summary }));
+
+      const currentPeriodData = periodsData.find(period => period.is_current) || periodsData[0] || null;
+
+      setPeriods(periodsData);
+      setCategories(categoriesData);
+      setExpenses(expensesData);
+      setBudgetSummary(summaryData);
+      setCurrentPeriod(currentPeriodData || null);
+      setSelectedPeriod(currentPeriodData?.name || (periodsData[0]?.name ?? ''));
+      setSelectedPeriodId(currentPeriodData?.id || (periodsData[0]?.id ?? ''));
+      setShowSetupWizard(false);
+      setLoading(false);
+      
+      return;
+    }
+
     if (!currentChapter?.id) {
       setBudgetSummary([]);
       setExpenses([]);
@@ -793,14 +837,14 @@ const Budgets: React.FC = () => {
 
 
       {/* Expenses List View */}
-      {!isDemoRoute && viewMode === 'expenses' && (
+      {viewMode === 'expenses' && (
         <ExpenseList
           expenses={expenses}
           onExpenseUpdated={handleExpenseSubmitted}
           onExpenseDeleted={handleExpenseSubmitted}
           showCategoryColumn={true}
           showPeriodColumn={false}
-          showActions={true}
+          showActions={!isDemoRoute}
           categories={categories}
           currentPeriod={currentPeriod}
           chapterId={currentChapter?.id || null}
