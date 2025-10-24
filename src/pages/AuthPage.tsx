@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from 'react';
-import { Navigate, useLocation, useNavigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { LoginForm } from '../components/auth/LoginForm';
 import { LoadingSpinner } from '../components/LoadingSpinner';
@@ -10,12 +10,6 @@ const AuthPage: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const wasAuthenticated = useRef(isAuthenticated);
-
-  // Track previous authentication state to detect successful login
-  useEffect(() => {
-    wasAuthenticated.current = isAuthenticated;
-  }, [isAuthenticated]);
 
   // Ensure demo mode is disabled when accessing the login page
   useEffect(() => {
@@ -23,6 +17,14 @@ const AuthPage: React.FC = () => {
       disableDemoMode();
     }
   }, []);
+
+  // Redirect authenticated users to the app
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      const redirectTo = location.state?.from || '/app';
+      navigate(redirectTo, { replace: true });
+    }
+  }, [isLoading, isAuthenticated, navigate, location.state?.from]);
 
   if (isLoading) {
     return (
@@ -32,16 +34,13 @@ const AuthPage: React.FC = () => {
     );
   }
 
-  // Detect if user just logged in (transition from not authenticated -> authenticated)
-  const justLoggedIn = !wasAuthenticated.current && isAuthenticated;
-
-  // Redirect if:
-  // 1. User is authenticated AND
-  // 2. EITHER not trying to force login (regular auto-redirect)
-  //    OR user just logged in successfully
-  if (isAuthenticated && (!location.state?.forceLogin || justLoggedIn)) {
-    const redirectTo = location.state?.from || '/app';
-    return <Navigate to={redirectTo} replace />;
+  // If somehow still on this page while authenticated, show loading
+  if (isAuthenticated) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[var(--brand-surface)]">
+        <LoadingSpinner />
+      </div>
+    );
   }
 
   return (
