@@ -5,6 +5,7 @@ import { Sidebar, type MenuItem } from '../components/Sidebar';
 import { ChapterSelector } from '../components/ChapterSelector';
 import CommandPalette from '../components/CommandPalette';
 import { FloatingAIChat } from '../components/FloatingAIChat';
+import { DemoBanner } from '../components/DemoBanner';
 import { useAuth } from '../context/AuthContext';
 
 const createPageTitles = (basePath: string): Record<string, string> => {
@@ -115,6 +116,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({
           onClose={() => setPaletteOpen(false)}
           onAction={handlePaletteAction}
         />
+
+        <DemoBanner />
 
         <header className="sticky top-0 z-40 border-b border-[var(--brand-border)] bg-white/80 backdrop-blur dark:bg-gray-900/80">
           <div className="flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:pr-28">

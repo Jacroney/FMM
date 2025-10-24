@@ -2,8 +2,9 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { User } from '@supabase/supabase-js';
 import { AuthService, UserProfile, SignUpData, SignInData, MemberDuesInfo } from '../services/authService';
 import toast from 'react-hot-toast';
-import { isDemoModeEnabled } from '../utils/env';
 import { DEMO_EVENT } from '../demo/demoMode';
+import { isDemoModeEnabled } from '../utils/env';
+import { getDemoUser, getDemoProfile } from '../demo/demoStore';
 
 export interface AuthContextType {
   // Auth state
@@ -51,36 +52,10 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
-const mockProfile: UserProfile = {
-  id: 'demo-user-id',
-  email: 'treasurer@demo.edu',
-  full_name: 'Demo User',
-  phone_number: '(555) 123-4567',
-  year: 'Junior',
-  major: 'Finance',
-  chapter_id: '00000000-0000-0000-0000-000000000001',
-  position: 'Treasurer',
-  role: 'admin',
-  dues_balance: 0,
-  is_active: true,
-  created_at: new Date().toISOString(),
-  updated_at: new Date().toISOString()
-};
-
-const mockUser = {
-  id: 'demo-user-id',
-  email: 'treasurer@demo.edu',
-  app_metadata: {},
-  user_metadata: {},
-  aud: 'authenticated',
-  created_at: new Date().toISOString()
-} as User;
-
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [demoMode, setDemoMode] = useState(isDemoModeEnabled());
-  const [user, setUser] = useState<User | null>(demoMode ? mockUser : null);
-  const [profile, setProfile] = useState<UserProfile | null>(demoMode ? mockProfile : null);
-  const [isLoading, setIsLoading] = useState(!demoMode);
+  const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Derived state
   const isAuthenticated = !!user;
@@ -99,28 +74,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Initialize auth state
   useEffect(() => {
-    const handler = () => setDemoMode(isDemoModeEnabled());
-    if (typeof window !== 'undefined') {
-      window.addEventListener(DEMO_EVENT, handler);
-    }
-    return () => {
-      if (typeof window !== 'undefined') {
-        window.removeEventListener(DEMO_EVENT, handler);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    if (demoMode) {
-      setUser(mockUser);
-      setProfile({ ...mockProfile });
-      setIsLoading(false);
-      return;
-    }
-
-    setUser(null);
-    setProfile(null);
-    setIsLoading(true);
     initializeAuth();
 
     const { data: { subscription } } = AuthService.onAuthStateChange(async (nextUser) => {
@@ -136,7 +89,36 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return () => {
       subscription?.unsubscribe();
     };
-  }, [demoMode]);
+  }, []);
+
+  // Listen for demo mode changes
+  useEffect(() => {
+    const handleDemoModeChange = (event: CustomEvent) => {
+      const isDemoEnabled = event.detail;
+
+      if (isDemoEnabled) {
+        // Demo mode enabled - set demo user and profile immediately
+        setUser(getDemoUser());
+        setProfile(getDemoProfile());
+        setIsLoading(false);
+      } else {
+        // Demo mode disabled - clear demo user and re-initialize auth
+        setUser(null);
+        setProfile(null);
+        setIsLoading(true);
+        initializeAuth();
+      }
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener(DEMO_EVENT, handleDemoModeChange as EventListener);
+      return () => {
+        window.removeEventListener(DEMO_EVENT, handleDemoModeChange as EventListener);
+      };
+    }
+
+    return undefined;
+  }, []);
 
   const initializeAuth = async () => {
     try {

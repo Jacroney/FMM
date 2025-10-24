@@ -1,3 +1,4 @@
+import { User } from '@supabase/supabase-js';
 import {
   Budget,
   BudgetCategory,
@@ -11,6 +12,7 @@ import {
   RecurringTransaction,
   Transaction
 } from '../services/types';
+import type { UserProfile } from '../services/authService';
 
 export type PlaidSyncLogEntry = {
   id: string;
@@ -43,6 +45,39 @@ const demoChapter: Chapter = {
   school: 'Demo University',
   member_count: 48,
   fraternity_id: null,
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString()
+};
+
+/**
+ * Demo user object (mock Supabase User)
+ * Used for authentication in demo mode
+ */
+const demoUser: User = {
+  id: 'demo-user-id',
+  email: 'treasurer@demo.edu',
+  app_metadata: {},
+  user_metadata: {},
+  aud: 'authenticated',
+  created_at: new Date().toISOString()
+} as User;
+
+/**
+ * Demo user profile
+ * Used for profile data in demo mode
+ */
+const demoProfile: UserProfile = {
+  id: 'demo-user-id',
+  chapter_id: chapterId,
+  email: 'treasurer@demo.edu',
+  full_name: 'Demo User',
+  phone_number: '(555) 123-4567',
+  year: 'Junior',
+  major: 'Finance',
+  position: 'Treasurer',
+  role: 'admin',
+  dues_balance: 0,
+  is_active: true,
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString()
 };
@@ -297,6 +332,7 @@ const demoExpenses: ExpenseDetail[] = [
     payment_method: 'ACH',
     status: 'completed',
     source: 'MANUAL',
+    transaction_type: 'expense',
     notes: 'Auto-drafted on first business day',
     created_by: null,
     category_name: 'Operations',
@@ -320,6 +356,7 @@ const demoExpenses: ExpenseDetail[] = [
     payment_method: 'Credit Card',
     status: 'completed',
     source: 'MANUAL',
+    transaction_type: 'expense',
     notes: 'Includes vegetarian options',
     created_by: null,
     category_name: 'Events',
@@ -670,11 +707,24 @@ class DemoStore {
     };
     this.emit();
   }
+
+  reset() {
+    this.state = { ...initialState };
+    this.emit();
+  }
 }
 
 export const demoStore = new DemoStore(initialState);
 
 const generateId = () => (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2));
+
+/**
+ * Getter functions for demo mock data
+ * These provide fresh copies to avoid mutation
+ */
+export const getDemoUser = (): User => ({ ...demoUser });
+export const getDemoProfile = (): UserProfile => ({ ...demoProfile });
+export const getDemoChapter = (): Chapter => ({ ...demoChapter });
 
 export const demoHelpers = {
   chapterId,

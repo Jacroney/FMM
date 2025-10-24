@@ -1,33 +1,7 @@
 import { supabase } from './supabaseClient';
 import { User, Session } from '@supabase/supabase-js';
 import { isDemoModeEnabled } from '../utils/env';
-
-const demoUser = {
-  id: 'demo-user-id',
-  email: 'treasurer@demo.edu',
-  app_metadata: {},
-  user_metadata: {},
-  aud: 'authenticated',
-  created_at: new Date().toISOString()
-} as User;
-
-const demoProfileBase = {
-  id: 'demo-user-id',
-  chapter_id: '00000000-0000-0000-0000-000000000001',
-  email: 'treasurer@demo.edu',
-  full_name: 'Demo User',
-  phone_number: '(555) 123-4567',
-  year: 'Junior',
-  major: 'Finance',
-  position: 'Treasurer',
-  role: 'admin' as const,
-  dues_balance: 0,
-  is_active: true,
-  created_at: new Date().toISOString(),
-  updated_at: new Date().toISOString()
-};
-
-const getDemoProfile = (): UserProfile => ({ ...demoProfileBase });
+import { getDemoUser, getDemoProfile, demoHelpers } from '../demo/demoStore';
 
 export interface UserProfile {
   id: string;
@@ -75,7 +49,7 @@ export class AuthService {
   // Sign up new user
   static async signUp(signUpData: SignUpData): Promise<{ user: User | null; error: Error | null }> {
     if (isDemoModeEnabled()) {
-      return { user: { ...demoUser, email: signUpData.email }, error: null };
+      return { user: { ...getDemoUser(), email: signUpData.email }, error: null };
     }
 
     try {
@@ -112,7 +86,7 @@ export class AuthService {
   // Sign in user
   static async signIn(signInData: SignInData): Promise<{ user: User | null; error: Error | null }> {
     if (isDemoModeEnabled()) {
-      return { user: demoUser, error: null };
+      return { user: getDemoUser(), error: null };
     }
 
     try {
@@ -162,7 +136,7 @@ export class AuthService {
   // Get current user
   static async getCurrentUser(): Promise<User | null> {
     if (isDemoModeEnabled()) {
-      return demoUser;
+      return getDemoUser();
     }
 
     try {
@@ -207,8 +181,8 @@ export class AuthService {
   // Update user profile
   static async updateUserProfile(updates: Partial<UserProfile>): Promise<{ profile: UserProfile | null; error: Error | null }> {
     if (isDemoModeEnabled()) {
+      // In demo mode, just return the updated profile without persisting
       const profile = { ...getDemoProfile(), ...updates, updated_at: new Date().toISOString() } as UserProfile;
-      Object.assign(demoProfileBase, profile);
       return { profile, error: null };
     }
 
@@ -262,8 +236,7 @@ export class AuthService {
 
   static async updateUserDuesBalance(userId: string, duesBalance: number): Promise<{ error: Error | null }> {
     if (isDemoModeEnabled()) {
-      demoProfileBase.dues_balance = duesBalance;
-      demoProfileBase.updated_at = new Date().toISOString();
+      // In demo mode, just return success without persisting
       return { error: null };
     }
 
@@ -317,12 +290,13 @@ export class AuthService {
   // Get member dues info (for member dashboard)
   static async getMemberDuesInfo(): Promise<MemberDuesInfo | null> {
     if (isDemoModeEnabled()) {
+      const profile = getDemoProfile();
       return {
-        user_id: demoProfileBase.id,
-        full_name: demoProfileBase.full_name,
-        email: demoProfileBase.email,
-        dues_balance: demoProfileBase.dues_balance,
-        chapter_id: demoProfileBase.chapter_id,
+        user_id: profile.id,
+        full_name: profile.full_name,
+        email: profile.email,
+        dues_balance: profile.dues_balance,
+        chapter_id: profile.chapter_id,
         chapter_name: 'Alpha Beta Chapter'
       };
     }
@@ -407,7 +381,7 @@ export class AuthService {
   // Subscribe to auth changes
   static onAuthStateChange(callback: (user: User | null) => void) {
     if (isDemoModeEnabled()) {
-      callback(demoUser);
+      callback(getDemoUser());
       return { data: { subscription: { unsubscribe: () => undefined } } } as any;
     }
 

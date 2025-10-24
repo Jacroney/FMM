@@ -1,101 +1,200 @@
-import React, { useEffect } from 'react';
-import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
-import { ArrowUturnLeftIcon } from '@heroicons/react/24/outline';
-import { FinancialProvider } from '../context/FinancialContext';
-import { enableDemoMode, disableDemoMode } from '../demo/demoMode';
-import { isDemoModeEnabled } from '../utils/env';
-import MainLayout from '../layouts/MainLayout';
-import { Dashboard } from '../components/Dashboard';
-import Transactions from './Transactions';
-import Budgets from './Budgets';
-import Dues from './Dues';
-import Reports from './Reports';
-import Settings from './Settings';
-import type { MenuItem } from '../components/Sidebar';
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { enableDemoMode } from '../demo/demoMode';
+import {
+  ChartBarIcon,
+  CurrencyDollarIcon,
+  UserGroupIcon,
+  ArrowTrendingUpIcon,
+  BanknotesIcon,
+  ClockIcon,
+  InformationCircleIcon
+} from '@heroicons/react/24/outline';
 
-const demoMenuItems: MenuItem[] = [
-  { title: 'Dashboard', slug: '', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
-  { title: 'Transactions', slug: '/transactions', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2' },
-  { title: 'Budgets', slug: '/budgets', icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
-  { title: 'Dues', slug: '/dues', icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
-  { title: 'Reports', slug: '/reports', icon: 'M9 17v1a1 1 0 001 1h4a1 1 0 001-1v-1m3-2V8a2 2 0 00-2-2H8a2 2 0 00-2 2v7m3-2h6' },
-  { title: 'Settings', slug: '/settings', icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z' }
+const features = [
+  {
+    icon: ChartBarIcon,
+    title: 'Real-time Dashboard',
+    description: 'View your chapter\'s financial health at a glance'
+  },
+  {
+    icon: CurrencyDollarIcon,
+    title: 'Budget Management',
+    description: 'Track budgets, expenses, and spending across categories'
+  },
+  {
+    icon: UserGroupIcon,
+    title: 'Member Dues',
+    description: 'Manage member payments and outstanding balances'
+  },
+  {
+    icon: ArrowTrendingUpIcon,
+    title: 'Transaction History',
+    description: 'Browse and filter all financial transactions'
+  },
+  {
+    icon: BanknotesIcon,
+    title: 'Bank Connections',
+    description: 'See how automatic bank sync keeps your books updated'
+  },
+  {
+    icon: ClockIcon,
+    title: 'Recurring Payments',
+    description: 'Set up and track recurring transactions and dues'
+  }
 ];
 
-const demoPageTitles: Record<string, string> = {
-  '/demo': 'Greek Pay Dashboard',
-  '/demo/transactions': 'Transactions',
-  '/demo/budgets': 'Budgets',
-  '/demo/dues': 'Dues Management',
-  '/demo/reports': 'Reports',
-  '/demo/settings': 'Settings'
-};
-
-const DemoHeaderActions: React.FC = () => {
-  const navigate = useNavigate();
-
-  return (
-    <div className="flex w-full justify-end sm:w-auto sm:ml-auto sm:-mr-2">
-      <button
-        type="button"
-        onClick={() => navigate('/')}
-        className="focus-ring inline-flex items-center justify-center gap-1.5 rounded-full border border-[var(--brand-border)] bg-white py-1 text-xs font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-100 hover:shadow-md dark:border-gray-700 dark:bg-gray-800 dark:text-slate-300 dark:hover:bg-gray-700 w-[140px]"
-      >
-        <ArrowUturnLeftIcon className="h-3 w-3" aria-hidden="true" />
-        <span className="whitespace-nowrap">Back to site</span>
-      </button>
-    </div>
-  );
-};
-
-const DemoLayout: React.FC = () => (
-  <MainLayout
-    basePath="/demo"
-    showSignOut={false}
-    menuItems={demoMenuItems}
-    pageTitles={demoPageTitles}
-    headerActions={<DemoHeaderActions />}
-    showSearchButton={false}
-    showChapterSelector={false}
-  />
-);
-
-const DemoRoutes: React.FC = () => (
-  <Routes>
-    <Route element={<DemoLayout />}>
-      <Route index element={<Dashboard />} />
-      <Route path="transactions" element={<Transactions />} />
-      <Route path="budgets" element={<Budgets />} />
-      <Route path="dues" element={<Dues />} />
-      <Route path="reports" element={<Reports />} />
-      <Route path="settings" element={<Settings />} />
-      <Route path="*" element={<Navigate to="/demo" replace />} />
-    </Route>
-  </Routes>
-);
-
+/**
+ * Demo page entry point with welcome screen
+ * Shows intro, features, and important notices before entering demo mode
+ */
 const Demo: React.FC = () => {
-  const [ready, setReady] = React.useState(false);
+  const navigate = useNavigate();
+  const [isStarting, setIsStarting] = useState(false);
 
   useEffect(() => {
-    if (!isDemoModeEnabled()) {
-      enableDemoMode();
-    }
-    setReady(true);
-
-    return () => {
-      disableDemoMode();
-    };
+    // Enable demo mode when component mounts (resets data to fresh state)
+    enableDemoMode();
   }, []);
 
-  if (!ready) {
-    return null;
-  }
+  const handleStartDemo = () => {
+    setIsStarting(true);
+    // Small delay for smooth transition
+    setTimeout(() => {
+      navigate('/app/dashboard', { replace: true });
+    }, 300);
+  };
+
+  const handleBackToHome = () => {
+    navigate('/', { replace: true });
+  };
 
   return (
-    <FinancialProvider>
-      <DemoRoutes />
-    </FinancialProvider>
+    <div className="min-h-screen bg-[var(--brand-surface)] text-slate-900 dark:bg-gray-900 dark:text-slate-100">
+      {/* Header */}
+      <header className="border-b border-[var(--brand-border)] bg-white/80 backdrop-blur dark:bg-gray-900/80">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-5 sm:px-6 lg:px-8">
+          <button
+            onClick={handleBackToHome}
+            className="flex items-center gap-3 transition-opacity hover:opacity-80"
+          >
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-[var(--brand-primary)]">
+              <span className="text-lg font-semibold">GP</span>
+            </div>
+            <span className="text-lg font-semibold text-slate-900 dark:text-slate-100">GreekPay</span>
+          </button>
+          <button
+            onClick={handleBackToHome}
+            className="rounded-full border border-[var(--brand-border)] px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 dark:border-gray-700 dark:text-slate-300 dark:hover:bg-gray-800"
+          >
+            Back to Home
+          </button>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:px-8">
+        <div className="space-y-8">
+          {/* Hero Section */}
+          <div className="text-center">
+            <span className="inline-flex items-center gap-2 rounded-full bg-blue-100 px-4 py-1.5 text-sm font-medium text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+              <InformationCircleIcon className="h-4 w-4" />
+              Interactive Demo
+            </span>
+            <h1 className="mt-4 text-4xl font-semibold tracking-tight sm:text-5xl">
+              Try GreekPay with Sample Data
+            </h1>
+            <p className="mt-4 text-lg text-slate-600 dark:text-slate-400">
+              Explore a fully functional demo environment with realistic fraternity financial data.
+              <br />
+              See how GreekPay simplifies chapter treasury management.
+            </p>
+          </div>
+
+          {/* Important Notice */}
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 dark:border-amber-900/50 dark:bg-amber-900/20">
+            <div className="flex gap-3">
+              <InformationCircleIcon className="h-6 w-6 flex-shrink-0 text-amber-600 dark:text-amber-500" />
+              <div className="space-y-2">
+                <h2 className="font-semibold text-amber-900 dark:text-amber-300">
+                  Important: Demo Mode Information
+                </h2>
+                <ul className="space-y-1 text-sm text-amber-800 dark:text-amber-400">
+                  <li>• All data is sample data from "Alpha Beta Chapter" at Demo University</li>
+                  <li>• You can make any changes you want - they won't affect real data</li>
+                  <li>• Your changes are temporary and will be reset when you exit or refresh</li>
+                  <li>• Demo data resets to initial state each time you return to this page</li>
+                  <li>• To use GreekPay with your chapter's real data, you'll need to sign up</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          {/* Features Grid */}
+          <div>
+            <h2 className="text-center text-2xl font-semibold">What You Can Explore</h2>
+            <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {features.map((feature) => {
+                const Icon = feature.icon;
+                return (
+                  <div
+                    key={feature.title}
+                    className="rounded-xl border border-[var(--brand-border)] bg-white p-6 shadow-sm transition-shadow hover:shadow-md dark:bg-gray-800"
+                  >
+                    <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100 text-[var(--brand-primary)] dark:bg-blue-900/30">
+                      <Icon className="h-6 w-6" />
+                    </div>
+                    <h3 className="mt-4 font-semibold text-slate-900 dark:text-slate-100">
+                      {feature.title}
+                    </h3>
+                    <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+                      {feature.description}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* CTA Section */}
+          <div className="rounded-3xl bg-gradient-to-r from-blue-600 via-indigo-500 to-purple-500 p-8 text-center text-white shadow-xl">
+            <h2 className="text-2xl font-semibold">Ready to Explore?</h2>
+            <p className="mt-2 text-sm text-blue-100">
+              You'll be redirected to the dashboard where you can navigate through all features.
+              <br />
+              Look for the blue demo banner at the top to exit anytime.
+            </p>
+            <div className="mt-6 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+              <button
+                onClick={handleStartDemo}
+                disabled={isStarting}
+                className="inline-flex items-center justify-center rounded-full bg-white px-8 py-3 text-base font-semibold text-blue-600 shadow-lg transition-transform hover:-translate-y-0.5 hover:shadow-xl disabled:opacity-75 disabled:hover:translate-y-0"
+              >
+                {isStarting ? 'Starting Demo...' : 'Start Demo'}
+              </button>
+              <button
+                onClick={handleBackToHome}
+                className="inline-flex items-center justify-center rounded-full border border-white/60 px-8 py-3 text-base font-semibold text-white transition-colors hover:bg-white/10"
+              >
+                Back to Home
+              </button>
+            </div>
+          </div>
+
+          {/* Footer Note */}
+          <p className="text-center text-sm text-slate-500 dark:text-slate-400">
+            Questions about GreekPay? Visit our{' '}
+            <button
+              onClick={handleBackToHome}
+              className="font-medium text-[var(--brand-primary)] hover:underline"
+            >
+              homepage
+            </button>{' '}
+            to learn more or sign in to your chapter account.
+          </p>
+        </div>
+      </main>
+    </div>
   );
 };
 

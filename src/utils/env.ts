@@ -19,7 +19,8 @@ const toBoolean = (value: string | undefined, fallback = false): boolean => {
 export const isDemoModeEnabled = (): boolean => {
   if (typeof window !== 'undefined') {
     try {
-      if (window.localStorage.getItem(DEMO_DISABLE_STORAGE_KEY) === 'true') {
+      // Check sessionStorage for demo disable flag (session-based)
+      if (window.sessionStorage.getItem(DEMO_DISABLE_STORAGE_KEY) === 'true') {
         return false;
       }
     } catch (error) {

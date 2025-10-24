@@ -40,6 +40,7 @@ export class ExpenseService {
       endDate?: string;
       status?: 'pending' | 'completed' | 'cancelled';
       limit?: number;
+      includeIncome?: boolean; // Default false - exclude income/deposits from results
     }
   ): Promise<ExpenseDetail[]> {
     if (isDemoModeEnabled()) {
@@ -51,6 +52,8 @@ export class ExpenseService {
         if (options?.status && expense.status !== options.status) return false;
         if (options?.startDate && expense.transaction_date < options.startDate) return false;
         if (options?.endDate && expense.transaction_date > options.endDate) return false;
+        // Filter out income/deposits unless explicitly included
+        if (!options?.includeIncome && expense.transaction_type === 'income') return false;
         return true;
       }).map(expense => ({ ...expense }));
     }
@@ -90,6 +93,11 @@ export class ExpenseService {
 
       if (options?.limit) {
         query = query.limit(options.limit);
+      }
+
+      // Filter out income/deposits unless explicitly included
+      if (!options?.includeIncome) {
+        query = query.neq('transaction_type', 'income');
       }
 
       const { data, error } = await query;

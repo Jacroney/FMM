@@ -3,6 +3,7 @@ import { Chapter } from '../services/types';
 import { ChapterService } from '../services/chapterService';
 import { isDemoModeEnabled } from '../utils/env';
 import { DEMO_EVENT } from '../demo/demoMode';
+import { getDemoChapter } from '../demo/demoStore';
 
 interface ChapterContextType {
   chapters: Chapter[];
@@ -26,20 +27,11 @@ interface ChapterProviderProps {
   children: ReactNode;
 }
 
-const mockChapter: Chapter = {
-  id: '00000000-0000-0000-0000-000000000001',
-  name: 'Alpha Beta Chapter',
-  school: 'Demo University',
-  member_count: 48,
-  fraternity_id: null,
-  created_at: new Date().toISOString(),
-  updated_at: new Date().toISOString()
-};
-
 export const ChapterProvider: React.FC<ChapterProviderProps> = ({ children }) => {
   const initialDemoMode = isDemoModeEnabled();
-  const [chapters, setChapters] = useState<Chapter[]>(initialDemoMode ? [mockChapter] : []);
-  const [currentChapter, setCurrentChapter] = useState<Chapter | null>(initialDemoMode ? mockChapter : null);
+  const demoChapter = getDemoChapter();
+  const [chapters, setChapters] = useState<Chapter[]>(initialDemoMode ? [demoChapter] : []);
+  const [currentChapter, setCurrentChapter] = useState<Chapter | null>(initialDemoMode ? demoChapter : null);
   const [loading, setLoading] = useState(!initialDemoMode);
 
   const refreshChapters = async () => {
@@ -78,8 +70,9 @@ export const ChapterProvider: React.FC<ChapterProviderProps> = ({ children }) =>
   useEffect(() => {
     const applyMode = () => {
       if (isDemoModeEnabled()) {
-        setChapters([mockChapter]);
-        setCurrentChapter(mockChapter);
+        const chapter = getDemoChapter();
+        setChapters([chapter]);
+        setCurrentChapter(chapter);
         setLoading(false);
       } else {
         setLoading(true);

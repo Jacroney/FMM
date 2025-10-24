@@ -28,7 +28,7 @@ const Home: React.FC = () => {
 
   const handleSignInClick = () => {
     disableDemoMode();
-    navigate('/signin');
+    navigate('/signin', { state: { forceLogin: true } });
   };
 
   return (

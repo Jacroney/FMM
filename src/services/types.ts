@@ -13,7 +13,8 @@ export interface Expense {
   receipt_url: string | null;
   payment_method: 'Cash' | 'Check' | 'Credit Card' | 'ACH' | 'Venmo' | 'Other' | null;
   status: 'pending' | 'completed' | 'cancelled';
-  source: 'MANUAL' | 'CHASE' | 'SWITCH' | 'CSV_IMPORT' | 'RECURRING';
+  source: 'MANUAL' | 'CHASE' | 'SWITCH' | 'CSV_IMPORT' | 'RECURRING' | 'PLAID';
+  transaction_type?: 'expense' | 'income' | 'transfer';
   notes: string | null;
   created_by: string | null;
   created_at?: string;

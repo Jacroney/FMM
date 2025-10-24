@@ -303,6 +303,7 @@ serve(async (req) => {
               payment_method: 'ACH',
               status: 'completed',
               source: 'PLAID',
+              transaction_type: transaction.amount > 0 ? 'income' : 'expense', // Positive = income/deposit, negative = expense
               plaid_transaction_id: transaction.transaction_id,
               account_id: accountDbId || null,
               created_by: user.id,
@@ -331,6 +332,7 @@ serve(async (req) => {
               description: transaction.name,
               vendor: transaction.merchant_name,
               transaction_date: transaction.date,
+              transaction_type: transaction.amount > 0 ? 'income' : 'expense', // Positive = income/deposit, negative = expense
             })
             .eq('plaid_transaction_id', transaction.transaction_id)
             .select();
@@ -366,6 +368,7 @@ serve(async (req) => {
                 payment_method: 'ACH',
                 status: 'completed',
                 source: 'PLAID',
+                transaction_type: transaction.amount > 0 ? 'income' : 'expense', // Positive = income/deposit, negative = expense
                 plaid_transaction_id: transaction.transaction_id,
                 account_id: accountDbId || null,
                 created_by: user.id,
