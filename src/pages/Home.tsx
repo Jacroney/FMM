@@ -17,12 +17,6 @@ const benefits = [
   }
 ];
 
-const highlights = [
-  'Role-based permissions so treasurers, execs, and members see exactly what they need.',
-  'Budget planning tools that show allocation, spend, and forecasted runway at a glance.',
-  'Audit-ready exports, PDF reporting, and CSV imports help you modernise operations fast.'
-];
-
 const Home: React.FC = () => {
   const navigate = useNavigate();
 
@@ -35,16 +29,18 @@ const Home: React.FC = () => {
     <div className="min-h-screen bg-[var(--brand-surface)] text-slate-900">
       <header className="border-b border-[var(--brand-border)] bg-white/80 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-5 sm:px-6 lg:px-8">
-          <Link to="/" className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-[var(--brand-primary)]">
-              <span className="text-lg font-semibold">GP</span>
-            </div>
-            <span className="text-lg font-semibold text-slate-900">GreekPay</span>
+          <Link to="/" className="flex items-center">
+            <img
+              src="/GreekPay-logo-transparent.png"
+              alt="GreekPay Logo"
+              className="h-10 w-auto"
+            />
           </Link>
           <nav className="hidden items-center gap-6 text-sm font-medium text-slate-600 sm:flex">
             <a href="#features" className="hover:text-[var(--brand-primary)]">Features</a>
-            <a href="#pricing" className="hover:text-[var(--brand-primary)]">Pricing</a>
-            <a href="#demo" className="hover:text-[var(--brand-primary)]">Demo</a>
+            <Link to="/pricing" className="hover:text-[var(--brand-primary)]">Pricing</Link>
+            <Link to="/demo" className="hover:text-[var(--brand-primary)]">Demo</Link>
+            <Link to="/contact" className="hover:text-[var(--brand-primary)]">Contact</Link>
           </nav>
           <div className="flex items-center gap-3">
             <button
@@ -140,60 +136,6 @@ const Home: React.FC = () => {
                   <p className="text-sm text-slate-600">{benefit.description}</p>
                 </div>
               ))}
-            </div>
-          </div>
-        </section>
-
-        <section id="pricing" className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8">
-          <div className="grid gap-8 lg:grid-cols-2 lg:items-center">
-            <div className="space-y-4">
-              <h2 className="text-3xl font-semibold text-slate-900">Transparent pricing designed around chapters.</h2>
-              <p className="text-sm text-slate-600">
-                A simple yearly platform fee keeps your executive board aligned, and a lightweight member fee scales with your chapter. No hidden add-ons—just modern tooling that pays for itself in time saved.
-              </p>
-              <ul className="space-y-3 text-sm text-slate-600">
-                {highlights.map((item) => (
-                  <li key={item} className="flex items-start gap-2">
-                    <span className="mt-1 text-[var(--brand-primary)]">●</span>
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <button
-                  onClick={() => navigate('/demo')}
-                  className="focus-ring rounded-xl border border-[var(--brand-primary)] bg-white px-5 py-3 text-sm font-semibold text-[var(--brand-primary)] transition-colors hover:bg-[var(--brand-primary-soft)]"
-                >
-                  Try the dashboard demo
-                </button>
-                <button
-                  onClick={handleSignInClick}
-                  className="focus-ring rounded-xl bg-[var(--brand-primary)] px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-blue-600"
-                >
-                  Talk to our team
-                </button>
-              </div>
-            </div>
-            <div className="surface-card p-6">
-              <p className="text-xs uppercase tracking-wide text-slate-500">GreekPay Pricing</p>
-              <h3 className="mt-2 text-2xl font-semibold text-slate-900">$200 + $10/member</h3>
-              <p className="text-sm text-slate-500">
-                One flat annual platform fee keeps the entire chapter on the same page. A per-member seat ensures every brother or sister can receive statements, reminders, and pay securely.
-              </p>
-              <div className="mt-6 space-y-3 text-sm text-slate-600">
-                <div className="flex items-center justify-between">
-                  <span>Annual chapter platform</span>
-                  <span className="font-medium text-slate-900">$200</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Active member access</span>
-                  <span className="font-medium text-slate-900">$10 / member</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Bank syncs, automations, support</span>
-                  <span className="font-medium text-emerald-500">Included</span>
-                </div>
-              </div>
             </div>
           </div>
         </section>

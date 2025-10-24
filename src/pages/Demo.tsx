@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { enableDemoMode } from '../demo/demoMode';
 import {
   ChartBarIcon,
@@ -74,15 +74,13 @@ const Demo: React.FC = () => {
       {/* Header */}
       <header className="border-b border-[var(--brand-border)] bg-white/80 backdrop-blur dark:bg-gray-900/80">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-5 sm:px-6 lg:px-8">
-          <button
-            onClick={handleBackToHome}
-            className="flex items-center gap-3 transition-opacity hover:opacity-80"
-          >
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-[var(--brand-primary)]">
-              <span className="text-lg font-semibold">GP</span>
-            </div>
-            <span className="text-lg font-semibold text-slate-900 dark:text-slate-100">GreekPay</span>
-          </button>
+          <Link to="/" className="flex items-center gap-3 transition-opacity hover:opacity-80">
+            <img
+              src="/GreekPay-logo-transparent.png"
+              alt="GreekPay Logo"
+              className="h-10 w-auto"
+            />
+          </Link>
           <button
             onClick={handleBackToHome}
             className="rounded-full border border-[var(--brand-border)] px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 dark:border-gray-700 dark:text-slate-300 dark:hover:bg-gray-800"

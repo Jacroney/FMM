@@ -24,6 +24,8 @@ import { PlaidSync } from './pages/PlaidSync';
 import { NotFound } from './components/NotFound';
 import Home from './pages/Home';
 import Demo from './pages/Demo';
+import Contact from './pages/Contact';
+import Pricing from './pages/Pricing';
 import AuthPage from './pages/AuthPage';
 import PaymentSuccess from './pages/PaymentSuccess';
 import PaymentFailure from './pages/PaymentFailure';
@@ -38,6 +40,8 @@ function App() {
               <Routes>
                 <Route path="/" element={<Home />} />
                 <Route path="/demo/*" element={<Demo />} />
+                <Route path="/contact" element={<Contact />} />
+                <Route path="/pricing" element={<Pricing />} />
                 <Route path="/signin" element={<AuthPage />} />
                 <Route path="/signup" element={<AuthPage />} />
                 <Route
