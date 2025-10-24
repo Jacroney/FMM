@@ -29,6 +29,7 @@ import Pricing from './pages/Pricing';
 import AuthPage from './pages/AuthPage';
 import PaymentSuccess from './pages/PaymentSuccess';
 import PaymentFailure from './pages/PaymentFailure';
+import { enableDemoMode } from './demo/demoMode';
 
 function App() {
   return (
@@ -39,7 +40,8 @@ function App() {
             <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
               <Routes>
                 <Route path="/" element={<Home />} />
-                <Route path="/demo/*" element={<Demo />} />
+                <Route path="/demo" element={<Demo />} />
+                <Route path="/demo/*" element={<DemoRoutes />} />
                 <Route path="/contact" element={<Contact />} />
                 <Route path="/pricing" element={<Pricing />} />
                 <Route path="/signin" element={<AuthPage />} />
@@ -191,6 +193,33 @@ const ProtectedAppRoutes = () => {
     <Routes>
       <Route path="*" element={<NotFound />} />
     </Routes>
+  );
+};
+
+const DemoRoutes = () => {
+  // Enable demo mode when demo routes are accessed
+  React.useEffect(() => {
+    enableDemoMode();
+  }, []);
+
+  return (
+    <FinancialProvider>
+      <Routes>
+        <Route path="" element={<MainLayout />}>
+          <Route index element={<Dashboard />} />
+          <Route path="dashboard" element={<Dashboard />} />
+          <Route path="transactions" element={<Transactions />} />
+          <Route path="recurring" element={<RecurringTransactions />} />
+          <Route path="budgets" element={<Budgets />} />
+          <Route path="reports" element={<Reports />} />
+          <Route path="dues" element={<Dues />} />
+          <Route path="invitations" element={<Invitations />} />
+          <Route path="plaid-sync" element={<PlaidSync />} />
+          <Route path="settings" element={<Settings />} />
+          <Route path="*" element={<NotFound />} />
+        </Route>
+      </Routes>
+    </FinancialProvider>
   );
 };
 

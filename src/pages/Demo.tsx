@@ -53,6 +53,9 @@ const Demo: React.FC = () => {
   const [isStarting, setIsStarting] = useState(false);
 
   useEffect(() => {
+    // Scroll to top when component mounts
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
     // Enable demo mode when component mounts (resets data to fresh state)
     enableDemoMode();
   }, []);
@@ -61,7 +64,7 @@ const Demo: React.FC = () => {
     setIsStarting(true);
     // Small delay for smooth transition
     setTimeout(() => {
-      navigate('/app/dashboard', { replace: true });
+      navigate('/demo/dashboard', { replace: true });
     }, 300);
   };
 

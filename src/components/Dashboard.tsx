@@ -53,6 +53,9 @@ export const Dashboard: React.FC = () => {
 
 
   useEffect(() => {
+    // Scroll to top when component mounts, especially for demo mode
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+
     const loadData = async () => {
       if (!currentChapter?.id) return;
 
