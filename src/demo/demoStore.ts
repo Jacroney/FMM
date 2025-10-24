@@ -42,7 +42,7 @@ const demoChapter: Chapter = {
   name: 'Alpha Beta Chapter',
   school: 'Demo University',
   member_count: 48,
-  fraternity_id: null,
+  fraternity_name: 'Kappa Sigma',
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString()
 };
@@ -594,7 +594,6 @@ const initialState: DemoState = {
   plaidAccounts: demoPlaidAccounts,
   plaidLog: demoPlaidLog
 };
-
 
 type Listener = () => void;
 

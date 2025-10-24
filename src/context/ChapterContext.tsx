@@ -30,8 +30,11 @@ const mockChapter: Chapter = {
   id: '00000000-0000-0000-0000-000000000001',
   name: 'Alpha Beta Chapter',
   school: 'Demo University',
-  member_count: 48,
-  fraternity_id: null,
+  address: '123 Greek Row, College Town, ST 12345',
+  phone: '(555) 123-4567',
+  email: 'treasurer@alphabeta.edu',
+  member_count: 45,
+  dues_amount: 150.00,
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString()
 };

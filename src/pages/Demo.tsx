@@ -35,7 +35,7 @@ const DemoHeaderActions: React.FC = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="flex w-full justify-end sm:w-auto sm:ml-auto sm:-mr-2">
+    <div className="flex flex-wrap items-center justify-end gap-2">
       <button
         type="button"
         onClick={() => navigate('/')}
@@ -56,7 +56,6 @@ const DemoLayout: React.FC = () => (
     pageTitles={demoPageTitles}
     headerActions={<DemoHeaderActions />}
     showSearchButton={false}
-    showChapterSelector={false}
   />
 );
 

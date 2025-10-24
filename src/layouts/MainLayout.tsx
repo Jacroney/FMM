@@ -35,7 +35,6 @@ interface MainLayoutProps {
   headerActions?: ReactNode;
   menuItems?: MenuItem[];
   showSearchButton?: boolean;
-  showChapterSelector?: boolean;
 }
 
 const MainLayout: React.FC<MainLayoutProps> = ({
@@ -44,8 +43,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   showSignOut = true,
   headerActions,
   menuItems,
-  showSearchButton = true,
-  showChapterSelector = true
+  showSearchButton = true
 }) => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -147,7 +145,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                   <span className="ml-2 hidden rounded-md border border-slate-200 px-1.5 py-0.5 text-xs text-slate-400 sm:block">⌘K</span>
                 </button>
               )}
-              {showChapterSelector && <ChapterSelector />}
+              <ChapterSelector />
               {headerActions}
               {showSignOut && (
                 <button
