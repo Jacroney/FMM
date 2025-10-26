@@ -213,7 +213,6 @@ const DemoRoutes = () => {
           <Route path="budgets" element={<Budgets />} />
           <Route path="reports" element={<Reports />} />
           <Route path="dues" element={<Dues />} />
-          <Route path="invitations" element={<Invitations />} />
           <Route path="plaid-sync" element={<PlaidSync />} />
           <Route path="settings" element={<Settings />} />
           <Route path="*" element={<NotFound />} />
