@@ -48,33 +48,63 @@ export const Dashboard: React.FC = () => {
     return isInDemoMode ? `/demo${path}` : `/app${path}`;
   };
 
-  const [bankBalance, setBankBalance] = useState<number>(isInDemoMode ? computeDemoBalance() : 0);
+  const [bankBalance, setBankBalance] = useState<number>(() => {
+    if (isInDemoMode) {
+      return computeDemoBalance();
+    }
+    return 0;
+  });
   const [loadingBankBalance, setLoadingBankBalance] = useState(true);
 
+
+  // Handle demo mode initialization separately to ensure data loads properly
+  useEffect(() => {
+    if (isInDemoMode) {
+      // In demo mode, ensure we have the correct balance immediately
+      const chapterId = currentChapter?.id || '00000000-0000-0000-0000-000000000001';
+      setBankBalance(computeDemoBalance(chapterId));
+      setLoadingBankBalance(false);
+      
+      // Also load the next recurring transaction immediately
+      const loadNextRecurring = async () => {
+        try {
+          // Small delay to ensure demo store is fully initialized
+          await new Promise(resolve => setTimeout(resolve, 100));
+          const next = await RecurringService.getNextRecurring(chapterId);
+          setNextRecurring(next);
+        } catch (error) {
+          console.error('Error loading next recurring in demo mode:', error);
+        }
+      };
+      loadNextRecurring();
+    }
+  }, [isInDemoMode, currentChapter?.id]);
 
   useEffect(() => {
     // Scroll to top when component mounts, especially for demo mode
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
     const loadData = async () => {
-      if (!currentChapter?.id) return;
+      // In demo mode, we can proceed even without currentChapter.id
+      // as the demo data is available globally
+      if (!isInDemoMode && !currentChapter?.id) return;
 
       try {
-        // Load next recurring transaction
-        const next = await RecurringService.getNextRecurring(currentChapter.id);
-        setNextRecurring(next);
+        // Load next recurring transaction (only for non-demo mode, demo mode handled separately)
+        if (!isInDemoMode && currentChapter?.id) {
+          const next = await RecurringService.getNextRecurring(currentChapter.id);
+          setNextRecurring(next);
+        }
 
-        // Load bank balance from Plaid
-        setLoadingBankBalance(true);
-        if (isInDemoMode) {
-          setBankBalance(computeDemoBalance(currentChapter.id));
-        } else {
+        // Load bank balance from Plaid (only for non-demo mode)
+        if (!isInDemoMode) {
+          setLoadingBankBalance(true);
           const balance = await PlaidService.getTotalBankBalance(currentChapter.id);
           setBankBalance(balance);
+          setLoadingBankBalance(false);
         }
       } catch (error) {
         console.error('Error loading dashboard data:', error);
-      } finally {
         setLoadingBankBalance(false);
       }
     };

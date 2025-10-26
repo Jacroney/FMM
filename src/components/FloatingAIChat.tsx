@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { MessageCircle, X, Minimize2 } from 'lucide-react';
+import { MessageCircle, X, Minimize2, Info } from 'lucide-react';
 import { AIChat } from './AIChat';
+import { isDemoModeEnabled } from '../utils/env';
 
 export const FloatingAIChat: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -49,6 +50,12 @@ export const FloatingAIChat: React.FC = () => {
             <div className="flex items-center gap-2">
               <MessageCircle className="h-5 w-5 text-white" />
               <h3 className="text-sm font-semibold text-white">AI Financial Advisor</h3>
+              {isDemoModeEnabled() && (
+                <div className="flex items-center gap-1 px-2 py-0.5 bg-amber-500/20 border border-amber-300/30 rounded-full">
+                  <Info className="h-3 w-3 text-amber-200" />
+                  <span className="text-xs text-amber-100 font-medium">Demo</span>
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-2">
               {!isMinimized && (
