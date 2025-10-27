@@ -52,12 +52,12 @@ export class BudgetService {
         amount: item.allocated || 0,
         spent: 0, // This would need to be calculated from expenses
         category: item.budget_categories?.type || 'Unknown',
-        period: item.budget_periods?.type === 'Quarter' ? 'QUARTERLY' : 'YEARLY',
+        period: (item.budget_periods?.type === 'Quarter' ? 'QUARTERLY' : 'YEARLY') as 'QUARTERLY' | 'YEARLY',
         startDate: new Date(item.budget_periods?.start_date || new Date()),
         endDate: new Date(item.budget_periods?.end_date || new Date())
       }));
 
-      return budgets;
+      return budgets as Budget[];
     } catch (error) {
       console.warn('Error fetching budgets:', error);
       return []; // Return empty array instead of throwing
@@ -78,7 +78,7 @@ export class BudgetService {
         endDate: new Date()
       };
       demoStore.updateBudgets(budgets => [newBudget, ...budgets]);
-      return newBudget;
+      return newBudget as Budget;
     }
 
     if (!budget.chapter_id) {
@@ -128,7 +128,7 @@ export class BudgetService {
       if (!updated) {
         throw new Error('Budget not found');
       }
-      return updated;
+      return updated as Budget;
     }
 
     try {

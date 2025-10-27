@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { InformationCircleIcon, ArrowRightOnRectangleIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
+import { InformationCircleIcon, ArrowRightOnRectangleIcon, ArrowPathIcon, HomeIcon } from '@heroicons/react/24/outline';
 import { disableDemoMode } from '../demo/demoMode';
 import { isDemoModeEnabled } from '../utils/env';
 import { demoStore } from '../demo/demoStore';
@@ -29,6 +29,11 @@ export const DemoBanner: React.FC = () => {
     setShowExitConfirm(true);
   };
 
+  const handleReturnToMainSite = () => {
+    disableDemoMode();
+    navigate('/', { replace: true });
+  };
+
   const confirmExitDemo = () => {
     disableDemoMode();
     navigate('/signin', { state: { forceLogin: true } });
@@ -54,6 +59,15 @@ export const DemoBanner: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleReturnToMainSite}
+              className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-white/30 focus:outline-none focus:ring-2 focus:ring-white/50"
+              title="Return to main website"
+            >
+              <HomeIcon className="h-4 w-4" aria-hidden="true" />
+              Return to Main Site
+            </button>
             <button
               type="button"
               onClick={handleResetDemo}

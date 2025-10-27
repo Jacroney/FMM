@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { AIService, AIMessage } from '../services/aiService';
-import { Send, Bot, User, Loader } from 'lucide-react';
+import { Send, Bot, User, Loader, Info } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { isDemoModeEnabled } from '../utils/env';
 
 interface AIChatProps {
   conversationId?: string;
@@ -119,6 +120,25 @@ export const AIChat: React.FC<AIChatProps> = ({
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
               AI Financial Advisor
             </h3>
+            
+            {/* Demo Mode Notice */}
+            {isDemoModeEnabled() && (
+              <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg max-w-md">
+                <div className="flex items-start gap-2">
+                  <Info className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                  <div className="text-left">
+                    <p className="text-sm font-medium text-amber-800 dark:text-amber-300 mb-1">
+                      Demo Mode
+                    </p>
+                    <p className="text-xs text-amber-700 dark:text-amber-400">
+                      This AI advisor is using pre-written responses for demonstration purposes. 
+                      The real version makes live API calls to provide personalized financial insights.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+            
             <p className="text-gray-600 dark:text-gray-400 max-w-md">
               Ask me anything about your chapter's finances, budgets, expenses, or get advice on
               financial management!

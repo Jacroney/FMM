@@ -84,7 +84,7 @@ const Home: React.FC = () => {
                 <div className="rounded-2xl border border-[var(--brand-border)] bg-white p-4 shadow-sm">
                   <p className="text-sm text-slate-600">
                     "The first treasury platform that actually understands fraternity operations. Budget approvals, reimbursements, and dues collection now live in one place."<br />
-                    <span className="mt-2 block font-semibold text-slate-900">— Beta chapter treasurer</span>
+                    <span className="mt-2 block font-semibold text-slate-900">— Kappa Sigma chapter treasurer</span>
                   </p>
                 </div>
               </div>

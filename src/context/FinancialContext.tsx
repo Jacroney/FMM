@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
-import { Transaction, Budget, Member } from '../services/types';
+import { Transaction, Budget, Member, BudgetAllocation } from '../services/types';
 import { TransactionService } from '../services/transactionService';
 import { BudgetService } from '../services/budgetService';
 import { MemberService } from '../services/memberService';
@@ -110,6 +110,11 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, [currentChapter?.id, loadDemoData]);
 
   const loadInitialData = async () => {
+    // Don't load real data if we're in demo mode
+    if (isDemoModeEnabled()) {
+      return;
+    }
+
     if (!currentChapter?.id) {
       setTransactions([]);
       setBudgets([]);
@@ -138,8 +143,14 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
-  // Calculate totals when data changes
+  // Calculate totals when data changes (only for non-demo mode)
   useEffect(() => {
+    // In demo mode, totals are set directly in loadDemoData()
+    // Don't recalculate from transactions/budgets as they might be empty during transitions
+    if (isDemoModeEnabled()) {
+      return;
+    }
+
     // Calculate total balance from transactions
     const balance = transactions.reduce((sum, tx) => sum + tx.amount, 0);
     setTotalBalance(balance);
@@ -224,9 +235,16 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
 
     try {
-      const budgetWithChapter = { ...budget, chapter_id: currentChapter.id };
-      const newBudget = await BudgetService.addBudget(budgetWithChapter);
-      setBudgets(prev => [...prev, newBudget]);
+      // Convert Budget to BudgetAllocation format
+      const budgetAllocation = {
+        chapter_id: currentChapter.id,
+        category_id: 'demo-category', // This would need to be properly mapped
+        period_id: 'demo-period', // This would need to be properly mapped
+        allocated: budget.amount,
+        notes: null
+      };
+      const newBudget = await BudgetService.addBudget(budgetAllocation);
+      setBudgets(prev => [...prev, newBudget as Budget]);
       toast.success('Budget added successfully');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to add budget';
@@ -238,9 +256,15 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const updateBudget = async (id: string, updates: Partial<Omit<Budget, 'id'>>) => {
     try {
-      const updatedBudget = await BudgetService.updateBudget(id, updates);
+      // Convert Budget updates to BudgetAllocation format
+      const budgetAllocationUpdates: Partial<Omit<BudgetAllocation, 'id'>> = {};
+      if (updates.amount !== undefined) {
+        budgetAllocationUpdates.allocated = updates.amount;
+      }
+      
+      const updatedBudget = await BudgetService.updateBudget(id, budgetAllocationUpdates);
       setBudgets(prev => 
-        prev.map(b => b.id === id ? updatedBudget : b)
+        prev.map(b => b.id === id ? updatedBudget as Budget : b)
       );
       toast.success('Budget updated successfully');
     } catch (err) {
