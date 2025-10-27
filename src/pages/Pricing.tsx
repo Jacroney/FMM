@@ -76,7 +76,7 @@ const Pricing: React.FC = () => {
           {/* Main Pricing Card */}
           <div className="rounded-3xl border-2 border-[var(--brand-primary)] bg-white p-8 shadow-xl sm:p-12">
             <div className="text-center">
-              <h2 className="text-3xl font-semibold text-slate-900">GreekPay Standard</h2>
+              <h2 className="text-3xl font-semibold !text-slate-600">GreekPay Standard</h2>
               <div className="mt-6">
                 <span className="text-5xl font-bold text-slate-900">$200</span>
                 <span className="ml-2 text-xl text-slate-600">+ $10/member</span>
