@@ -19,7 +19,6 @@ import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 import Dues from './pages/Dues';
 import RecurringTransactions from './pages/RecurringTransactions';
-import Invitations from './pages/Invitations';
 import { PlaidSync } from './pages/PlaidSync';
 import { NotFound } from './components/NotFound';
 import Home from './pages/Home';
@@ -29,6 +28,7 @@ import Pricing from './pages/Pricing';
 import AuthPage from './pages/AuthPage';
 import PaymentSuccess from './pages/PaymentSuccess';
 import PaymentFailure from './pages/PaymentFailure';
+import Invite from './pages/Invite';
 import { enableDemoMode } from './demo/demoMode';
 
 function App() {
@@ -46,6 +46,7 @@ function App() {
                 <Route path="/pricing" element={<Pricing />} />
                 <Route path="/signin" element={<AuthPage />} />
                 <Route path="/signup" element={<AuthPage />} />
+                <Route path="/invite" element={<Invite />} />
                 <Route
                   path="/app/*"
                   element={
@@ -178,7 +179,6 @@ const ProtectedAppRoutes = () => {
           <Route path="budgets" element={<Budgets />} />
           <Route path="reports" element={<Reports />} />
           <Route path="dues" element={<Dues />} />
-          <Route path="invitations" element={<Invitations />} />
           <Route path="plaid-sync" element={<PlaidSync />} />
           <Route path="settings" element={<Settings />} />
           <Route path="payment-success" element={<PaymentSuccess />} />

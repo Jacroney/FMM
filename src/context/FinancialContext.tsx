@@ -3,7 +3,7 @@ import toast from 'react-hot-toast';
 import { Transaction, Budget, Member, BudgetAllocation } from '../services/types';
 import { TransactionService } from '../services/transactionService';
 import { BudgetService } from '../services/budgetService';
-import { MemberService } from '../services/memberService';
+import { AuthService } from '../services/authService';
 import { supabase } from '../services/supabaseClient';
 import { useChapter } from './ChapterContext';
 import { isDemoModeEnabled } from '../utils/env';
@@ -129,7 +129,7 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const [txData, budgetData, memberData] = await Promise.all([
         TransactionService.fetchTransactions(currentChapter.id).catch(() => []),
         BudgetService.fetchBudgets(currentChapter.id).catch(() => []),
-        MemberService.getMembers(currentChapter.id).catch(() => [])
+        AuthService.getChapterMembers(currentChapter.id).catch(() => [])
       ]);
 
       setTransactions(txData);
@@ -296,21 +296,20 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
 
     try {
-      const memberWithChapter = { ...member, chapter_id: currentChapter.id };
-      const newMember = await MemberService.addMember(memberWithChapter);
-      setMembers(prev => [...prev, newMember]);
-      toast.success('Member added successfully');
+      // Note: In unified member model, members must have auth accounts
+      // Use assign_dues_by_email for inviting new members instead
+      toast.error('Please use "Assign Dues by Email" to invite new members');
+      throw new Error('Direct member creation is deprecated. Use dues invitation flow.');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to add member';
       setError(errorMessage);
-      toast.error(errorMessage);
       throw err;
     }
   };
 
   const updateMember = async (id: string, updates: Partial<Omit<Member, 'id'>>) => {
     try {
-      const updatedMember = await MemberService.updateMember(id, updates);
+      const updatedMember = await AuthService.updateMemberProfile(id, updates as any);
       setMembers(prev => 
         prev.map(m => m.id === id ? updatedMember : m)
       );
@@ -325,7 +324,7 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const deleteMember = async (id: string) => {
     try {
-      await MemberService.deleteMember(id);
+      await AuthService.deleteMember(id);
       setMembers(prev => prev.filter(m => m.id !== id));
       toast.success('Member deleted successfully');
     } catch (err) {
@@ -399,7 +398,7 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       },
         async () => {
           try {
-            const updatedMembers = await MemberService.getMembers(currentChapter.id);
+            const updatedMembers = await AuthService.getChapterMembers(currentChapter.id);
             setMembers(updatedMembers);
           } catch (err) {
             console.warn('Error refetching members:', err);

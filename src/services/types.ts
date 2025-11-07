@@ -177,7 +177,26 @@ export interface ChapterThemeConfig {
   customCSS?: string;
 }
 
+// Member type now unified with UserProfile
+// Use UserProfile from authService as the single source of truth
 export interface Member {
+  id: string;
+  chapter_id: string;
+  full_name: string;
+  email: string;
+  status: 'active' | 'inactive' | 'pledge' | 'alumni';
+  member_year?: 'Freshman' | 'Sophomore' | 'Junior' | 'Senior' | 'Graduate' | 'Alumni';
+  phone_number?: string;
+  major?: string;
+  position?: string;
+  role: 'admin' | 'exec' | 'treasurer' | 'member';
+  dues_balance: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// Legacy fields for backward compatibility (deprecated)
+export interface LegacyMember {
   id: string;
   chapter_id: string;
   name: string;
