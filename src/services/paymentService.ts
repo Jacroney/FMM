@@ -17,6 +17,47 @@ import {
 
 export class PaymentService {
   // ============================================================================
+  // AUTHENTICATION HELPER
+  // ============================================================================
+
+  /**
+   * Get a valid session, refreshing if necessary
+   * @private
+   */
+  private static async getValidSession() {
+    // Get current session and check if it's expired or about to expire
+    let { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+    // If no session or token expires in less than 5 minutes, try to refresh
+    const tokenExpiresAt = session?.expires_at ? session.expires_at * 1000 : 0;
+    const fiveMinutesFromNow = Date.now() + (5 * 60 * 1000);
+
+    if (!session || tokenExpiresAt < fiveMinutesFromNow) {
+      console.log('Session expired or expiring soon, refreshing...');
+      const { data, error: refreshError } = await supabase.auth.refreshSession();
+
+      if (refreshError || !data.session) {
+        throw new Error('Your session has expired. Please log out and log back in.');
+      }
+
+      session = data.session;
+    }
+
+    // Validate user is authenticated
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      throw new Error('Not authenticated. Please log in again.');
+    }
+
+    if (!session) {
+      throw new Error('Session unavailable. Please log in again.');
+    }
+
+    return session;
+  }
+
+  // ============================================================================
   // STRIPE CONNECT MANAGEMENT (Treasurer)
   // ============================================================================
 
@@ -26,11 +67,7 @@ export class PaymentService {
    */
   static async createStripeAccount(chapterId: string): Promise<StripeConnectResponse> {
     try {
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-
-      if (sessionError || !session) {
-        throw new Error('Not authenticated');
-      }
+      const session = await this.getValidSession();
 
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stripe-connect`,
@@ -67,11 +104,7 @@ export class PaymentService {
    */
   static async createAccountLink(chapterId: string): Promise<StripeConnectResponse> {
     try {
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-
-      if (sessionError || !session) {
-        throw new Error('Not authenticated');
-      }
+      const session = await this.getValidSession();
 
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stripe-connect`,
@@ -107,11 +140,7 @@ export class PaymentService {
    */
   static async checkStripeAccountStatus(chapterId: string): Promise<StripeConnectResponse> {
     try {
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-
-      if (sessionError || !session) {
-        throw new Error('Not authenticated');
-      }
+      const session = await this.getValidSession();
 
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stripe-connect`,
@@ -147,11 +176,7 @@ export class PaymentService {
    */
   static async refreshStripeAccount(chapterId: string): Promise<StripeConnectResponse> {
     try {
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-
-      if (sessionError || !session) {
-        throw new Error('Not authenticated');
-      }
+      const session = await this.getValidSession();
 
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stripe-connect`,
@@ -218,11 +243,7 @@ export class PaymentService {
     paymentAmount?: number
   ): Promise<CreatePaymentIntentResponse> {
     try {
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-
-      if (sessionError || !session) {
-        throw new Error('Not authenticated');
-      }
+      const session = await this.getValidSession();
 
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-payment-intent`,

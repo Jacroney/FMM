@@ -46,8 +46,10 @@ serve(async (req) => {
 
     // Get user from request
     const authHeader = req.headers.get('Authorization')
+    console.log('Auth header present:', !!authHeader)
+
     if (!authHeader) {
-      throw new Error('No authorization header')
+      throw new Error('No authorization header provided')
     }
 
     // Verify user authentication
@@ -62,8 +64,15 @@ serve(async (req) => {
     )
 
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser()
+
+    console.log('Auth result:', {
+      user_found: !!user,
+      user_id: user?.id,
+      error: userError?.message
+    })
+
     if (userError || !user) {
-      throw new Error('Unauthorized')
+      throw new Error(`Authentication failed: ${userError?.message || 'No user found'}`)
     }
 
     // Parse request body
@@ -73,15 +82,35 @@ serve(async (req) => {
       throw new Error('chapter_id is required')
     }
 
-    // Verify user has admin access to this chapter
+    // Verify user has admin or exec access to this chapter
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('user_profiles')
       .select('role, chapter_id')
       .eq('id', user.id)
       .single()
 
-    if (profileError || !profile || profile.chapter_id !== chapter_id || profile.role !== 'admin') {
-      throw new Error('Unauthorized: Admin access required')
+    // Debug logging
+    console.log('Authorization check:', {
+      user_id: user.id,
+      requested_chapter: chapter_id,
+      profile_found: !!profile,
+      profile_error: profileError?.message,
+      profile_role: profile?.role,
+      profile_chapter: profile?.chapter_id,
+      chapter_match: profile?.chapter_id === chapter_id,
+      role_allowed: profile ? ['admin', 'exec'].includes(profile.role) : false
+    })
+
+    if (profileError || !profile) {
+      throw new Error(`No user profile found. Please ensure you have a profile in the system. Error: ${profileError?.message}`)
+    }
+
+    if (profile.chapter_id !== chapter_id) {
+      throw new Error(`Chapter mismatch. Your profile is associated with chapter ${profile.chapter_id}, but you're trying to access chapter ${chapter_id}`)
+    }
+
+    if (!['admin', 'exec'].includes(profile.role)) {
+      throw new Error(`Insufficient permissions. Your role is '${profile.role}', but 'admin' or 'exec' role is required`)
     }
 
     // ================================================

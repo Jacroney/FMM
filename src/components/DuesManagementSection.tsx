@@ -8,10 +8,12 @@ import {
   CheckCircle,
   Download,
   RefreshCw,
-  Edit2
+  Edit2,
+  MailPlus,
+  Trash2
 } from 'lucide-react';
 import { DuesService } from '../services/duesService';
-import { MemberService } from '../services/memberService';
+import { AuthService } from '../services/authService';
 import {
   DuesConfiguration,
   MemberDuesSummary,
@@ -21,6 +23,7 @@ import {
 import DuesConfigurationModal from './DuesConfigurationModal';
 import PayDuesButton from './PayDuesButton';
 import StripeConnectSetup from './StripeConnectSetup';
+import AssignDuesByEmailModal from './AssignDuesByEmailModal';
 import toast from 'react-hot-toast';
 
 const computeStatsFromSummaries = (
@@ -103,6 +106,7 @@ const DuesManagementSection: React.FC<DuesManagementSectionProps> = ({ chapterId
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [editingConfig, setEditingConfig] = useState<DuesConfiguration | undefined>();
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showEmailAssignModal, setShowEmailAssignModal] = useState(false);
   const [selectedMemberDues, setSelectedMemberDues] = useState<MemberDuesSummary | null>(null);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<string>('Cash');
@@ -146,7 +150,7 @@ const DuesManagementSection: React.FC<DuesManagementSectionProps> = ({ chapterId
       const [configs, current, membersData] = await Promise.all([
         DuesService.getConfigurations(chapterId),
         DuesService.getCurrentConfiguration(chapterId),
-        MemberService.getMembers(chapterId)
+        AuthService.getChapterMembers(chapterId)
       ]);
 
       setConfigurations(configs);
@@ -320,6 +324,31 @@ const DuesManagementSection: React.FC<DuesManagementSectionProps> = ({ chapterId
     setSelectedMemberDues(memberDue);
     setPaymentAmount(memberDue.balance.toString());
     setShowPaymentModal(true);
+  };
+
+  const handleDeleteDues = async (dues: MemberDuesSummary) => {
+    if (isDemo) {
+      toast.error('Cannot delete in demo mode');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete dues for ${dues.member_name}?\n\nAmount: $${dues.total_amount.toFixed(2)}\nStatus: ${dues.status}\n\nThis action cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    setIsProcessing(true);
+    try {
+      await DuesService.deleteMemberDues(dues.id);
+      toast.success('Dues deleted successfully');
+      loadData();
+    } catch (error) {
+      console.error('Error deleting dues:', error);
+      toast.error('Failed to delete dues');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleExport = () => {
@@ -523,6 +552,14 @@ const DuesManagementSection: React.FC<DuesManagementSectionProps> = ({ chapterId
               Auto-Assign Dues to All Members
             </button>
             <button
+              onClick={() => setShowEmailAssignModal(true)}
+              disabled={isProcessing}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <MailPlus className="w-4 h-4" />
+              Assign Dues by Email
+            </button>
+            <button
               onClick={handleApplyLateFees}
               disabled={isProcessing || !currentConfig.late_fee_enabled}
               className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -639,6 +676,15 @@ const DuesManagementSection: React.FC<DuesManagementSectionProps> = ({ chapterId
                       >
                         Record
                       </button>
+                      {/* Delete Button */}
+                      <button
+                        onClick={() => handleDeleteDues(dues)}
+                        disabled={isProcessing || isDemo}
+                        className="px-3 py-1.5 bg-red-600 text-white text-xs rounded hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                        title="Delete dues assignment"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -666,6 +712,15 @@ const DuesManagementSection: React.FC<DuesManagementSectionProps> = ({ chapterId
         chapterId={chapterId}
         existingConfig={editingConfig}
         onSaved={handleConfigSaved}
+      />
+
+      {/* Assign Dues by Email Modal */}
+      <AssignDuesByEmailModal
+        isOpen={showEmailAssignModal}
+        onClose={() => setShowEmailAssignModal(false)}
+        chapterId={chapterId}
+        config={currentConfig}
+        onSuccess={loadData}
       />
 
       {/* Payment Modal */}

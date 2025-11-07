@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Papa from 'papaparse';
-import { MemberService } from '../services/memberService';
+import { AuthService } from '../services/authService';
 import { useChapter } from '../context/ChapterContext';
 import DuesManagementSection from '../components/DuesManagementSection';
 
@@ -22,7 +22,7 @@ const Members = () => {
       if (currentChapter) {
         try {
           setIsLoading(true);
-          const memberList = await MemberService.getMembers(currentChapter.id);
+          const memberList = await AuthService.getChapterMembers(currentChapter.id);
           setMembers(memberList);
         } catch (error) {
           console.error('Failed to load members:', error);
@@ -112,9 +112,9 @@ const Members = () => {
               setImportError(errors.join('\n'));
             } else {
               try {
-                const importedMembers = await MemberService.importMembers(formattedMembers);
+                const importedMembers = await AuthService.importMembers(formattedMembers);
                 // Reload all members from database to get fresh data
-                const allMembers = await MemberService.getMembers(currentChapter?.id);
+                const allMembers = await AuthService.getChapterMembers(currentChapter?.id);
                 setMembers(allMembers);
                 setShowImportModal(false);
                 setImportError('');
@@ -176,9 +176,9 @@ const Members = () => {
         setImportError(errors.join('\n'));
       } else {
         try {
-          const importedMembers = await MemberService.importMembers(formattedMembers);
+          const importedMembers = await AuthService.importMembers(formattedMembers);
           // Reload all members from database to get fresh data
-          const allMembers = await MemberService.getMembers(currentChapter?.id);
+          const allMembers = await AuthService.getChapterMembers(currentChapter?.id);
           setMembers(allMembers);
           setShowImportModal(false);
           setImportData('');
@@ -201,7 +201,7 @@ const Members = () => {
       const member = members.find(m => m.id === memberId);
       if (!member) return;
 
-      await MemberService.updatePaymentStatus(memberId, !member.duesPaid);
+      await AuthService.updatePaymentStatus(memberId, !member.duesPaid);
       setMembers(prevMembers =>
         prevMembers.map(member =>
           member.id === memberId
@@ -214,7 +214,7 @@ const Members = () => {
             : member
         )
       );
-      showNotification(`Payment status updated for ${member.name}`);
+      showNotification(`Payment status updated for ${member.full_name || 'member'}`);
     } catch (error) {
       showNotification('Failed to update payment status', 'error');
     }
@@ -224,8 +224,8 @@ const Members = () => {
   const handleExport = (format) => {
     try {
       const content = format === 'csv'
-        ? MemberService.exportToCSV(members)
-        : MemberService.exportToGCM(members);
+        ? AuthService.exportMembersToCSV(members)
+        : AuthService.exportMembersToGCM(members);
 
       const blob = new Blob([content], { type: format === 'csv' ? 'text/csv' : 'application/json' });
       const url = window.URL.createObjectURL(blob);
@@ -244,8 +244,8 @@ const Members = () => {
 
   // Filter members based on search term with sanitization
   const filteredMembers = members.filter(member =>
-    member.name.toLowerCase().includes(sanitizeInput(searchTerm.toLowerCase())) ||
-    member.email.toLowerCase().includes(sanitizeInput(searchTerm.toLowerCase()))
+    (member.full_name || '').toLowerCase().includes(sanitizeInput(searchTerm.toLowerCase())) ||
+    (member.email || '').toLowerCase().includes(sanitizeInput(searchTerm.toLowerCase()))
   );
 
   // Calculate payment statistics
@@ -406,10 +406,10 @@ const Members = () => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="flex-shrink-0 h-10 w-10 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
-                        <span className="text-blue-600 dark:text-blue-300 font-medium">{member.name.charAt(0)}</span>
+                        <span className="text-blue-600 dark:text-blue-300 font-medium">{(member.full_name || 'M').charAt(0)}</span>
                       </div>
                       <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900 dark:text-white">{member.name}</div>
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">{member.full_name || 'Unknown'}</div>
                       </div>
                     </div>
                   </td>
