@@ -20,6 +20,20 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+/**
+ * SECURITY: HTML escape function to prevent XSS attacks
+ * Escapes HTML special characters in user-supplied content
+ */
+function escapeHtml(unsafe: string | null | undefined): string {
+  if (!unsafe) return ''
+  return String(unsafe)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;")
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -79,26 +93,12 @@ serve(async (req) => {
       throw new Error('Dues assignment not found')
     }
 
-    console.log('Member dues found:', {
-      id: memberDues.id,
-      email: memberDues.email,
-      chapter_id: memberDues.chapter_id,
-      has_config: !!memberDues.dues_configuration
-    })
-
     // Verify user has permission (admin/treasurer of the chapter)
     const { data: profile } = await supabaseAdmin
       .from('user_profiles')
       .select('role, chapter_id')
       .eq('id', user.id)
       .single()
-
-    console.log('User profile:', {
-      user_id: user.id,
-      profile_chapter_id: profile?.chapter_id,
-      role: profile?.role,
-      dues_chapter_id: memberDues.chapter_id
-    })
 
     if (!profile || profile.chapter_id !== memberDues.chapter_id || !['admin', 'treasurer'].includes(profile.role)) {
       throw new Error('Unauthorized: Admin or treasurer access required')
@@ -121,10 +121,11 @@ serve(async (req) => {
       throw new Error('Chapter not found')
     }
 
-    console.log('Chapter found:', chapter.name)
-
     // Build invitation URL
-    const frontendUrl = Deno.env.get('FRONTEND_URL') || 'http://localhost:5173'
+    const frontendUrl = Deno.env.get('FRONTEND_URL')
+    if (!frontendUrl) {
+      throw new Error('FRONTEND_URL environment variable is required')
+    }
     const invitationUrl = `${frontendUrl}/invite?token=${invitation_token}`
 
     // Prepare email content
@@ -162,7 +163,7 @@ serve(async (req) => {
               <p style="margin: 0 0 12px 0; font-size: 16px; color: #92400e; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">
                 📋 Important Instructions
               </p>
-              <p style="margin: 0; font-size: 15px; line-height: 1.6; color: #78350f; white-space: pre-wrap;">${memberDues.notes}</p>
+              <p style="margin: 0; font-size: 15px; line-height: 1.6; color: #78350f; white-space: pre-wrap;">${escapeHtml(memberDues.notes)}</p>
             </div>
             ` : ''}
 
@@ -225,7 +226,7 @@ ${memberDues.due_date ? `Due Date: ${new Date(memberDues.due_date).toLocaleDateS
 
 ${memberDues.notes ? `
 📋 IMPORTANT INSTRUCTIONS
-${memberDues.notes}
+${escapeHtml(memberDues.notes)}
 
 ` : ''}
 ✅ NEXT STEPS:

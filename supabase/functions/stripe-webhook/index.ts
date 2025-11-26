@@ -40,9 +40,10 @@ serve(async (req) => {
     try {
       event = stripe.webhooks.constructEvent(body, signature, webhookSecret)
     } catch (err) {
-      console.error('Webhook signature verification failed:', err.message)
+      // SECURITY: Don't log specific error details to prevent information leakage
+      console.error('Webhook signature verification failed')
       return new Response(
-        JSON.stringify({ error: 'Webhook signature verification failed' }),
+        JSON.stringify({ error: 'Invalid signature' }),
         { status: 400 }
       )
     }
@@ -112,6 +113,16 @@ serve(async (req) => {
         )
       }
 
+      // SECURITY: Check if payment already processed (idempotency)
+      // Stripe webhooks can be retried, so we need to prevent duplicate recording
+      if (intent.status === 'succeeded') {
+        console.log('Payment already processed (idempotent):', paymentIntent.id)
+        return new Response(
+          JSON.stringify({ received: true, already_processed: true }),
+          { status: 200 }
+        )
+      }
+
       // Record the payment using the database function
       const { data: paymentResult, error: paymentError } = await supabase
         .rpc('record_dues_payment', {
@@ -138,8 +149,47 @@ serve(async (req) => {
 
       console.log('Payment recorded successfully:', paymentResult)
 
-      // TODO: Send email notification to member and treasurer
-      // await sendPaymentConfirmationEmail(intent)
+      // Queue payment confirmation email
+      try {
+        const { data: memberDues } = await supabase
+          .from('member_dues')
+          .select('email, member_id, balance, amount_paid')
+          .eq('id', intent.member_dues_id)
+          .single()
+
+        if (memberDues && memberDues.email) {
+          await supabase
+            .from('email_queue')
+            .insert({
+              to_email: memberDues.email,
+              to_user_id: memberDues.member_id,
+              template_type: 'payment_confirmation',
+              template_data: {
+                payment_id: paymentResult.payment_id,
+                amount_paid: intent.amount,
+                payment_method: `${paymentMethodBrand} ending in ${paymentMethodLast4}`,
+                remaining_balance: memberDues.balance,
+                total_paid: memberDues.amount_paid,
+                reference_number: paymentIntent.id
+              },
+              status: 'pending'
+            })
+
+          console.log('Payment confirmation email queued for:', memberDues.email)
+
+          // Mark confirmation as sent in member_dues
+          await supabase
+            .from('member_dues')
+            .update({
+              payment_confirmation_sent: true,
+              payment_confirmation_sent_at: new Date().toISOString()
+            })
+            .eq('id', intent.member_dues_id)
+        }
+      } catch (emailError) {
+        console.error('Error queueing payment confirmation email:', emailError)
+        // Don't fail the webhook if email queueing fails
+      }
 
       return new Response(
         JSON.stringify({ received: true, payment_recorded: true }),
@@ -167,8 +217,44 @@ serve(async (req) => {
         })
         .eq('stripe_payment_intent_id', paymentIntent.id)
 
-      // TODO: Send email notification to member about failed payment
-      // await sendPaymentFailedEmail(paymentIntent)
+      // Queue payment failed notification email
+      try {
+        const { data: intent } = await supabase
+          .from('payment_intents')
+          .select('member_dues_id, amount')
+          .eq('stripe_payment_intent_id', paymentIntent.id)
+          .single()
+
+        if (intent) {
+          const { data: memberDues } = await supabase
+            .from('member_dues')
+            .select('email, member_id, balance')
+            .eq('id', intent.member_dues_id)
+            .single()
+
+          if (memberDues && memberDues.email) {
+            await supabase
+              .from('email_queue')
+              .insert({
+                to_email: memberDues.email,
+                to_user_id: memberDues.member_id,
+                template_type: 'payment_failed',
+                template_data: {
+                  attempted_amount: intent.amount,
+                  remaining_balance: memberDues.balance,
+                  failure_reason: paymentIntent.last_payment_error?.message || 'Payment failed',
+                  reference_number: paymentIntent.id
+                },
+                status: 'pending'
+              })
+
+            console.log('Payment failed email queued for:', memberDues.email)
+          }
+        }
+      } catch (emailError) {
+        console.error('Error queueing payment failed email:', emailError)
+        // Don't fail the webhook if email queueing fails
+      }
 
       return new Response(
         JSON.stringify({ received: true }),

@@ -1,0 +1,390 @@
+-- Database Cleanup and Optimization Migration (CORRECTED)
+-- This migration addresses data integrity, normalization, and performance issues
+-- All operations are idempotent and include existence checks
+
+-- ============================================================================
+-- PHASE 1: ADD MISSING FOREIGN KEY CONSTRAINTS
+-- ============================================================================
+
+-- Add foreign key constraint for expenses.created_by (if table and column exist)
+DO $$
+BEGIN
+  -- Check if table and column exist
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'expenses' AND column_name = 'created_by'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_name = 'expenses_created_by_fkey'
+  ) THEN
+    -- Clean up invalid values first
+    UPDATE expenses
+    SET created_by = NULL
+    WHERE created_by IS NOT NULL
+      AND NOT EXISTS (SELECT 1 FROM auth.users WHERE id::text = created_by);
+
+    -- Convert column type from text to uuid
+    ALTER TABLE expenses
+      ALTER COLUMN created_by TYPE uuid USING created_by::uuid;
+
+    -- Add constraint
+    ALTER TABLE expenses
+      ADD CONSTRAINT expenses_created_by_fkey
+      FOREIGN KEY (created_by)
+      REFERENCES auth.users(id)
+      ON DELETE SET NULL;
+
+    RAISE NOTICE 'Added foreign key constraint: expenses_created_by_fkey';
+  ELSE
+    RAISE NOTICE 'Skipped expenses_created_by_fkey: table/column not found or constraint already exists';
+  END IF;
+END $$;
+
+-- Add foreign key constraint for dues_payments.recorded_by (if not already exists)
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'dues_payments' AND column_name = 'recorded_by'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_name = 'dues_payments_recorded_by_fkey'
+  ) THEN
+    -- Clean up invalid values first
+    UPDATE dues_payments
+    SET recorded_by = NULL
+    WHERE recorded_by IS NOT NULL
+      AND NOT EXISTS (SELECT 1 FROM auth.users WHERE id::text = recorded_by);
+
+    -- Convert column type from text to uuid if needed
+    ALTER TABLE dues_payments
+      ALTER COLUMN recorded_by TYPE uuid USING recorded_by::uuid;
+
+    -- Add constraint
+    ALTER TABLE dues_payments
+      ADD CONSTRAINT dues_payments_recorded_by_fkey
+      FOREIGN KEY (recorded_by)
+      REFERENCES auth.users(id)
+      ON DELETE SET NULL;
+
+    RAISE NOTICE 'Added foreign key constraint: dues_payments_recorded_by_fkey';
+  ELSE
+    RAISE NOTICE 'Skipped dues_payments_recorded_by_fkey: column not found or constraint already exists';
+  END IF;
+END $$;
+
+-- NOTE: Skipping dues_payments.reconciled_by - already has FK constraint
+-- NOTE: Skipping subscription_payments.recorded_by - already has FK constraint
+
+-- ============================================================================
+-- PHASE 2: ADD UNIQUE CONSTRAINTS TO PLAID TABLES (IF THEY EXIST)
+-- ============================================================================
+
+-- Add unique constraint to plaid_connections.item_id per environment
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'plaid_connections') THEN
+    -- First, check if there are any duplicates and keep only the most recent
+    WITH duplicates AS (
+      SELECT item_id, environment,
+             id,
+             ROW_NUMBER() OVER (PARTITION BY item_id, environment ORDER BY created_at DESC) as rn
+      FROM plaid_connections
+      WHERE item_id IS NOT NULL
+    )
+    UPDATE plaid_connections pc
+    SET is_active = false
+    FROM duplicates d
+    WHERE pc.id = d.id
+      AND d.rn > 1;
+
+    -- Now add the unique constraint
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_indexes WHERE indexname = 'unique_plaid_item_id_per_env'
+    ) THEN
+      CREATE UNIQUE INDEX unique_plaid_item_id_per_env
+        ON plaid_connections(item_id, environment)
+        WHERE item_id IS NOT NULL AND is_active = true;
+      RAISE NOTICE 'Added unique index: unique_plaid_item_id_per_env';
+    ELSE
+      RAISE NOTICE 'Skipped unique_plaid_item_id_per_env: already exists';
+    END IF;
+  ELSE
+    RAISE NOTICE 'Skipped plaid_connections unique constraint: table not found';
+  END IF;
+END $$;
+
+-- Add unique constraint to plaid_accounts.account_id
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'plaid_accounts') THEN
+    -- First handle duplicates
+    WITH duplicates AS (
+      SELECT account_id,
+             id,
+             ROW_NUMBER() OVER (PARTITION BY account_id ORDER BY created_at DESC) as rn
+      FROM plaid_accounts
+      WHERE account_id IS NOT NULL
+    )
+    UPDATE plaid_accounts pa
+    SET is_active = false
+    FROM duplicates d
+    WHERE pa.id = d.id
+      AND d.rn > 1;
+
+    -- Add unique constraint
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_indexes WHERE indexname = 'unique_plaid_account_id'
+    ) THEN
+      CREATE UNIQUE INDEX unique_plaid_account_id
+        ON plaid_accounts(account_id)
+        WHERE account_id IS NOT NULL AND is_active = true;
+      RAISE NOTICE 'Added unique index: unique_plaid_account_id';
+    ELSE
+      RAISE NOTICE 'Skipped unique_plaid_account_id: already exists';
+    END IF;
+  ELSE
+    RAISE NOTICE 'Skipped plaid_accounts unique constraint: table not found';
+  END IF;
+END $$;
+
+-- Add unique constraint to plaid_transactions.transaction_id
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'plaid_transactions') THEN
+    -- First handle duplicates
+    WITH duplicates AS (
+      SELECT transaction_id,
+             id,
+             ROW_NUMBER() OVER (PARTITION BY transaction_id ORDER BY created_at DESC) as rn
+      FROM plaid_transactions
+      WHERE transaction_id IS NOT NULL
+    )
+    DELETE FROM plaid_transactions pt
+    USING duplicates d
+    WHERE pt.id = d.id
+      AND d.rn > 1;
+
+    -- Add unique constraint
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_indexes WHERE indexname = 'unique_plaid_transaction_id'
+    ) THEN
+      CREATE UNIQUE INDEX unique_plaid_transaction_id
+        ON plaid_transactions(transaction_id)
+        WHERE transaction_id IS NOT NULL;
+      RAISE NOTICE 'Added unique index: unique_plaid_transaction_id';
+    ELSE
+      RAISE NOTICE 'Skipped unique_plaid_transaction_id: already exists';
+    END IF;
+  ELSE
+    RAISE NOTICE 'Skipped plaid_transactions unique constraint: table not found';
+  END IF;
+END $$;
+
+-- ============================================================================
+-- PHASE 3: ADD TRIGGERS FOR DENORMALIZED DATA CONSISTENCY
+-- ============================================================================
+
+-- Function to maintain denormalized fields in dues_payments
+CREATE OR REPLACE FUNCTION sync_dues_payment_foreign_fields()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Sync member_id and chapter_id from member_dues
+  SELECT md.member_id, md.chapter_id
+  INTO NEW.member_id, NEW.chapter_id
+  FROM member_dues md
+  WHERE md.id = NEW.member_dues_id;
+
+  -- If member_dues not found, raise exception
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'member_dues record not found for id: %', NEW.member_dues_id;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Add trigger to dues_payments
+DROP TRIGGER IF EXISTS maintain_dues_payments_denorm ON dues_payments;
+CREATE TRIGGER maintain_dues_payments_denorm
+  BEFORE INSERT OR UPDATE OF member_dues_id ON dues_payments
+  FOR EACH ROW
+  EXECUTE FUNCTION sync_dues_payment_foreign_fields();
+
+RAISE NOTICE 'Created trigger: maintain_dues_payments_denorm';
+
+-- ============================================================================
+-- PHASE 4: CLEAN UP DUPLICATE TIMESTAMP COLUMNS IN user_profiles
+-- ============================================================================
+
+DO $$
+BEGIN
+  -- Check if the columns exist before trying to clean them up
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'user_profiles' AND column_name = 'created_at_member'
+  ) THEN
+    -- Ensure data is consistent - copy data if needed
+    UPDATE user_profiles
+    SET created_at = created_at_member
+    WHERE created_at_member IS NOT NULL
+      AND (created_at IS NULL OR created_at_member < created_at);
+
+    -- Drop the duplicate column
+    ALTER TABLE user_profiles DROP COLUMN created_at_member;
+    RAISE NOTICE 'Dropped column: user_profiles.created_at_member';
+  ELSE
+    RAISE NOTICE 'Skipped created_at_member: column not found';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'user_profiles' AND column_name = 'updated_at_member'
+  ) THEN
+    -- Ensure data is consistent
+    UPDATE user_profiles
+    SET updated_at = updated_at_member
+    WHERE updated_at_member IS NOT NULL
+      AND (updated_at IS NULL OR updated_at_member > updated_at);
+
+    -- Drop the duplicate column
+    ALTER TABLE user_profiles DROP COLUMN updated_at_member;
+    RAISE NOTICE 'Dropped column: user_profiles.updated_at_member';
+  ELSE
+    RAISE NOTICE 'Skipped updated_at_member: column not found';
+  END IF;
+END $$;
+
+-- ============================================================================
+-- PHASE 5: ADD COMPOSITE INDEXES FOR QUERY OPTIMIZATION
+-- ============================================================================
+
+-- Composite index for expenses queries (if table exists)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'expenses') THEN
+    CREATE INDEX IF NOT EXISTS idx_expenses_chapter_period_category
+      ON expenses(chapter_id, period_id, category_id)
+      WHERE transaction_type = 'expense';
+    RAISE NOTICE 'Created index: idx_expenses_chapter_period_category';
+  ELSE
+    RAISE NOTICE 'Skipped expenses index: table not found';
+  END IF;
+END $$;
+
+-- Composite index for member_dues queries
+CREATE INDEX IF NOT EXISTS idx_member_dues_chapter_config_status
+  ON member_dues(chapter_id, config_id, status);
+
+-- Composite index for user_profiles queries by chapter and role
+CREATE INDEX IF NOT EXISTS idx_user_profiles_chapter_role
+  ON user_profiles(chapter_id, role)
+  WHERE is_active = true;
+
+-- Composite index for dues_payments by chapter and date
+CREATE INDEX IF NOT EXISTS idx_dues_payments_chapter_date
+  ON dues_payments(chapter_id, payment_date DESC);
+
+-- Composite index for payment_intents by chapter and status
+CREATE INDEX IF NOT EXISTS idx_payment_intents_chapter_status
+  ON payment_intents(chapter_id, status, created_at DESC);
+
+RAISE NOTICE 'Created composite indexes for query optimization';
+
+-- ============================================================================
+-- PHASE 6: ADD HELPFUL COMMENTS FOR DOCUMENTATION
+-- ============================================================================
+
+DO $$
+BEGIN
+  -- Only add comments if tables exist
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'chapters') THEN
+    COMMENT ON TABLE chapters IS 'Fraternity chapters - central tenant table for multi-tenancy';
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'user_profiles') THEN
+    COMMENT ON TABLE user_profiles IS 'User profiles and members - unified table for all users';
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'member_dues') THEN
+    COMMENT ON TABLE member_dues IS 'Individual dues assignments to members, supports invitation-based dues';
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'dues_payments') THEN
+    COMMENT ON TABLE dues_payments IS 'Payment records for member dues with Stripe integration';
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'expenses') THEN
+    COMMENT ON TABLE expenses IS 'Expense and income transactions with budget tracking';
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'budgets') THEN
+    COMMENT ON TABLE budgets IS 'Budget allocations linking categories to periods';
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'payment_intents') THEN
+    COMMENT ON TABLE payment_intents IS 'Stripe payment intent records for dues payments';
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'plaid_connections') THEN
+    COMMENT ON TABLE plaid_connections IS 'Plaid bank connection credentials per chapter';
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'plaid_accounts') THEN
+    COMMENT ON TABLE plaid_accounts IS 'Bank accounts synced from Plaid';
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'plaid_transactions') THEN
+    COMMENT ON TABLE plaid_transactions IS 'Bank transactions imported from Plaid';
+  END IF;
+
+  RAISE NOTICE 'Added table comments for documentation';
+END $$;
+
+DO $$
+BEGIN
+  -- Only add column comments if columns exist
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'member_dues' AND column_name = 'member_id'
+  ) THEN
+    COMMENT ON COLUMN member_dues.member_id IS 'Foreign key to user_profiles - nullable for invitation-based dues';
+    COMMENT ON COLUMN member_dues.email IS 'Email for invitation-based dues before member signup';
+    COMMENT ON COLUMN member_dues.invitation_token IS 'Unique token for invited members to claim their dues';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'dues_payments' AND column_name = 'member_id'
+  ) THEN
+    COMMENT ON COLUMN dues_payments.member_id IS 'Denormalized from member_dues for query performance';
+    COMMENT ON COLUMN dues_payments.chapter_id IS 'Denormalized from member_dues for query performance';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'expenses' AND column_name = 'transaction_type'
+  ) THEN
+    COMMENT ON COLUMN expenses.transaction_type IS 'Distinguishes expenses from income - critical for budget calculations';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'user_profiles' AND column_name = 'dues_balance'
+  ) THEN
+    COMMENT ON COLUMN user_profiles.dues_balance IS 'Cached total dues balance across all periods';
+  END IF;
+
+  RAISE NOTICE 'Added column comments for documentation';
+END $$;
+
+-- ============================================================================
+-- FINAL MESSAGE
+-- ============================================================================
+
+DO $$
+BEGIN
+  RAISE NOTICE '========================================';
+  RAISE NOTICE 'Database cleanup and optimization migration completed successfully!';
+  RAISE NOTICE '========================================';
+END $$;

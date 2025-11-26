@@ -24,7 +24,6 @@ const AssignDuesByEmailModal: React.FC<AssignDuesByEmailModalProps> = ({
   const [dueDate, setDueDate] = useState(config?.due_date || '');
   const [notes, setNotes] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [sendEmail, setSendEmail] = useState(true);
 
   if (!isOpen) return null;
 
@@ -58,70 +57,11 @@ const AssignDuesByEmailModal: React.FC<AssignDuesByEmailModalProps> = ({
         throw new Error(data?.error || 'Failed to assign dues');
       }
 
-      toast.success(data.message || 'Dues assigned successfully');
-
-      // If requires invitation and user wants to send email
-      if (data.requires_invitation && sendEmail) {
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
-
-          if (!session) {
-            toast.error('Not authenticated');
-            return;
-          }
-
-          // Call edge function to send invitation email
-          const requestBody = {
-            dues_id: data.dues_id,
-            email: email.trim(),
-            invitation_token: data.invitation_token
-          };
-
-          console.log('Sending email invitation:', {
-            url: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-dues-invitation`,
-            body: requestBody,
-            hasSession: !!session,
-            hasAccessToken: !!session?.access_token
-          });
-
-          const response = await fetch(
-            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-dues-invitation`,
-            {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${session.access_token}`,
-                'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-              },
-              body: JSON.stringify(requestBody),
-            }
-          );
-
-          if (!response.ok) {
-            console.error('Email function error response:', {
-              status: response.status,
-              statusText: response.statusText,
-              headers: Object.fromEntries(response.headers.entries())
-            });
-
-            try {
-              const errorData = await response.json();
-              console.error('Email error data:', errorData);
-              toast.error(`Email failed (${response.status}): ${errorData.error || response.statusText}`);
-            } catch (e) {
-              console.error('Could not parse error response:', e);
-              toast.error(`Email failed with status ${response.status}: ${response.statusText}`);
-            }
-          } else {
-            const result = await response.json();
-            console.log('Email sent successfully:', result);
-            toast.success('Invitation email sent!');
-          }
-        } catch (emailError) {
-          console.error('Error sending invitation:', emailError);
-          toast.error('Dues assigned but failed to send invitation email');
-        }
+      // Show success message with email status
+      if (data.email_queued) {
+        toast.success(data.message || 'Dues assigned and invitation email queued for sending!');
+      } else {
+        toast.success(data.message || 'Dues assigned successfully!');
       }
 
       // Reset form and close
@@ -185,7 +125,7 @@ const AssignDuesByEmailModal: React.FC<AssignDuesByEmailModalProps> = ({
                 className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-gray-900 dark:text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
               />
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                If the member doesn't have an account, they'll receive an invitation email
+                If the member doesn't have an account, they'll automatically receive an invitation email
               </p>
             </div>
 
@@ -239,18 +179,12 @@ const AssignDuesByEmailModal: React.FC<AssignDuesByEmailModalProps> = ({
               </p>
             </div>
 
-            {/* Send Email Checkbox */}
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="sendEmail"
-                checked={sendEmail}
-                onChange={(e) => setSendEmail(e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-              />
-              <label htmlFor="sendEmail" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
-                Send invitation email (if member doesn't exist)
-              </label>
+            {/* Auto-send Notice */}
+            <div className="rounded-md bg-blue-50 dark:bg-blue-900/20 p-3 border border-blue-200 dark:border-blue-800">
+              <p className="text-sm text-blue-700 dark:text-blue-300">
+                <Mail className="inline w-4 h-4 mr-1" />
+                Invitation emails are sent automatically if the member doesn't have an account yet.
+              </p>
             </div>
           </div>
 
