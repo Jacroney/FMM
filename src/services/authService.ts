@@ -1,7 +1,7 @@
 import { supabase } from './supabaseClient';
 import { User, Session } from '@supabase/supabase-js';
 import { isDemoModeEnabled } from '../utils/env';
-import { getDemoUser, getDemoProfile, demoHelpers } from '../demo/demoStore';
+import { getDemoUser, getDemoProfile, demoHelpers, demoStore } from '../demo/demoStore';
 
 export interface UserProfile {
   id: string;
@@ -635,6 +635,155 @@ export class AuthService {
     } catch (error) {
       console.error('Error importing members:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Bulk import members with email invitations
+   * Creates member_invitations records and queues invitation emails
+   * Members will receive an email to create their account
+   */
+  static async bulkImportMembersWithInvitations(
+    members: Array<{
+      first_name: string;
+      last_name: string;
+      email: string;
+      phone?: string;
+      year?: string;
+    }>,
+    chapterId: string
+  ): Promise<{
+    success: boolean;
+    imported_count: number;
+    skipped_count: number;
+    errors: Array<{ email: string; error: string }>;
+    message: string;
+  }> {
+    if (isDemoModeEnabled()) {
+      // Demo mode: simulate import
+      return {
+        success: true,
+        imported_count: members.length,
+        skipped_count: 0,
+        errors: [],
+        message: `Imported ${members.length} members (demo mode)`,
+      };
+    }
+
+    try {
+      const { data: user } = await supabase.auth.getUser();
+      if (!user?.user?.id) {
+        throw new Error('User not authenticated');
+      }
+
+      const { data, error } = await supabase.rpc('bulk_create_member_invitations', {
+        p_chapter_id: chapterId,
+        p_members: members,
+        p_invited_by: user.user.id,
+      });
+
+      if (error) throw error;
+
+      return data || {
+        success: false,
+        imported_count: 0,
+        skipped_count: 0,
+        errors: [],
+        message: 'Unknown error occurred',
+      };
+    } catch (error) {
+      console.error('Error bulk importing members:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get pending member invitations for a chapter
+   * Returns invitations that haven't been accepted yet
+   */
+  static async getPendingInvitations(chapterId: string): Promise<Array<{
+    id: string;
+    email: string;
+    first_name: string;
+    last_name: string;
+    full_name: string;
+    phone_number: string | null;
+    year: string | null;
+    member_status: string;
+    status: string;
+    invitation_email_status: string;
+    created_at: string;
+    invitation_expires_at: string;
+  }>> {
+    if (isDemoModeEnabled()) {
+      return [];
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('member_invitations')
+        .select('*')
+        .eq('chapter_id', chapterId)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Transform to include full_name for consistency with user_profiles
+      return (data || []).map(inv => ({
+        ...inv,
+        full_name: `${inv.first_name} ${inv.last_name}`,
+      }));
+    } catch (error) {
+      console.error('Error fetching pending invitations:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Resend invitation email for a pending invitation
+   */
+  static async resendInvitation(invitationId: string, chapterId: string): Promise<{ success: boolean; error?: string }> {
+    if (isDemoModeEnabled()) {
+      return { success: true };
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('send_member_invitation_emails', {
+        p_chapter_id: chapterId,
+        p_invitation_ids: [invitationId],
+      });
+
+      if (error) throw error;
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error resending invitation:', error);
+      return { success: false, error: (error as Error).message };
+    }
+  }
+
+  /**
+   * Cancel/delete a pending invitation
+   */
+  static async cancelInvitation(invitationId: string): Promise<{ success: boolean; error?: string }> {
+    if (isDemoModeEnabled()) {
+      return { success: true };
+    }
+
+    try {
+      const { error } = await supabase
+        .from('member_invitations')
+        .delete()
+        .eq('id', invitationId)
+        .eq('status', 'pending');
+
+      if (error) throw error;
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error canceling invitation:', error);
+      return { success: false, error: (error as Error).message };
     }
   }
 }

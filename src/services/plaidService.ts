@@ -48,9 +48,6 @@ export class PlaidService {
 
       const env = environment || this.getEnvironment();
       const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/plaid-create-link-token`;
-      console.log('Calling Plaid function at:', url);
-      console.log('Using Supabase URL:', import.meta.env.VITE_SUPABASE_URL);
-      console.log('Using Plaid environment:', env);
 
       const response = await fetch(url, {
         method: 'POST',
@@ -90,7 +87,6 @@ export class PlaidService {
       }
 
       const env = environment || this.getEnvironment();
-      console.log('Exchanging token for environment:', env);
 
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/plaid-exchange-token`,

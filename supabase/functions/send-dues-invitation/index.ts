@@ -47,7 +47,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Get user from request
+    // Get authorization header
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
       throw new Error('No authorization header')
@@ -56,11 +56,25 @@ serve(async (req) => {
     // Extract token from Bearer header
     const token = authHeader.replace('Bearer ', '')
 
-    // Verify the JWT token using admin client
-    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token)
-    if (userError || !user) {
-      console.error('Auth error:', userError)
-      throw new Error('Unauthorized: Invalid or expired token')
+    // Check if this is a service role call (from process-email-queue or other internal functions)
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    const isServiceRoleCall = token === serviceRoleKey
+
+    let user = null
+    let skipPermissionCheck = false
+
+    if (isServiceRoleCall) {
+      // Service role calls are trusted (from internal edge functions)
+      skipPermissionCheck = true
+      console.log('Service role call detected - skipping user permission check')
+    } else {
+      // Verify the JWT token using admin client
+      const { data: authData, error: userError } = await supabaseAdmin.auth.getUser(token)
+      if (userError || !authData?.user) {
+        console.error('Auth error:', userError)
+        throw new Error('Unauthorized: Invalid or expired token')
+      }
+      user = authData.user
     }
 
     // Parse request body
@@ -94,14 +108,17 @@ serve(async (req) => {
     }
 
     // Verify user has permission (admin/treasurer of the chapter)
-    const { data: profile } = await supabaseAdmin
-      .from('user_profiles')
-      .select('role, chapter_id')
-      .eq('id', user.id)
-      .single()
+    // Skip permission check for service role calls (trusted internal calls)
+    if (!skipPermissionCheck) {
+      const { data: profile } = await supabaseAdmin
+        .from('user_profiles')
+        .select('role, chapter_id')
+        .eq('id', user.id)
+        .single()
 
-    if (!profile || profile.chapter_id !== memberDues.chapter_id || !['admin', 'treasurer'].includes(profile.role)) {
-      throw new Error('Unauthorized: Admin or treasurer access required')
+      if (!profile || profile.chapter_id !== memberDues.chapter_id || !['admin', 'treasurer'].includes(profile.role)) {
+        throw new Error('Unauthorized: Admin or treasurer access required')
+      }
     }
 
     // Get chapter information
@@ -258,7 +275,7 @@ ${chapter.name}
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'GreekPay <onboarding@resend.dev>',
+        from: 'GreekPay <noreply@greekpay.org>',
         to: [email],
         subject: `Dues Assigned - ${chapter.name}`,
         html: emailHtml,

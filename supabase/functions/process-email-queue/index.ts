@@ -109,6 +109,10 @@ serve(async (req) => {
             emailSent = await sendWelcomeEmail(item, supabaseAdmin)
             break
 
+          case 'member_invitation':
+            emailSent = await sendMemberInvitation(item, supabaseAdmin)
+            break
+
           default:
             console.warn(`Unknown template type: ${item.template_type}`)
             throw new Error(`Unknown template type: ${item.template_type}`)
@@ -250,4 +254,35 @@ async function sendWelcomeEmail(item: any, supabaseAdmin: any): Promise<boolean>
   // TODO: Implement welcome email
   console.log('Welcome email not yet implemented')
   return true // Temporary
+}
+
+/**
+ * Send member invitation email (for CSV bulk imports)
+ */
+async function sendMemberInvitation(item: any, supabaseAdmin: any): Promise<boolean> {
+  const { invitation_id, invitation_token, first_name, chapter_name } = item.template_data
+
+  console.log(`Calling send-member-invitation Edge Function for invitation ${invitation_id}`)
+
+  const { data, error } = await supabaseAdmin.functions.invoke('send-member-invitation', {
+    body: {
+      invitation_id,
+      email: item.to_email,
+      invitation_token,
+      first_name,
+      chapter_name
+    }
+  })
+
+  if (error) {
+    console.error('Error calling send-member-invitation:', error)
+    throw error
+  }
+
+  if (!data?.success) {
+    console.error('send-member-invitation returned error:', data?.error)
+    throw new Error(data?.error || 'Failed to send member invitation')
+  }
+
+  return true
 }

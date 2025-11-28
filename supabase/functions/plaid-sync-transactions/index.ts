@@ -203,12 +203,20 @@ serve(async (req) => {
         try {
           const merchantName = transaction.merchant_name || transaction.name || 'Unknown';
 
-          // Use centralized categorization service with AI fallback
+          // Extract Plaid's personal_finance_category data for improved categorization
+          const plaidCategory = transaction.personal_finance_category ? {
+            primary: transaction.personal_finance_category.primary,
+            detailed: transaction.personal_finance_category.detailed,
+            confidence_level: transaction.personal_finance_category.confidence_level || 'UNKNOWN',
+          } : undefined;
+
+          // Use centralized categorization service with Plaid category mapping + AI fallback
           const categorizationResult = await categorizeTransaction(supabase, {
             merchantName,
             chapterId: user.chapter_id,
             source: 'PLAID',
             useAI: USE_AI_CATEGORIZATION,
+            plaidCategory,
           });
 
           const accountDbId = accountIdMap.get(transaction.account_id);
@@ -230,6 +238,9 @@ serve(async (req) => {
               plaid_transaction_id: transaction.transaction_id,
               account_id: accountDbId || null,
               created_by: user.id,
+              // Store Plaid category data for debugging and future reference
+              plaid_primary_category: plaidCategory?.primary || null,
+              plaid_detailed_category: plaidCategory?.detailed || null,
             });
 
           if (insertError) {
@@ -272,12 +283,20 @@ serve(async (req) => {
 
             const merchantName = transaction.merchant_name || transaction.name || 'Unknown';
 
-            // Use centralized categorization service with AI fallback
+            // Extract Plaid's personal_finance_category data for improved categorization
+            const plaidCategory = transaction.personal_finance_category ? {
+              primary: transaction.personal_finance_category.primary,
+              detailed: transaction.personal_finance_category.detailed,
+              confidence_level: transaction.personal_finance_category.confidence_level || 'UNKNOWN',
+            } : undefined;
+
+            // Use centralized categorization service with Plaid category mapping + AI fallback
             const categorizationResult = await categorizeTransaction(supabase, {
               merchantName,
               chapterId: user.chapter_id,
               source: 'PLAID',
               useAI: USE_AI_CATEGORIZATION,
+              plaidCategory,
             });
 
             const accountDbId = accountIdMap.get(transaction.account_id);
@@ -299,6 +318,9 @@ serve(async (req) => {
                 plaid_transaction_id: transaction.transaction_id,
                 account_id: accountDbId || null,
                 created_by: user.id,
+                // Store Plaid category data for debugging and future reference
+                plaid_primary_category: plaidCategory?.primary || null,
+                plaid_detailed_category: plaidCategory?.detailed || null,
               });
 
             if (insertError) {

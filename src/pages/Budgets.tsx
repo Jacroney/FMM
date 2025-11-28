@@ -85,13 +85,6 @@ const Budgets: React.FC = () => {
     }
   }, [isDemoRoute, currentChapter, chapters, setCurrentChapter]);
 
-  // Remove the effect that forces grid view in demo mode
-  // useEffect(() => {
-  //   if (isDemoRoute && viewMode !== 'grid') {
-  //     setViewMode('grid');
-  //   }
-  // }, [isDemoRoute, viewMode]);
-
   const loadData = useCallback(async () => {
     if (isDemoRoute) {
       const state = demoStore.getState();

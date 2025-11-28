@@ -17,7 +17,7 @@ import Transactions from './pages/Transactions';
 import Budgets from './pages/Budgets';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
-import Dues from './pages/Dues';
+import Members from './pages/Members';
 import RecurringTransactions from './pages/RecurringTransactions';
 import { PlaidSync } from './pages/PlaidSync';
 import { NotFound } from './components/NotFound';
@@ -178,7 +178,7 @@ const ProtectedAppRoutes = () => {
           <Route path="recurring" element={<RecurringTransactions />} />
           <Route path="budgets" element={<Budgets />} />
           <Route path="reports" element={<Reports />} />
-          <Route path="dues" element={<Dues />} />
+          <Route path="members" element={<Members />} />
           <Route path="plaid-sync" element={<PlaidSync />} />
           <Route path="settings" element={<Settings />} />
           <Route path="payment-success" element={<PaymentSuccess />} />
@@ -212,7 +212,7 @@ const DemoRoutes = () => {
           <Route path="recurring" element={<RecurringTransactions />} />
           <Route path="budgets" element={<Budgets />} />
           <Route path="reports" element={<Reports />} />
-          <Route path="dues" element={<Dues />} />
+          <Route path="members" element={<Members />} />
           <Route path="plaid-sync" element={<PlaidSync />} />
           <Route path="settings" element={<Settings />} />
           <Route path="*" element={<NotFound />} />

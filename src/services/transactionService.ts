@@ -324,6 +324,54 @@ export class TransactionService {
     }
   }
 
+  // Update expense category (for inline editing on Transactions page)
+  static async updateExpenseCategory(expenseId: string, categoryId: string): Promise<void> {
+    if (isDemoModeEnabled()) {
+      // In demo mode, just update the category name
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('expenses')
+        .update({ category_id: categoryId })
+        .eq('id', expenseId);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error updating expense category:', error);
+      throw error;
+    }
+  }
+
+  // Fetch budget categories for a chapter (for category dropdown)
+  static async fetchBudgetCategories(chapterId: string): Promise<{ id: string; name: string }[]> {
+    if (isDemoModeEnabled()) {
+      return [
+        { id: '1', name: 'Food & Dining' },
+        { id: '2', name: 'Transportation' },
+        { id: '3', name: 'Entertainment' },
+        { id: '4', name: 'Utilities' },
+        { id: '5', name: 'House Maintenance' },
+      ];
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('budget_categories')
+        .select('id, name')
+        .eq('chapter_id', chapterId)
+        .eq('is_active', true)
+        .order('name');
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching budget categories:', error);
+      throw error;
+    }
+  }
+
   // Get transaction statistics
   static async getTransactionStats(chapterId: string): Promise<{
     total: number;

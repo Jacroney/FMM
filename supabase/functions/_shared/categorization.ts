@@ -22,9 +22,15 @@ export interface CategoryRule {
 export interface CategorizationResult {
   category_id: string;
   category_name: string;
-  matched_by: 'pattern' | 'ai' | 'uncategorized';
+  matched_by: 'plaid_category' | 'pattern' | 'ai' | 'uncategorized';
   confidence?: number;
   rule_id?: string;
+}
+
+export interface PlaidCategory {
+  primary: string;
+  detailed: string;
+  confidence_level: 'VERY_HIGH' | 'HIGH' | 'MEDIUM' | 'LOW' | 'UNKNOWN';
 }
 
 export interface CategorizationOptions {
@@ -33,28 +39,136 @@ export interface CategorizationOptions {
   source: 'PLAID' | 'MANUAL' | 'CSV_IMPORT';
   useAI?: boolean;
   availableCategories?: string[]; // For AI categorization
+  plaidCategory?: PlaidCategory; // Plaid's personal_finance_category data
+}
+
+/**
+ * Try to match using Plaid's personal_finance_category data
+ * This provides high-quality categorization from Plaid's ML models
+ */
+async function tryPlaidCategoryMapping(
+  supabase: SupabaseClient,
+  chapterId: string,
+  plaidCategory: PlaidCategory
+): Promise<CategorizationResult | null> {
+  try {
+    // Fetch mappings - chapter-specific and global
+    const { data: mappings, error: mappingsError } = await supabase
+      .from('plaid_category_mappings')
+      .select('*')
+      .or(`chapter_id.eq.${chapterId},chapter_id.is.null`)
+      .eq('is_active', true)
+      .order('priority', { ascending: false });
+
+    if (mappingsError) {
+      console.error('[Categorization] Error fetching Plaid mappings:', mappingsError);
+      return null;
+    }
+
+    if (!mappings || mappings.length === 0) {
+      console.log('[Categorization] No Plaid category mappings found');
+      return null;
+    }
+
+    // Find best match: detailed match > primary-only match, chapter-specific > global
+    const detailedChapterMatch = mappings.find((m: any) =>
+      m.plaid_primary === plaidCategory.primary &&
+      m.plaid_detailed === plaidCategory.detailed &&
+      m.chapter_id === chapterId
+    );
+
+    const detailedGlobalMatch = mappings.find((m: any) =>
+      m.plaid_primary === plaidCategory.primary &&
+      m.plaid_detailed === plaidCategory.detailed &&
+      m.chapter_id === null
+    );
+
+    const primaryChapterMatch = mappings.find((m: any) =>
+      m.plaid_primary === plaidCategory.primary &&
+      !m.plaid_detailed &&
+      m.chapter_id === chapterId
+    );
+
+    const primaryGlobalMatch = mappings.find((m: any) =>
+      m.plaid_primary === plaidCategory.primary &&
+      !m.plaid_detailed &&
+      m.chapter_id === null
+    );
+
+    const match = detailedChapterMatch || detailedGlobalMatch || primaryChapterMatch || primaryGlobalMatch;
+
+    if (!match) {
+      console.log(`[Categorization] No Plaid mapping found for: ${plaidCategory.primary}/${plaidCategory.detailed}`);
+      return null;
+    }
+
+    console.log(`[Categorization] Plaid mapping found: ${plaidCategory.primary}/${plaidCategory.detailed} -> ${match.app_category}`);
+
+    // Get category_id from budget_categories (case-insensitive match)
+    const { data: category, error: categoryError } = await supabase
+      .from('budget_categories')
+      .select('id, name')
+      .eq('chapter_id', chapterId)
+      .ilike('name', match.app_category)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (categoryError || !category) {
+      console.warn(`[Categorization] Category "${match.app_category}" not found for chapter ${chapterId}`);
+      return null;
+    }
+
+    // Calculate confidence based on Plaid's confidence level
+    const confidenceMap: Record<string, number> = {
+      'VERY_HIGH': 0.95,
+      'HIGH': 0.85,
+      'MEDIUM': 0.70,
+      'LOW': 0.50,
+      'UNKNOWN': 0.40,
+    };
+
+    return {
+      category_id: category.id,
+      category_name: category.name,
+      matched_by: 'plaid_category',
+      confidence: confidenceMap[plaidCategory.confidence_level] || 0.50,
+    };
+  } catch (error) {
+    console.error('[Categorization] Error in Plaid category mapping:', error);
+    return null;
+  }
 }
 
 /**
  * Main categorization function
- * Attempts pattern matching first, then AI fallback, then uncategorized
+ * Attempts Plaid category mapping first, then pattern matching, then AI fallback, then uncategorized
  */
 export async function categorizeTransaction(
   supabase: SupabaseClient,
   options: CategorizationOptions
 ): Promise<CategorizationResult> {
-  const { merchantName, chapterId, source, useAI = false } = options;
+  const { merchantName, chapterId, source, useAI = false, plaidCategory } = options;
 
   console.log(`[Categorization] Starting for merchant: "${merchantName}", source: ${source}`);
 
-  // Step 1: Try pattern matching
+  // Step 1: Try Plaid category mapping (for Plaid transactions with category data)
+  if (source === 'PLAID' && plaidCategory) {
+    console.log(`[Categorization] Trying Plaid category: ${plaidCategory.primary}/${plaidCategory.detailed} (${plaidCategory.confidence_level})`);
+    const plaidResult = await tryPlaidCategoryMapping(supabase, chapterId, plaidCategory);
+    if (plaidResult) {
+      console.log(`[Categorization] Plaid category match found: ${plaidResult.category_name}`);
+      return plaidResult;
+    }
+  }
+
+  // Step 2: Try pattern matching
   const patternResult = await tryPatternMatch(supabase, merchantName, chapterId, source);
   if (patternResult) {
     console.log(`[Categorization] Pattern match found: ${patternResult.category_name}`);
     return patternResult;
   }
 
-  // Step 2: Try AI categorization if enabled
+  // Step 3: Try AI categorization if enabled
   if (useAI) {
     console.log('[Categorization] No pattern match, trying AI...');
     const aiResult = await tryAICategorization(supabase, merchantName, chapterId, options.availableCategories);
@@ -66,7 +180,7 @@ export async function categorizeTransaction(
     }
   }
 
-  // Step 3: Fallback to Uncategorized
+  // Step 4: Fallback to Uncategorized
   console.log('[Categorization] No match found, using Uncategorized');
   const uncategorizedResult = await getUncategorizedCategory(supabase, chapterId);
   return uncategorizedResult;

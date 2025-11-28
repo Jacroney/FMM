@@ -7,7 +7,9 @@
 
 // SECURITY: Define allowed origins
 const ALLOWED_ORIGINS = [
-  'http://localhost:5173',           // Local development
+  'http://localhost:5173',           // Local development (default Vite port)
+  'http://localhost:5174',           // Local development (alternate port)
+  'http://localhost:5175',           // Local development (alternate port)
   'http://localhost:4173',           // Vite preview
   'https://greekpay.org',            // Production
   'https://www.greekpay.org',        // Production with www

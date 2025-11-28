@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { handleCorsPreflightRequest, corsJsonResponse } from '../_shared/cors.ts';
 import { createSupabaseClient, authenticateUser, sanitizeError, requireAdminOrExec } from '../_shared/auth.ts';
-import { categorizeBatch } from '../_shared/categorization.ts';
+import { categorizeTransaction } from '../_shared/categorization.ts';
 
 // Enable AI categorization for recategorization (set to false to disable)
 const USE_AI_CATEGORIZATION = Deno.env.get('USE_AI_CATEGORIZATION') !== 'false'; // Defaults to true
@@ -11,6 +11,7 @@ interface RecategorizeRequest {
   period_id?: string; // Optional: only recategorize transactions in this period
   limit?: number; // Optional: limit number of transactions to recategorize
   dry_run?: boolean; // If true, return what would be changed without making changes
+  recategorize_all?: boolean; // If true, recategorize ALL transactions (not just a specific category)
 }
 
 serve(async (req) => {
@@ -30,37 +31,52 @@ serve(async (req) => {
 
     // Parse request body
     const body: RecategorizeRequest = await req.json();
+    const recategorizeAll = body.recategorize_all === true;
     const categoryName = body.category_name || 'Uncategorized';
     const limit = body.limit && body.limit > 0 ? Math.min(body.limit, 1000) : 1000; // Max 1000
     const dryRun = body.dry_run === true;
 
-    console.log(`[RECATEGORIZE] Starting${dryRun ? ' (DRY RUN)' : ''} - Category: ${categoryName}, Limit: ${limit}`);
+    console.log(`[RECATEGORIZE] Starting${dryRun ? ' (DRY RUN)' : ''} - ${recategorizeAll ? 'ALL transactions' : `Category: ${categoryName}`}, Limit: ${limit}`);
 
-    // Get the category ID for the specified category name
-    const { data: targetCategory, error: categoryError } = await supabase
-      .from('budget_categories')
-      .select('id, name')
-      .eq('chapter_id', user.chapter_id)
-      .eq('name', categoryName)
-      .eq('is_active', true)
-      .maybeSingle();
-
-    if (categoryError || !targetCategory) {
-      return corsJsonResponse(
-        { error: `Category "${categoryName}" not found` },
-        404,
-        origin
-      );
-    }
-
-    // Query transactions that match the criteria
+    // Build query for transactions
     let query = supabase
       .from('expenses')
-      .select('id, description, vendor, source')
+      .select(`
+        id,
+        description,
+        vendor,
+        source,
+        category_id,
+        plaid_primary_category,
+        plaid_detailed_category,
+        budget_categories (
+          name
+        )
+      `)
       .eq('chapter_id', user.chapter_id)
-      .eq('category_id', targetCategory.id)
       .limit(limit)
       .order('created_at', { ascending: false });
+
+    // If not recategorizing all, filter to specific category
+    if (!recategorizeAll) {
+      const { data: targetCategory, error: categoryError } = await supabase
+        .from('budget_categories')
+        .select('id, name')
+        .eq('chapter_id', user.chapter_id)
+        .eq('name', categoryName)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (categoryError || !targetCategory) {
+        return corsJsonResponse(
+          { error: `Category "${categoryName}" not found` },
+          404,
+          origin
+        );
+      }
+
+      query = query.eq('category_id', targetCategory.id);
+    }
 
     if (body.period_id) {
       query = query.eq('period_id', body.period_id);
@@ -93,28 +109,11 @@ serve(async (req) => {
 
     console.log(`[RECATEGORIZE] Found ${transactions.length} transactions to process`);
 
-    // Prepare transactions for categorization
-    const transactionsToCateg = transactions.map((tx: any) => ({
-      merchantName: tx.vendor || tx.description,
-      transactionId: tx.id,
-    }));
-
-    // Batch categorize transactions
-    console.log(`[RECATEGORIZE] Categorizing transactions...`);
-    const categorizationResults = await categorizeBatch(
-      supabase,
-      transactionsToCateg,
-      user.chapter_id,
-      'MANUAL', // Use MANUAL as default, but will match ALL rules
-      USE_AI_CATEGORIZATION
-    );
-
-    console.log(`[RECATEGORIZE] Categorization complete`);
-
     // Track statistics
     const stats = {
       recategorized: 0,
       unchanged: 0,
+      plaid_category: 0,
       pattern: 0,
       ai: 0,
       uncategorized: 0,
@@ -128,48 +127,67 @@ serve(async (req) => {
       matched_by: string;
     }> = [];
 
-    // Process categorization results
+    // Process each transaction individually to use Plaid category data
     for (const tx of transactions) {
-      const categResult = categorizationResults.get(tx.id);
+      try {
+        const merchantName = tx.vendor || tx.description || 'Unknown';
+        const oldCategoryName = (tx.budget_categories as any)?.name || 'Unknown';
+        const oldCategoryId = tx.category_id;
 
-      if (!categResult) {
-        errors.push(`Transaction ${tx.id}: Failed to categorize`);
-        continue;
-      }
+        // Build Plaid category object if available
+        const plaidCategory = tx.plaid_primary_category ? {
+          primary: tx.plaid_primary_category,
+          detailed: tx.plaid_detailed_category || tx.plaid_primary_category,
+          confidence_level: 'HIGH' as const, // Assume HIGH for stored data
+        } : undefined;
 
-      // Check if category changed
-      if (categResult.category_id === targetCategory.id) {
-        // Category didn't change (still uncategorized)
-        stats.unchanged++;
-        stats.uncategorized++;
-      } else {
-        // Category changed!
-        stats.recategorized++;
-
-        if (categResult.matched_by === 'pattern') stats.pattern++;
-        else if (categResult.matched_by === 'ai') stats.ai++;
-
-        changes.push({
-          transaction_id: tx.id,
-          merchant_name: tx.vendor || tx.description,
-          old_category: categoryName,
-          new_category: categResult.category_name,
-          matched_by: categResult.matched_by,
+        // Categorize transaction using the full categorization logic (including Plaid mapping)
+        const categResult = await categorizeTransaction(supabase, {
+          merchantName,
+          chapterId: user.chapter_id,
+          source: tx.source === 'PLAID' ? 'PLAID' : 'MANUAL',
+          useAI: USE_AI_CATEGORIZATION,
+          plaidCategory,
         });
 
-        // Update transaction if not dry run
-        if (!dryRun) {
-          const { error: updateError } = await supabase
-            .from('expenses')
-            .update({ category_id: categResult.category_id })
-            .eq('id', tx.id);
+        // Check if category changed
+        if (categResult.category_id === oldCategoryId) {
+          stats.unchanged++;
+          if (categResult.matched_by === 'uncategorized') stats.uncategorized++;
+        } else {
+          // Category changed!
+          stats.recategorized++;
 
-          if (updateError) {
-            console.error('[RECATEGORIZE] Update error:', updateError);
-            errors.push(`Transaction ${tx.id}: Failed to update - ${updateError.message}`);
-            stats.recategorized--;
+          if (categResult.matched_by === 'plaid_category') stats.plaid_category++;
+          else if (categResult.matched_by === 'pattern') stats.pattern++;
+          else if (categResult.matched_by === 'ai') stats.ai++;
+          else stats.uncategorized++;
+
+          changes.push({
+            transaction_id: tx.id,
+            merchant_name: merchantName,
+            old_category: oldCategoryName,
+            new_category: categResult.category_name,
+            matched_by: categResult.matched_by,
+          });
+
+          // Update transaction if not dry run
+          if (!dryRun) {
+            const { error: updateError } = await supabase
+              .from('expenses')
+              .update({ category_id: categResult.category_id })
+              .eq('id', tx.id);
+
+            if (updateError) {
+              console.error('[RECATEGORIZE] Update error:', updateError);
+              errors.push(`Transaction ${tx.id}: Failed to update - ${updateError.message}`);
+              stats.recategorized--;
+            }
           }
         }
+      } catch (txError) {
+        console.error(`[RECATEGORIZE] Error processing transaction ${tx.id}:`, txError);
+        errors.push(`Transaction ${tx.id}: ${txError instanceof Error ? txError.message : 'Unknown error'}`);
       }
     }
 
@@ -180,10 +198,12 @@ serve(async (req) => {
       {
         success: true,
         dry_run: dryRun,
+        recategorize_all: recategorizeAll,
         processed: transactions.length,
         recategorized: stats.recategorized,
         unchanged: stats.unchanged,
         stats: {
+          plaid_category_matched: stats.plaid_category,
           pattern_matched: stats.pattern,
           ai_matched: stats.ai,
           still_uncategorized: stats.uncategorized,
