@@ -104,7 +104,6 @@ export const SignupForm: React.FC<SignupFormProps> = ({ onSwitchToLogin }) => {
       return;
     }
 
-    console.log('Signup form submitted with:', formData);
     const success = await signUp(formData);
     if (success) {
       // Clear form data

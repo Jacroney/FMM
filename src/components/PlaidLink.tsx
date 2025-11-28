@@ -30,7 +30,6 @@ export const PlaidLink: React.FC<PlaidLinkProps> = ({
     async (public_token, metadata) => {
       try {
         setIsLoading(true);
-        console.log('Plaid Link success, exchanging token...');
 
         // Exchange public token for access token
         const result = await PlaidService.exchangePublicToken(public_token, environment);

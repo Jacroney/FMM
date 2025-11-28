@@ -23,7 +23,7 @@ import {
 import DuesConfigurationModal from './DuesConfigurationModal';
 import PayDuesButton from './PayDuesButton';
 import StripeConnectSetup from './StripeConnectSetup';
-import AssignDuesByEmailModal from './AssignDuesByEmailModal';
+import AssignDuesModal from './AssignDuesModal';
 import toast from 'react-hot-toast';
 
 const computeStatsFromSummaries = (
@@ -556,8 +556,8 @@ const DuesManagementSection: React.FC<DuesManagementSectionProps> = ({ chapterId
               disabled={isProcessing}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <MailPlus className="w-4 h-4" />
-              Assign Dues by Email
+              <DollarSign className="w-4 h-4" />
+              Assign Dues
             </button>
             <button
               onClick={handleApplyLateFees}
@@ -714,8 +714,8 @@ const DuesManagementSection: React.FC<DuesManagementSectionProps> = ({ chapterId
         onSaved={handleConfigSaved}
       />
 
-      {/* Assign Dues by Email Modal */}
-      <AssignDuesByEmailModal
+      {/* Assign Dues Modal */}
+      <AssignDuesModal
         isOpen={showEmailAssignModal}
         onClose={() => setShowEmailAssignModal(false)}
         chapterId={chapterId}

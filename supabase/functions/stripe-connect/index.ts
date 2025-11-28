@@ -25,6 +25,15 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Get frontend URL - required for Stripe redirects
+const getFrontendUrl = (): string => {
+  const url = Deno.env.get('FRONTEND_URL')
+  if (!url) {
+    throw new Error('FRONTEND_URL environment variable is required for Stripe redirects')
+  }
+  return url
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -46,7 +55,6 @@ serve(async (req) => {
 
     // Get user from request
     const authHeader = req.headers.get('Authorization')
-    console.log('Auth header present:', !!authHeader)
 
     if (!authHeader) {
       throw new Error('No authorization header provided')
@@ -65,14 +73,8 @@ serve(async (req) => {
 
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser()
 
-    console.log('Auth result:', {
-      user_found: !!user,
-      user_id: user?.id,
-      error: userError?.message
-    })
-
     if (userError || !user) {
-      throw new Error(`Authentication failed: ${userError?.message || 'No user found'}`)
+      throw new Error(`Authentication failed: ${userError?.message || 'Auth session missing!'}`)
     }
 
     // Parse request body
@@ -88,18 +90,6 @@ serve(async (req) => {
       .select('role, chapter_id')
       .eq('id', user.id)
       .single()
-
-    // Debug logging
-    console.log('Authorization check:', {
-      user_id: user.id,
-      requested_chapter: chapter_id,
-      profile_found: !!profile,
-      profile_error: profileError?.message,
-      profile_role: profile?.role,
-      profile_chapter: profile?.chapter_id,
-      chapter_match: profile?.chapter_id === chapter_id,
-      role_allowed: profile ? ['admin', 'exec'].includes(profile.role) : false
-    })
 
     if (profileError || !profile) {
       throw new Error(`No user profile found. Please ensure you have a profile in the system. Error: ${profileError?.message}`)
@@ -128,8 +118,8 @@ serve(async (req) => {
         // Account exists, create new account link
         const accountLink = await stripe.accountLinks.create({
           account: existingAccount.stripe_account_id,
-          refresh_url: `${Deno.env.get('FRONTEND_URL') || 'http://localhost:5173'}/settings?tab=payments&refresh=true`,
-          return_url: `${Deno.env.get('FRONTEND_URL') || 'http://localhost:5173'}/settings?tab=payments&success=true`,
+          refresh_url: `${getFrontendUrl()}/settings?tab=payments&refresh=true`,
+          return_url: `${getFrontendUrl()}/settings?tab=payments&success=true`,
           type: 'account_onboarding',
         })
 
@@ -182,8 +172,8 @@ serve(async (req) => {
       // Create account link for onboarding
       const accountLink = await stripe.accountLinks.create({
         account: account.id,
-        refresh_url: `${Deno.env.get('FRONTEND_URL') || 'http://localhost:5173'}/settings?tab=payments&refresh=true`,
-        return_url: `${Deno.env.get('FRONTEND_URL') || 'http://localhost:5173'}/settings?tab=payments&success=true`,
+        refresh_url: `${getFrontendUrl()}/settings?tab=payments&refresh=true`,
+        return_url: `${getFrontendUrl()}/settings?tab=payments&success=true`,
         type: 'account_onboarding',
       })
 
@@ -233,8 +223,8 @@ serve(async (req) => {
 
       const accountLink = await stripe.accountLinks.create({
         account: stripeAccount.stripe_account_id,
-        refresh_url: `${Deno.env.get('FRONTEND_URL') || 'http://localhost:5173'}/settings?tab=payments&refresh=true`,
-        return_url: `${Deno.env.get('FRONTEND_URL') || 'http://localhost:5173'}/settings?tab=payments&success=true`,
+        refresh_url: `${getFrontendUrl()}/settings?tab=payments&refresh=true`,
+        return_url: `${getFrontendUrl()}/settings?tab=payments&success=true`,
         type: 'account_onboarding',
       })
 

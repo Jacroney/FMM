@@ -84,13 +84,13 @@ serve(async (req) => {
       .from('member_dues')
       .select(`
         *,
-        members (
+        user_profiles (
           id,
           name,
           email,
           chapter_id
         ),
-        dues_configurations (
+        dues_configuration (
           period_name,
           fiscal_year
         )
@@ -102,16 +102,27 @@ serve(async (req) => {
       throw new Error('Member dues record not found')
     }
 
+    // SECURITY: Validate that dues are linked to a member account
+    // Dues with pending invitations (member_id = null) cannot be paid until linked
+    if (!memberDues.member_id) {
+      throw new Error('These dues have not been linked to a member account yet. Please accept the invitation and sign up first.')
+    }
+
+    // SECURITY: Validate that user_profiles exists (should always exist if member_id exists)
+    if (!memberDues.user_profiles) {
+      throw new Error('Member profile not found. Please contact support.')
+    }
+
     // Verify user is authorized (either the member themselves or chapter admin)
     const { data: profile } = await supabaseAdmin
       .from('user_profiles')
-      .select('role, chapter_id')
+      .select('role, chapter_id, stripe_customer_id')
       .eq('id', user.id)
       .single()
 
     const isAuthorized =
-      (memberDues.members.email === user.email) || // Member paying their own dues
-      (profile?.chapter_id === memberDues.members.chapter_id && ['admin', 'exec'].includes(profile.role)) // Chapter admin
+      (memberDues.user_profiles.email === user.email) || // Member paying their own dues
+      (profile?.chapter_id === memberDues.user_profiles.chapter_id && ['admin', 'exec'].includes(profile.role)) // Chapter admin
 
     if (!isAuthorized) {
       throw new Error('Unauthorized: You can only create payment intents for your own dues')
@@ -131,7 +142,7 @@ serve(async (req) => {
     const { data: stripeAccount, error: accountError } = await supabaseAdmin
       .from('stripe_connected_accounts')
       .select('*')
-      .eq('chapter_id', memberDues.members.chapter_id)
+      .eq('chapter_id', memberDues.user_profiles.chapter_id)
       .single()
 
     if (accountError || !stripeAccount) {
@@ -140,6 +151,18 @@ serve(async (req) => {
 
     if (!stripeAccount.onboarding_completed || !stripeAccount.charges_enabled) {
       throw new Error('Chapter payment processing is not fully set up. Please contact your treasurer.')
+    }
+
+    // Get Stripe customer ID for the member who owes the dues
+    let stripeCustomerId = null
+    if (memberDues.member_id) {
+      const { data: memberProfile } = await supabaseAdmin
+        .from('user_profiles')
+        .select('stripe_customer_id')
+        .eq('id', memberDues.member_id)
+        .single()
+
+      stripeCustomerId = memberProfile?.stripe_customer_id || null
     }
 
     // Calculate amounts in cents
@@ -157,11 +180,12 @@ serve(async (req) => {
       amount: amountCents,
       platform_fee: platformFeeCents,
       net_amount: netAmountCents,
-      connected_account: stripeAccount.stripe_account_id
+      connected_account: stripeAccount.stripe_account_id,
+      customer_id: stripeCustomerId || 'none (will be created on first payment)'
     })
 
-    // Create Stripe Payment Intent
-    const paymentIntent = await stripe.paymentIntents.create({
+    // Create Stripe Payment Intent with customer if available
+    const paymentIntentParams: Stripe.PaymentIntentCreateParams = {
       amount: amountCents,
       currency: 'usd',
       payment_method_types: [payment_method_type],
@@ -179,28 +203,50 @@ serve(async (req) => {
       },
 
       // Metadata for tracking
+      // SECURITY: Minimize PII - only store IDs for GDPR compliance
       metadata: {
         member_dues_id,
-        member_id: memberDues.member_id,
-        member_name: memberDues.members.name,
-        member_email: memberDues.members.email,
-        chapter_id: memberDues.members.chapter_id,
-        period: `${memberDues.dues_configurations.period_name} ${memberDues.dues_configurations.fiscal_year}`,
+        member_id: memberDues.member_id || '',
+        chapter_id: memberDues.user_profiles.chapter_id,
         payment_method_type,
+        // Removed: member_name, member_email, period (PII minimization)
       },
 
       // Receipt email
-      receipt_email: memberDues.members.email,
+      receipt_email: memberDues.user_profiles.email,
 
       // Description
-      description: `Dues payment for ${memberDues.members.name} - ${memberDues.dues_configurations.period_name} ${memberDues.dues_configurations.fiscal_year}`,
-    })
+      description: `Dues payment for ${memberDues.user_profiles.name} - ${memberDues.dues_configuration.period_name} ${memberDues.dues_configuration.fiscal_year}`,
+
+      // Setup for future payments
+      setup_future_usage: 'off_session', // Allows saving payment method for future use
+    }
+
+    // Add customer if available (enables saved payment methods)
+    if (stripeCustomerId) {
+      // SECURITY: Verify customer ID belongs to the member owing dues
+      // This prevents using another member's saved payment methods
+      const { data: customerProfile } = await supabaseAdmin
+        .from('user_profiles')
+        .select('id')
+        .eq('stripe_customer_id', stripeCustomerId)
+        .eq('id', memberDues.member_id)
+        .single()
+
+      if (!customerProfile) {
+        throw new Error('Invalid customer ID for this member. Cannot use another member\'s payment methods.')
+      }
+
+      paymentIntentParams.customer = stripeCustomerId
+    }
+
+    const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams)
 
     // Store payment intent in database
     const { error: insertError } = await supabaseAdmin
       .from('payment_intents')
       .insert({
-        chapter_id: memberDues.members.chapter_id,
+        chapter_id: memberDues.user_profiles.chapter_id,
         member_dues_id,
         member_id: memberDues.member_id,
         stripe_payment_intent_id: paymentIntent.id,

@@ -1,8 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { useFinancial } from '../context/FinancialContext';
-import { Transaction } from '../services/types';
+import { useChapter } from '../context/ChapterContext';
+import { Transaction, BudgetPeriod } from '../services/types';
 import { CSVService } from '../services/csvService';
+import { TransactionService } from '../services/transactionService';
+import { ExpenseService } from '../services/expenseService';
+import { supabase } from '../services/supabaseClient';
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('en-US', {
@@ -21,7 +25,8 @@ const formatDate = (date: Date) => {
 
 const Transactions: React.FC = () => {
   const { transactions, budgets, addTransactions, refreshData } = useFinancial();
-  const [selectedQuarter, setSelectedQuarter] = useState<string>('Q1');
+  const { currentChapter } = useChapter();
+  const [selectedPeriodId, setSelectedPeriodId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [showImportModal, setShowImportModal] = useState(false);
   const [csvData, setCsvData] = useState<any[]>([]);
@@ -33,35 +38,154 @@ const Transactions: React.FC = () => {
   const [isImporting, setIsImporting] = useState(false);
   const [importStep, setImportStep] = useState<'upload' | 'mapping' | 'duplicates' | 'preview'>('upload');
 
-  // Get current quarter
-  const getCurrentQuarter = () => {
-    const month = new Date().getMonth();
-    return `Q${Math.floor(month / 3) + 1}`;
+  // Budget periods state
+  const [periods, setPeriods] = useState<BudgetPeriod[]>([]);
+  const [periodsLoading, setPeriodsLoading] = useState(true);
+
+  // Category editing state
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
+  const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
+  const categoryDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Load periods and categories on mount
+  useEffect(() => {
+    const loadData = async () => {
+      if (currentChapter?.id) {
+        setPeriodsLoading(true);
+        try {
+          const [periodsData, catsData] = await Promise.all([
+            ExpenseService.getPeriods(currentChapter.id),
+            TransactionService.fetchBudgetCategories(currentChapter.id),
+          ]);
+          setPeriods(periodsData);
+          setCategories(catsData);
+
+          // Set default to current period or first period
+          const currentPeriod = periodsData.find(p => p.is_current);
+          if (currentPeriod) {
+            setSelectedPeriodId(currentPeriod.id);
+          } else if (periodsData.length > 0) {
+            setSelectedPeriodId(periodsData[0].id);
+          }
+        } catch (err) {
+          console.error('Failed to load data:', err);
+        } finally {
+          setPeriodsLoading(false);
+        }
+      }
+    };
+    loadData();
+  }, [currentChapter?.id]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(event.target as Node)) {
+        setEditingTransactionId(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Handle category change
+  const handleCategoryChange = async (transactionId: string, categoryId: string, categoryName: string) => {
+    try {
+      await TransactionService.updateExpenseCategory(transactionId, categoryId);
+      await refreshData();
+      setEditingTransactionId(null);
+      toast.success(`Category updated to "${categoryName}"`);
+    } catch (err) {
+      toast.error('Failed to update category');
+    }
   };
 
-  // Filter transactions by quarter
-  const getQuarterTransactions = () => {
-    const quarter = selectedQuarter;
-    const year = new Date().getFullYear();
-    const startMonth = (parseInt(quarter[1]) - 1) * 3;
-    const endMonth = startMonth + 2;
+  // Recategorize all transactions state
+  const [isRecategorizing, setIsRecategorizing] = useState(false);
+
+  // Handle recategorize all transactions
+  const handleRecategorizeAll = async () => {
+    if (!currentChapter?.id) {
+      toast.error('No chapter selected');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      'This will re-run auto-categorization on all transactions using the latest rules and Plaid category data. Continue?'
+    );
+    if (!confirmed) return;
+
+    setIsRecategorizing(true);
+    const toastId = toast.loading('Recategorizing transactions...');
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Not authenticated');
+      }
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/recategorize-transactions`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            recategorize_all: true,
+            limit: 1000,
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to recategorize');
+      }
+
+      await refreshData();
+      toast.success(
+        `Recategorized ${result.recategorized} of ${result.processed} transactions`,
+        { id: toastId }
+      );
+
+      if (result.recategorized > 0) {
+        console.log('Recategorization results:', result);
+      }
+    } catch (err) {
+      console.error('Recategorization error:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to recategorize', { id: toastId });
+    } finally {
+      setIsRecategorizing(false);
+    }
+  };
+
+  // Get current/selected period
+  const selectedPeriod = periods.find(p => p.id === selectedPeriodId);
+
+  // Filter transactions by selected period
+  const getPeriodTransactions = () => {
+    if (!selectedPeriod) return transactions;
+
+    const startDate = new Date(selectedPeriod.start_date);
+    const endDate = new Date(selectedPeriod.end_date);
 
     return transactions.filter(tx => {
       const txDate = new Date(tx.date);
-      return txDate.getFullYear() === year && 
-             txDate.getMonth() >= startMonth && 
-             txDate.getMonth() <= endMonth;
+      return txDate >= startDate && txDate <= endDate;
     });
   };
 
   // Filter transactions by search term
-  const filteredTransactions = getQuarterTransactions().filter(tx =>
+  const filteredTransactions = getPeriodTransactions().filter(tx =>
     tx.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
     tx.category.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Calculate quarterly totals
-  const quarterlyTotals = filteredTransactions.reduce((acc, tx) => {
+  // Calculate period totals
+  const periodTotals = filteredTransactions.reduce((acc, tx) => {
     acc.total += tx.amount;
     if (!acc.byCategory[tx.category]) {
       acc.byCategory[tx.category] = 0;
@@ -103,11 +227,30 @@ const Transactions: React.FC = () => {
           </div>
           <div className="flex flex-wrap gap-3">
             <button
+              className="focus-ring inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm font-medium text-amber-700 transition-colors hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-amber-700/40 dark:bg-gray-800 dark:text-amber-300 dark:hover:bg-gray-700"
+              onClick={handleRecategorizeAll}
+              disabled={isRecategorizing || transactions.length === 0}
+              title="Re-run auto-categorization on all transactions"
+            >
+              {isRecategorizing ? (
+                <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              ) : (
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              )}
+              {isRecategorizing ? 'Recategorizing...' : 'Recategorize All'}
+            </button>
+            <button
               className="focus-ring inline-flex items-center gap-2 rounded-lg border border-sky-200 bg-white px-4 py-2.5 text-sm font-medium text-sky-700 transition-colors hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-sky-700/40 dark:bg-gray-800 dark:text-sky-300 dark:hover:bg-gray-700"
               onClick={() => {
+                const periodName = selectedPeriod?.name.replace(/\s+/g, '-').toLowerCase() || 'all';
                 CSVService.exportTransactionsToCSV(
                   filteredTransactions,
-                  `transactions-${selectedQuarter}-${new Date().getFullYear()}.csv`
+                  `transactions-${periodName}-${selectedPeriod?.fiscal_year || new Date().getFullYear()}.csv`
                 );
               }}
               disabled={filteredTransactions.length === 0}
@@ -131,33 +274,49 @@ const Transactions: React.FC = () => {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {['Q1', 'Q2', 'Q3', 'Q4'].map((quarter) => (
-            <button
-              key={quarter}
-              type="button"
-              onClick={() => setSelectedQuarter(quarter)}
-              className={`focus-ring rounded-xl border px-4 py-3 text-left text-sm transition-colors ${
-                selectedQuarter === quarter
-                  ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-soft)] text-[var(--brand-primary)]'
-                  : 'border-[var(--brand-border)] bg-white text-slate-600 hover:bg-slate-100 dark:bg-gray-800 dark:text-slate-300'
-              }`}
-            >
-              <span className="font-medium">{quarter}</span>
-              <p className="text-xs text-slate-500">Quarter filter</p>
-            </button>
-          ))}
+          {periodsLoading ? (
+            <div className="col-span-full flex items-center justify-center py-4">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+              <span className="ml-2 text-sm text-slate-500">Loading periods...</span>
+            </div>
+          ) : periods.length === 0 ? (
+            <div className="col-span-full text-center py-4 text-sm text-slate-500">
+              No budget periods configured. Set up periods in the Budgets page.
+            </div>
+          ) : (
+            periods.slice(0, 4).map((period) => (
+              <button
+                key={period.id}
+                type="button"
+                onClick={() => setSelectedPeriodId(period.id)}
+                className={`focus-ring rounded-xl border px-4 py-3 text-left text-sm transition-colors ${
+                  selectedPeriodId === period.id
+                    ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-soft)] text-[var(--brand-primary)]'
+                    : 'border-[var(--brand-border)] bg-white text-slate-600 hover:bg-slate-100 dark:bg-gray-800 dark:text-slate-300'
+                }`}
+              >
+                <span className="font-medium">{period.name}</span>
+                <p className="text-xs text-slate-500">
+                  {period.type} • {period.fiscal_year}
+                  {period.is_current && <span className="ml-1 text-emerald-600 dark:text-emerald-400">(Current)</span>}
+                </p>
+              </button>
+            ))
+          )}
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <div className="surface-panel p-4">
             <p className="text-xs uppercase tracking-wide text-slate-500">Transactions</p>
             <p className="mt-2 text-2xl font-semibold text-slate-900 dark:text-slate-100">{filteredTransactions.length}</p>
-            <p className="text-xs text-slate-500">For {selectedQuarter} ({new Date().getFullYear()})</p>
+            <p className="text-xs text-slate-500">
+              {selectedPeriod ? `${selectedPeriod.name} ${selectedPeriod.fiscal_year}` : 'All time'}
+            </p>
           </div>
           <div className="surface-panel p-4">
             <p className="text-xs uppercase tracking-wide text-slate-500">Net movement</p>
-            <p className={`mt-2 text-2xl font-semibold ${quarterlyTotals.total >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'}`}>
-              {formatCurrency(quarterlyTotals.total)}
+            <p className={`mt-2 text-2xl font-semibold ${periodTotals.total >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'}`}>
+              {formatCurrency(periodTotals.total)}
             </p>
             <p className="text-xs text-slate-500">Income minus expenses</p>
           </div>
@@ -165,11 +324,11 @@ const Transactions: React.FC = () => {
             <p className="text-xs uppercase tracking-wide text-slate-500">Highest category</p>
             <p className="mt-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
               {
-                Object.entries(quarterlyTotals.byCategory)
+                Object.entries(periodTotals.byCategory)
                   .sort(([, a], [, b]) => b - a)[0]?.[0] || '—'
               }
             </p>
-            <p className="text-xs text-slate-500">Top share this quarter</p>
+            <p className="text-xs text-slate-500">Top share this period</p>
           </div>
           <div className="surface-panel p-4">
             <p className="text-xs uppercase tracking-wide text-slate-500">Search</p>
@@ -445,10 +604,12 @@ const Transactions: React.FC = () => {
         </div>
       )}
 
-      {/* Quarterly Summary */}
+      {/* Period Summary */}
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="surface-card p-6">
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Quarterly summary</h2>
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+            {selectedPeriod ? `${selectedPeriod.name} Summary` : 'Period Summary'}
+          </h2>
           <div className="mt-4 space-y-3 text-sm text-slate-600 dark:text-slate-300">
             <div className="flex items-center justify-between">
               <span>Total transactions</span>
@@ -456,7 +617,7 @@ const Transactions: React.FC = () => {
             </div>
             <div className="flex items-center justify-between">
               <span>Net amount moved</span>
-              <span className="font-semibold text-slate-900 dark:text-slate-100">{formatCurrency(quarterlyTotals.total)}</span>
+              <span className="font-semibold text-slate-900 dark:text-slate-100">{formatCurrency(periodTotals.total)}</span>
             </div>
           </div>
         </div>
@@ -464,7 +625,7 @@ const Transactions: React.FC = () => {
         <div className="surface-card p-6">
           <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Category breakdown</h2>
           <div className="mt-4 space-y-2 max-h-40 overflow-y-auto text-sm text-slate-600 dark:text-slate-300">
-            {Object.entries(quarterlyTotals.byCategory).map(([category, amount]) => (
+            {Object.entries(periodTotals.byCategory).map(([category, amount]) => (
               <div key={category} className="flex items-center justify-between gap-3">
                 <span className="truncate capitalize">{category}</span>
                 <span className="font-medium text-slate-900 dark:text-slate-100">{formatCurrency(amount)}</span>
@@ -487,7 +648,31 @@ const Transactions: React.FC = () => {
                       {transaction.description}
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {formatDate(transaction.date)} • {transaction.category}
+                      {formatDate(transaction.date)} •{' '}
+                      <button
+                        onClick={() => setEditingTransactionId(editingTransactionId === transaction.id ? null : transaction.id)}
+                        className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline"
+                      >
+                        {transaction.category}
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                      </button>
+                      {editingTransactionId === transaction.id && (
+                        <div ref={categoryDropdownRef} className="absolute left-4 mt-1 z-10 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 max-h-48 overflow-y-auto">
+                          {categories.map((cat) => (
+                            <button
+                              key={cat.id}
+                              onClick={() => handleCategoryChange(transaction.id, cat.id, cat.name)}
+                              className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                                cat.name === transaction.category ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'
+                              }`}
+                            >
+                              {cat.name}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </p>
                   </div>
                   <div className="text-right ml-2">
@@ -533,8 +718,41 @@ const Transactions: React.FC = () => {
                   <td className="px-4 lg:px-6 py-4 text-sm text-gray-900 dark:text-white max-w-xs truncate">
                     <span title={transaction.description}>{transaction.description}</span>
                   </td>
-                  <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                    {transaction.category}
+                  <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-sm relative">
+                    <button
+                      onClick={() => setEditingTransactionId(editingTransactionId === transaction.id ? null : transaction.id)}
+                      className="inline-flex items-center gap-1.5 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors group"
+                    >
+                      {transaction.category}
+                      <svg className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      </svg>
+                    </button>
+                    {editingTransactionId === transaction.id && (
+                      <div ref={categoryDropdownRef} className="absolute left-4 top-full mt-1 z-20 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 max-h-64 overflow-y-auto">
+                        <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-700">
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Select Category</p>
+                        </div>
+                        {categories.map((cat) => (
+                          <button
+                            key={cat.id}
+                            onClick={() => handleCategoryChange(transaction.id, cat.id, cat.name)}
+                            className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
+                              cat.name === transaction.category
+                                ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium'
+                                : 'text-gray-700 dark:text-gray-300'
+                            }`}
+                          >
+                            {cat.name === transaction.category && (
+                              <svg className="w-4 h-4 inline mr-2 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                              </svg>
+                            )}
+                            {cat.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </td>
                   <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <span className={transaction.amount >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
@@ -560,7 +778,7 @@ const Transactions: React.FC = () => {
           <div className="text-center py-12">
             <div className="text-gray-400 text-6xl mb-4">📊</div>
             <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No transactions found</h3>
-            <p className="text-gray-500 dark:text-gray-400">Try adjusting your search or select a different quarter.</p>
+            <p className="text-gray-500 dark:text-gray-400">Try adjusting your search or select a different period.</p>
           </div>
         )}
       </div>

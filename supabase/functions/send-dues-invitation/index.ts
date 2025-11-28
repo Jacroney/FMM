@@ -20,6 +20,20 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+/**
+ * SECURITY: HTML escape function to prevent XSS attacks
+ * Escapes HTML special characters in user-supplied content
+ */
+function escapeHtml(unsafe: string | null | undefined): string {
+  if (!unsafe) return ''
+  return String(unsafe)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;")
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -33,7 +47,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Get user from request
+    // Get authorization header
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
       throw new Error('No authorization header')
@@ -42,11 +56,25 @@ serve(async (req) => {
     // Extract token from Bearer header
     const token = authHeader.replace('Bearer ', '')
 
-    // Verify the JWT token using admin client
-    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token)
-    if (userError || !user) {
-      console.error('Auth error:', userError)
-      throw new Error('Unauthorized: Invalid or expired token')
+    // Check if this is a service role call (from process-email-queue or other internal functions)
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    const isServiceRoleCall = token === serviceRoleKey
+
+    let user = null
+    let skipPermissionCheck = false
+
+    if (isServiceRoleCall) {
+      // Service role calls are trusted (from internal edge functions)
+      skipPermissionCheck = true
+      console.log('Service role call detected - skipping user permission check')
+    } else {
+      // Verify the JWT token using admin client
+      const { data: authData, error: userError } = await supabaseAdmin.auth.getUser(token)
+      if (userError || !authData?.user) {
+        console.error('Auth error:', userError)
+        throw new Error('Unauthorized: Invalid or expired token')
+      }
+      user = authData.user
     }
 
     // Parse request body
@@ -79,29 +107,18 @@ serve(async (req) => {
       throw new Error('Dues assignment not found')
     }
 
-    console.log('Member dues found:', {
-      id: memberDues.id,
-      email: memberDues.email,
-      chapter_id: memberDues.chapter_id,
-      has_config: !!memberDues.dues_configuration
-    })
-
     // Verify user has permission (admin/treasurer of the chapter)
-    const { data: profile } = await supabaseAdmin
-      .from('user_profiles')
-      .select('role, chapter_id')
-      .eq('id', user.id)
-      .single()
+    // Skip permission check for service role calls (trusted internal calls)
+    if (!skipPermissionCheck) {
+      const { data: profile } = await supabaseAdmin
+        .from('user_profiles')
+        .select('role, chapter_id')
+        .eq('id', user.id)
+        .single()
 
-    console.log('User profile:', {
-      user_id: user.id,
-      profile_chapter_id: profile?.chapter_id,
-      role: profile?.role,
-      dues_chapter_id: memberDues.chapter_id
-    })
-
-    if (!profile || profile.chapter_id !== memberDues.chapter_id || !['admin', 'treasurer'].includes(profile.role)) {
-      throw new Error('Unauthorized: Admin or treasurer access required')
+      if (!profile || profile.chapter_id !== memberDues.chapter_id || !['admin', 'treasurer'].includes(profile.role)) {
+        throw new Error('Unauthorized: Admin or treasurer access required')
+      }
     }
 
     // Get chapter information
@@ -121,10 +138,11 @@ serve(async (req) => {
       throw new Error('Chapter not found')
     }
 
-    console.log('Chapter found:', chapter.name)
-
     // Build invitation URL
-    const frontendUrl = Deno.env.get('FRONTEND_URL') || 'http://localhost:5173'
+    const frontendUrl = Deno.env.get('FRONTEND_URL')
+    if (!frontendUrl) {
+      throw new Error('FRONTEND_URL environment variable is required')
+    }
     const invitationUrl = `${frontendUrl}/invite?token=${invitation_token}`
 
     // Prepare email content
@@ -162,7 +180,7 @@ serve(async (req) => {
               <p style="margin: 0 0 12px 0; font-size: 16px; color: #92400e; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">
                 📋 Important Instructions
               </p>
-              <p style="margin: 0; font-size: 15px; line-height: 1.6; color: #78350f; white-space: pre-wrap;">${memberDues.notes}</p>
+              <p style="margin: 0; font-size: 15px; line-height: 1.6; color: #78350f; white-space: pre-wrap;">${escapeHtml(memberDues.notes)}</p>
             </div>
             ` : ''}
 
@@ -225,7 +243,7 @@ ${memberDues.due_date ? `Due Date: ${new Date(memberDues.due_date).toLocaleDateS
 
 ${memberDues.notes ? `
 📋 IMPORTANT INSTRUCTIONS
-${memberDues.notes}
+${escapeHtml(memberDues.notes)}
 
 ` : ''}
 ✅ NEXT STEPS:
@@ -257,7 +275,7 @@ ${chapter.name}
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'GreekPay <onboarding@resend.dev>',
+        from: 'GreekPay <noreply@greekpay.org>',
         to: [email],
         subject: `Dues Assigned - ${chapter.name}`,
         html: emailHtml,

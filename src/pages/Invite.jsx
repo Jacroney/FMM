@@ -11,6 +11,7 @@ export default function Invite() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [duesInfo, setDuesInfo] = useState(null);
+  const [memberInfo, setMemberInfo] = useState(null); // For member-only invitations
   const [chapterInfo, setChapterInfo] = useState(null);
   const [error, setError] = useState(null);
 
@@ -25,12 +26,17 @@ export default function Invite() {
   });
 
   const invitationToken = searchParams.get('token');
+  const invitationType = searchParams.get('type'); // 'member' or null (for dues)
 
   useEffect(() => {
     if (user && user.id && invitationToken) {
       // User is already logged in, try to link their account
-      console.log('User detected, attempting to link dues');
-      linkUserToDues();
+      console.log('User detected, attempting to link invitation');
+      if (invitationType === 'member') {
+        linkUserToMemberInvitation();
+      } else {
+        linkUserToDues();
+      }
     } else if (invitationToken && !user) {
       // No user logged in yet, fetch invitation details
       fetchInvitationDetails();
@@ -38,43 +44,85 @@ export default function Invite() {
       setError('Invalid invitation link');
       setIsLoading(false);
     }
-  }, [invitationToken, user]);
+  }, [invitationToken, invitationType, user]);
 
   const fetchInvitationDetails = async () => {
     try {
-      const { data, error } = await supabase
-        .from('member_dues')
-        .select(`
-          *,
-          dues_configuration (
-            period_name,
-            fiscal_year,
-            due_date
-          )
-        `)
-        .eq('invitation_token', invitationToken)
-        .eq('status', 'pending_invite')
-        .single();
+      if (invitationType === 'member') {
+        // Fetch member invitation
+        const { data, error } = await supabase
+          .from('member_invitations')
+          .select('*')
+          .eq('invitation_token', invitationToken)
+          .eq('status', 'pending')
+          .single();
 
-      if (error || !data) {
-        throw new Error('Invalid or expired invitation link');
+        if (error || !data) {
+          throw new Error('Invalid or expired invitation link');
+        }
+
+        // Check expiration
+        if (new Date(data.invitation_expires_at) < new Date()) {
+          throw new Error('This invitation has expired');
+        }
+
+        // Get chapter information
+        const { data: chapter, error: chapterError } = await supabase
+          .from('chapters')
+          .select('name')
+          .eq('id', data.chapter_id)
+          .single();
+
+        if (chapterError) {
+          console.error('Error fetching chapter:', chapterError);
+        }
+
+        setMemberInfo(data);
+        setChapterInfo(chapter);
+        setFormData(prev => ({
+          ...prev,
+          email: data.email,
+          fullName: `${data.first_name} ${data.last_name}`,
+          phone: data.phone_number || '',
+          year: data.year || '',
+        }));
+        setIsLoading(false);
+      } else {
+        // Fetch dues invitation (existing logic)
+        const { data, error } = await supabase
+          .from('member_dues')
+          .select(`
+            *,
+            dues_configuration (
+              period_name,
+              fiscal_year,
+              due_date
+            )
+          `)
+          .eq('invitation_token', invitationToken)
+          .eq('status', 'pending_invite')
+          .single();
+
+        if (error || !data) {
+          throw new Error('Invalid or expired invitation link');
+        }
+
+        // Get chapter information
+        const { data: chapter, error: chapterError } = await supabase
+          .from('chapters')
+          .select('name')
+          .eq('id', data.chapter_id)
+          .single();
+
+        if (chapterError) {
+          console.error('Error fetching chapter:', chapterError);
+        }
+
+        setDuesInfo(data);
+        setChapterInfo(chapter);
+        setFormData(prev => ({ ...prev, email: data.email }));
+        setIsLoading(false);
       }
-
-      // Get chapter information
-      const { data: chapter, error: chapterError } = await supabase
-        .from('chapters')
-        .select('name')
-        .eq('id', data.chapter_id)
-        .single();
-
-      if (chapterError) {
-        console.error('Error fetching chapter:', chapterError);
-      }
-
-      setDuesInfo(data);
-      setChapterInfo(chapter);
-      setFormData(prev => ({ ...prev, email: data.email }));
-      setIsLoading(false);
     } catch (err) {
       setError(err.message);
       setIsLoading(false);
@@ -142,9 +190,73 @@ export default function Invite() {
     }
   };
 
+  const linkUserToMemberInvitation = async (retryCount = 0) => {
+    try {
+      // Validate user and invitation token
+      if (!user || !user.id || !user.email) {
+        throw new Error('User information is incomplete. Please try signing in again.');
+      }
+
+      if (!invitationToken) {
+        throw new Error('Invalid invitation token');
+      }
+
+      console.log('Attempting to link user to member invitation:', {
+        userId: user.id,
+        email: user.email,
+        token: invitationToken,
+        retryCount
+      });
+
+      // Call the database function to link user to member invitation
+      const { data, error } = await supabase.rpc('link_member_invitation', {
+        p_user_id: user.id,
+        p_email: user.email,
+        p_invitation_token: invitationToken
+      });
+
+      if (error) {
+        console.error('RPC error:', error);
+        throw error;
+      }
+
+      console.log('Link response:', data);
+
+      if (data && data.success) {
+        toast.success('Successfully joined the chapter!');
+        // Refresh profile to get updated chapter_id
+        await refreshProfile();
+        navigate('/app');
+      } else {
+        const errorMsg = data?.error || 'Failed to link invitation to account';
+
+        // If profile not found and we haven't retried, wait and retry once
+        if (errorMsg.includes('User profile not found') && retryCount === 0) {
+          console.log('Profile not found, waiting 2 seconds before retry...');
+          toast.loading('Setting up your account...');
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          return linkUserToMemberInvitation(1);
+        }
+
+        throw new Error(errorMsg);
+      }
+    } catch (err) {
+      console.error('Error linking member invitation:', err);
+
+      const errorMessage = err.message || 'Failed to link invitation to your account';
+      toast.error(errorMessage);
+
+      setError(errorMessage);
+      setIsLoading(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
+
+    // Get chapter_id from either dues or member invitation
+    const chapterId = duesInfo?.chapter_id || memberInfo?.chapter_id;
 
     try {
       if (isSignUp) {
@@ -156,7 +268,7 @@ export default function Invite() {
           phone_number: formData.phone,
           year: formData.year,
           major: formData.major,
-          chapter_id: duesInfo.chapter_id,
+          chapter_id: chapterId,
         };
 
         console.log('Signing up with data:', { ...signUpData, password: '[REDACTED]' });
@@ -207,7 +319,7 @@ export default function Invite() {
     );
   }
 
-  if (error && !duesInfo) {
+  if (error && !duesInfo && !memberInfo) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
         <div className="max-w-md rounded-lg bg-white p-8 shadow-lg">
@@ -227,9 +339,12 @@ export default function Invite() {
     );
   }
 
+  // Determine if this is a member-only invitation (no dues)
+  const isMemberInvitation = !!memberInfo && !duesInfo;
+
   return (
     <div className="flex min-h-screen bg-gray-50">
-      {/* Left side - Dues Information */}
+      {/* Left side - Information Panel */}
       <div className="hidden w-1/2 bg-gradient-to-br from-indigo-600 to-purple-700 p-12 lg:block">
         <div className="flex h-full flex-col justify-center">
           <div className="mb-8">
@@ -238,48 +353,85 @@ export default function Invite() {
           </div>
 
           <div className="rounded-lg bg-white/10 p-8 backdrop-blur-sm">
-            <h2 className="mb-4 text-2xl font-bold text-white">
-              You've Been Assigned Dues
-            </h2>
+            {isMemberInvitation ? (
+              <>
+                {/* Member Invitation Content */}
+                <h2 className="mb-4 text-2xl font-bold text-white">
+                  Welcome, {memberInfo?.first_name}!
+                </h2>
 
-            <div className="mb-6 border-l-4 border-white/50 bg-white/20 p-6 backdrop-blur-sm">
-              <p className="mb-2 text-sm font-medium uppercase tracking-wide text-indigo-100">
-                Dues Amount
-              </p>
-              <p className="text-5xl font-bold text-white">
-                ${duesInfo?.total_amount?.toFixed(2)}
-              </p>
-              {duesInfo?.due_date && (
-                <p className="mt-2 text-sm text-indigo-100">
-                  Due: {new Date(duesInfo.due_date).toLocaleDateString()}
+                <p className="text-lg text-indigo-100 mb-6">
+                  You've been invited to join {chapterInfo?.name || 'the chapter'} on GreekPay.
                 </p>
-              )}
-            </div>
 
-            <div className="space-y-2 text-sm text-indigo-100">
-              <p><strong className="text-white">Period:</strong> {duesInfo?.dues_configuration?.period_name} {duesInfo?.dues_configuration?.fiscal_year}</p>
-            </div>
+                <div className="space-y-4 text-indigo-100">
+                  <p>Create your account to access:</p>
+                  <ul className="space-y-2 list-disc list-inside">
+                    <li>Member dashboard</li>
+                    <li>Chapter announcements and events</li>
+                    <li>Online dues payment</li>
+                    <li>Your member profile</li>
+                  </ul>
+                </div>
 
-            {duesInfo?.notes && (
-              <div className="mt-6 rounded-lg border-2 border-yellow-400/60 bg-yellow-400/30 p-4 backdrop-blur-sm">
-                <p className="mb-2 text-sm font-bold uppercase tracking-wide text-yellow-50">
-                  📋 Important Instructions
-                </p>
-                <p className="text-base leading-relaxed text-white whitespace-pre-wrap">{duesInfo.notes}</p>
-              </div>
+                <div className="mt-6 rounded-lg border border-white/30 bg-white/10 p-4 backdrop-blur-sm">
+                  <p className="mb-2 text-sm font-semibold text-white">
+                    ✅ Next Steps:
+                  </p>
+                  <ol className="space-y-1 text-sm text-indigo-100 list-decimal list-inside">
+                    <li>Create your account using the form</li>
+                    <li>Complete your profile information</li>
+                    <li>Access your member dashboard</li>
+                  </ol>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Dues Invitation Content */}
+                <h2 className="mb-4 text-2xl font-bold text-white">
+                  You've Been Assigned Dues
+                </h2>
+
+                <div className="mb-6 border-l-4 border-white/50 bg-white/20 p-6 backdrop-blur-sm">
+                  <p className="mb-2 text-sm font-medium uppercase tracking-wide text-indigo-100">
+                    Dues Amount
+                  </p>
+                  <p className="text-5xl font-bold text-white">
+                    ${duesInfo?.total_amount?.toFixed(2)}
+                  </p>
+                  {duesInfo?.due_date && (
+                    <p className="mt-2 text-sm text-indigo-100">
+                      Due: {new Date(duesInfo.due_date).toLocaleDateString()}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2 text-sm text-indigo-100">
+                  <p><strong className="text-white">Period:</strong> {duesInfo?.dues_configuration?.period_name} {duesInfo?.dues_configuration?.fiscal_year}</p>
+                </div>
+
+                {duesInfo?.notes && (
+                  <div className="mt-6 rounded-lg border-2 border-yellow-400/60 bg-yellow-400/30 p-4 backdrop-blur-sm">
+                    <p className="mb-2 text-sm font-bold uppercase tracking-wide text-yellow-50">
+                      📋 Important Instructions
+                    </p>
+                    <p className="text-base leading-relaxed text-white whitespace-pre-wrap">{duesInfo.notes}</p>
+                  </div>
+                )}
+
+                <div className="mt-6 rounded-lg border border-white/30 bg-white/10 p-4 backdrop-blur-sm">
+                  <p className="mb-2 text-sm font-semibold text-white">
+                    ✅ Next Steps:
+                  </p>
+                  <ol className="space-y-1 text-sm text-indigo-100 list-decimal list-inside">
+                    <li>Create your account using the form</li>
+                    <li>Complete your profile information</li>
+                    <li>View your dues balance in the dashboard</li>
+                    <li>Contact your treasurer for payment options</li>
+                  </ol>
+                </div>
+              </>
             )}
-
-            <div className="mt-6 rounded-lg border border-white/30 bg-white/10 p-4 backdrop-blur-sm">
-              <p className="mb-2 text-sm font-semibold text-white">
-                ✅ Next Steps:
-              </p>
-              <ol className="space-y-1 text-sm text-indigo-100 list-decimal list-inside">
-                <li>Create your account using the form</li>
-                <li>Complete your profile information</li>
-                <li>View your dues balance in the dashboard</li>
-                <li>Contact your treasurer for payment options</li>
-              </ol>
-            </div>
           </div>
         </div>
       </div>
@@ -291,38 +443,67 @@ export default function Invite() {
           <div className="mb-8 lg:hidden">
             <h1 className="mb-2 text-3xl font-bold text-gray-900">GreekPay</h1>
             <p className="text-lg text-gray-600">{chapterInfo?.name}</p>
-            <div className="mt-4 rounded-lg bg-indigo-50 p-4">
-              <p className="text-sm text-gray-600">Dues Amount</p>
-              <p className="text-3xl font-bold text-indigo-600">
-                ${duesInfo?.total_amount?.toFixed(2)}
-              </p>
-              {duesInfo?.due_date && (
-                <p className="mt-2 text-sm text-gray-600">
-                  Due: {new Date(duesInfo.due_date).toLocaleDateString()}
-                </p>
-              )}
-            </div>
 
-            {duesInfo?.notes && (
-              <div className="mt-4 rounded-lg border-2 border-yellow-500 bg-yellow-50 p-4">
-                <p className="mb-2 text-sm font-bold uppercase tracking-wide text-yellow-900">
-                  📋 Important Instructions
-                </p>
-                <p className="text-sm leading-relaxed text-gray-800 whitespace-pre-wrap">{duesInfo.notes}</p>
-              </div>
+            {isMemberInvitation ? (
+              <>
+                {/* Member invitation mobile header */}
+                <div className="mt-4 rounded-lg bg-indigo-50 p-4">
+                  <p className="text-lg font-medium text-indigo-900">
+                    Welcome, {memberInfo?.first_name}!
+                  </p>
+                  <p className="text-sm text-gray-600 mt-1">
+                    You've been invited to join {chapterInfo?.name || 'the chapter'}.
+                  </p>
+                </div>
+
+                <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                  <p className="mb-2 text-sm font-semibold text-gray-900">
+                    ✅ Next Steps:
+                  </p>
+                  <ol className="space-y-1 text-sm text-gray-700 list-decimal list-inside">
+                    <li>Create your account below</li>
+                    <li>Complete your profile information</li>
+                    <li>Access your member dashboard</li>
+                  </ol>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Dues invitation mobile header */}
+                <div className="mt-4 rounded-lg bg-indigo-50 p-4">
+                  <p className="text-sm text-gray-600">Dues Amount</p>
+                  <p className="text-3xl font-bold text-indigo-600">
+                    ${duesInfo?.total_amount?.toFixed(2)}
+                  </p>
+                  {duesInfo?.due_date && (
+                    <p className="mt-2 text-sm text-gray-600">
+                      Due: {new Date(duesInfo.due_date).toLocaleDateString()}
+                    </p>
+                  )}
+                </div>
+
+                {duesInfo?.notes && (
+                  <div className="mt-4 rounded-lg border-2 border-yellow-500 bg-yellow-50 p-4">
+                    <p className="mb-2 text-sm font-bold uppercase tracking-wide text-yellow-900">
+                      📋 Important Instructions
+                    </p>
+                    <p className="text-sm leading-relaxed text-gray-800 whitespace-pre-wrap">{duesInfo.notes}</p>
+                  </div>
+                )}
+
+                <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                  <p className="mb-2 text-sm font-semibold text-gray-900">
+                    ✅ Next Steps:
+                  </p>
+                  <ol className="space-y-1 text-sm text-gray-700 list-decimal list-inside">
+                    <li>Create your account below</li>
+                    <li>Complete your profile information</li>
+                    <li>View your dues balance in the dashboard</li>
+                    <li>Contact your treasurer for payment options</li>
+                  </ol>
+                </div>
+              </>
             )}
-
-            <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
-              <p className="mb-2 text-sm font-semibold text-gray-900">
-                ✅ Next Steps:
-              </p>
-              <ol className="space-y-1 text-sm text-gray-700 list-decimal list-inside">
-                <li>Create your account below</li>
-                <li>Complete your profile information</li>
-                <li>View your dues balance in the dashboard</li>
-                <li>Contact your treasurer for payment options</li>
-              </ol>
-            </div>
           </div>
 
           <div className="rounded-lg bg-white p-8 shadow-lg">
@@ -340,7 +521,7 @@ export default function Invite() {
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
-                  readOnly={!!duesInfo?.email}
+                  readOnly={!!(duesInfo?.email || memberInfo?.email)}
                   required
                   className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-gray-100"
                 />
@@ -402,12 +583,11 @@ export default function Invite() {
                       className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     >
                       <option value="">Select year (optional)</option>
-                      <option value="Freshman">Freshman</option>
-                      <option value="Sophomore">Sophomore</option>
-                      <option value="Junior">Junior</option>
-                      <option value="Senior">Senior</option>
-                      <option value="Graduate">Graduate</option>
-                      <option value="Alumni">Alumni</option>
+                      <option value="1">1st Year</option>
+                      <option value="2">2nd Year</option>
+                      <option value="3">3rd Year</option>
+                      <option value="4">4th Year</option>
+                      <option value="5">5th Year</option>
                     </select>
                   </div>
 
@@ -437,7 +617,10 @@ export default function Invite() {
                 type="submit"
                 className="w-full rounded-lg bg-indigo-600 px-4 py-3 font-semibold text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
               >
-                {isSignUp ? 'Create Account & View Dues' : 'Sign In & View Dues'}
+                {isSignUp
+                  ? (isMemberInvitation ? 'Create Account & Join Chapter' : 'Create Account & View Dues')
+                  : (isMemberInvitation ? 'Sign In & Join Chapter' : 'Sign In & View Dues')
+                }
               </button>
             </form>
 

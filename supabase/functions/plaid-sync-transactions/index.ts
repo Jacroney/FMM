@@ -2,6 +2,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { handleCorsPreflightRequest, corsJsonResponse } from '../_shared/cors.ts';
 import { createSupabaseClient, authenticateUser, sanitizeError, requireAdminOrExec } from '../_shared/auth.ts';
 import { validateUuid } from '../_shared/validation.ts';
+import { categorizeTransaction } from '../_shared/categorization.ts';
 
 // SECURITY: Separate credentials for sandbox and production
 const PLAID_CLIENT_ID_SANDBOX = Deno.env.get('PLAID_CLIENT_ID');
@@ -33,88 +34,8 @@ function getPlaidCredentials(environment: string): { clientId: string; secret: s
   }
 }
 
-// Helper function to auto-categorize transactions using category rules
-async function autoCategorizeTransaction(
-  supabase: any,
-  merchantName: string,
-  chapterId: string
-): Promise<string | null> {
-  try {
-    // Get all PLAID category rules ordered by priority
-    const { data: rules, error } = await supabase
-      .from('category_rules')
-      .select('category, merchant_pattern, priority')
-      .eq('source', 'PLAID')
-      .order('priority', { ascending: false });
-
-    if (error || !rules || rules.length === 0) {
-      return null;
-    }
-
-    // Try to match merchant name against patterns
-    for (const rule of rules) {
-      try {
-        const regex = new RegExp(rule.merchant_pattern);
-        if (regex.test(merchantName)) {
-          // Found a match! Now get the category_id
-          const { data: category, error: catError } = await supabase
-            .from('budget_categories')
-            .select('id')
-            .eq('chapter_id', chapterId)
-            .eq('name', rule.category)
-            .eq('is_active', true)
-            .single();
-
-          if (!catError && category) {
-            return category.id;
-          }
-        }
-      } catch (regexError) {
-        // SECURITY: Log pattern errors server-side only
-        console.error('[CATEGORIZATION] Invalid regex pattern');
-        continue;
-      }
-    }
-
-    return null;
-  } catch (error) {
-    // SECURITY: Log categorization errors server-side only
-    console.error('[CATEGORIZATION] Auto-categorization failed');
-    return null;
-  }
-}
-
-// Helper function to get or create "Uncategorized" category
-async function getUncategorizedCategoryId(supabase: any, chapterId: string): Promise<string | null> {
-  try {
-    const { data: category, error } = await supabase
-      .from('budget_categories')
-      .select('id')
-      .eq('chapter_id', chapterId)
-      .eq('name', 'Uncategorized')
-      .eq('is_active', true)
-      .single();
-
-    if (error || !category) {
-      // Try to find any active category as fallback
-      const { data: fallback, error: fallbackError } = await supabase
-        .from('budget_categories')
-        .select('id')
-        .eq('chapter_id', chapterId)
-        .eq('is_active', true)
-        .limit(1)
-        .single();
-
-      return fallback?.id || null;
-    }
-
-    return category.id;
-  } catch (error) {
-    // SECURITY: Log errors server-side only
-    console.error('[DB_ERROR] Failed to get uncategorized category');
-    return null;
-  }
-}
+// Enable AI categorization for Plaid transactions (set to false to disable)
+const USE_AI_CATEGORIZATION = Deno.env.get('USE_AI_CATEGORIZATION') !== 'false'; // Defaults to true
 
 // Helper function to get current period for a chapter
 async function getCurrentPeriodId(supabase: any, chapterId: string): Promise<string | null> {
@@ -212,12 +133,11 @@ serve(async (req) => {
     let totalRemoved = 0;
     let accountsUpdated = 0;
 
-    // Get current period and uncategorized category for this chapter
+    // Get current period for this chapter
     const periodId = await getCurrentPeriodId(supabase, user.chapter_id);
-    const uncategorizedCategoryId = await getUncategorizedCategoryId(supabase, user.chapter_id);
 
-    if (!periodId || !uncategorizedCategoryId) {
-      throw new Error('Chapter must have at least one budget period and category configured');
+    if (!periodId) {
+      throw new Error('Chapter must have at least one budget period configured');
     }
 
     // Fetch account ID mappings for this connection
@@ -282,11 +202,22 @@ serve(async (req) => {
       for (const transaction of syncData.added || []) {
         try {
           const merchantName = transaction.merchant_name || transaction.name || 'Unknown';
-          let categoryId = await autoCategorizeTransaction(supabase, merchantName, user.chapter_id);
 
-          if (!categoryId) {
-            categoryId = uncategorizedCategoryId;
-          }
+          // Extract Plaid's personal_finance_category data for improved categorization
+          const plaidCategory = transaction.personal_finance_category ? {
+            primary: transaction.personal_finance_category.primary,
+            detailed: transaction.personal_finance_category.detailed,
+            confidence_level: transaction.personal_finance_category.confidence_level || 'UNKNOWN',
+          } : undefined;
+
+          // Use centralized categorization service with Plaid category mapping + AI fallback
+          const categorizationResult = await categorizeTransaction(supabase, {
+            merchantName,
+            chapterId: user.chapter_id,
+            source: 'PLAID',
+            useAI: USE_AI_CATEGORIZATION,
+            plaidCategory,
+          });
 
           const accountDbId = accountIdMap.get(transaction.account_id);
 
@@ -294,7 +225,7 @@ serve(async (req) => {
             .from('expenses')
             .insert({
               chapter_id: user.chapter_id,
-              category_id: categoryId,
+              category_id: categorizationResult.category_id,
               period_id: periodId,
               amount: transaction.amount, // Preserve sign: negative=debit/expense, positive=credit/deposit
               description: transaction.name,
@@ -307,6 +238,9 @@ serve(async (req) => {
               plaid_transaction_id: transaction.transaction_id,
               account_id: accountDbId || null,
               created_by: user.id,
+              // Store Plaid category data for debugging and future reference
+              plaid_primary_category: plaidCategory?.primary || null,
+              plaid_detailed_category: plaidCategory?.detailed || null,
             });
 
           if (insertError) {
@@ -314,6 +248,7 @@ serve(async (req) => {
             console.error('[DB_ERROR] Failed to insert transaction');
           } else {
             totalAdded++;
+            console.log(`[PLAID] Added transaction: ${merchantName} -> ${categorizationResult.category_name} (${categorizationResult.matched_by})`);
           }
         } catch (txError) {
           // SECURITY: Log error server-side only
@@ -347,11 +282,22 @@ serve(async (req) => {
             console.log('[PLAID] Modified transaction not found, inserting:', transaction.transaction_id);
 
             const merchantName = transaction.merchant_name || transaction.name || 'Unknown';
-            let categoryId = await autoCategorizeTransaction(supabase, merchantName, user.chapter_id);
 
-            if (!categoryId) {
-              categoryId = uncategorizedCategoryId;
-            }
+            // Extract Plaid's personal_finance_category data for improved categorization
+            const plaidCategory = transaction.personal_finance_category ? {
+              primary: transaction.personal_finance_category.primary,
+              detailed: transaction.personal_finance_category.detailed,
+              confidence_level: transaction.personal_finance_category.confidence_level || 'UNKNOWN',
+            } : undefined;
+
+            // Use centralized categorization service with Plaid category mapping + AI fallback
+            const categorizationResult = await categorizeTransaction(supabase, {
+              merchantName,
+              chapterId: user.chapter_id,
+              source: 'PLAID',
+              useAI: USE_AI_CATEGORIZATION,
+              plaidCategory,
+            });
 
             const accountDbId = accountIdMap.get(transaction.account_id);
 
@@ -359,7 +305,7 @@ serve(async (req) => {
               .from('expenses')
               .insert({
                 chapter_id: user.chapter_id,
-                category_id: categoryId,
+                category_id: categorizationResult.category_id,
                 period_id: periodId,
                 amount: transaction.amount, // Preserve sign: negative=debit/expense, positive=credit/deposit
                 description: transaction.name,
@@ -372,12 +318,16 @@ serve(async (req) => {
                 plaid_transaction_id: transaction.transaction_id,
                 account_id: accountDbId || null,
                 created_by: user.id,
+                // Store Plaid category data for debugging and future reference
+                plaid_primary_category: plaidCategory?.primary || null,
+                plaid_detailed_category: plaidCategory?.detailed || null,
               });
 
             if (insertError) {
               console.error('[DB_ERROR] Failed to insert modified transaction');
             } else {
               totalAdded++; // Count as added since we inserted it
+              console.log(`[PLAID] Added modified transaction: ${merchantName} -> ${categorizationResult.category_name} (${categorizationResult.matched_by})`);
             }
           } else {
             totalModified++;
