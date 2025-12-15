@@ -2,11 +2,11 @@
  * Send Payment Reminders - Scheduled Edge Function
  *
  * Runs daily to automatically send payment reminder emails:
- * 1. 3 days before due date - friendly reminder
- * 2. On due date - payment due today reminder
- * 3. 3 days after due date (if not yet marked overdue) - past due notice
+ * - 7 days before due date - friendly reminder
  *
- * This function is triggered by a cron schedule: "0 8 * * *" (daily at 8 AM UTC)
+ * Overdue notifications are handled separately by process-overdue-dues function.
+ *
+ * This function is triggered by a cron schedule: "0 14 * * *" (daily at 2 PM UTC / 9 AM EST)
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
@@ -44,24 +44,23 @@ serve(async (req) => {
     )
 
     const today = new Date()
-    const todayStr = today.toISOString().split('T')[0]
 
-    // Calculate dates for reminders
-    const threeDaysFromNow = new Date(today)
-    threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3)
-    const threeDaysFromNowStr = threeDaysFromNow.toISOString().split('T')[0]
+    // Calculate date for 7-day reminder
+    const sevenDaysFromNow = new Date(today)
+    sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7)
+    const sevenDaysFromNowStr = sevenDaysFromNow.toISOString().split('T')[0]
 
     let emailsQueued = 0
     const errors: string[] = []
 
     // ========================================
-    // 1. Send reminders 3 days before due date
+    // Send reminders 7 days before due date
     // ========================================
 
     const { data: upcomingDues, error: upcomingError } = await supabaseAdmin
       .from('member_dues')
       .select('id, member_id, email, balance, due_date')
-      .eq('due_date', threeDaysFromNowStr)
+      .eq('due_date', sevenDaysFromNowStr)
       .in('status', ['pending', 'partial'])
       .gt('balance', 0)
       .eq('reminder_email_sent', false)
@@ -69,7 +68,7 @@ serve(async (req) => {
     if (upcomingError) {
       console.error('Error fetching upcoming dues:', upcomingError)
     } else if (upcomingDues && upcomingDues.length > 0) {
-      console.log(`Found ${upcomingDues.length} dues with reminders needed (3 days before)`)
+      console.log(`Found ${upcomingDues.length} dues with reminders needed (7 days before)`)
 
       for (const dues of upcomingDues) {
         try {
@@ -83,7 +82,7 @@ serve(async (req) => {
                 dues_id: dues.id,
                 balance: parseFloat(dues.balance.toString()),
                 due_date: dues.due_date,
-                days_until_due: 3,
+                days_until_due: 7,
                 reminder_type: 'upcoming'
               },
               status: 'pending'
@@ -112,133 +111,7 @@ serve(async (req) => {
     }
 
     // ========================================
-    // 2. Send reminders on due date
-    // ========================================
-
-    const { data: dueTodayDues, error: dueTodayError } = await supabaseAdmin
-      .from('member_dues')
-      .select('id, member_id, email, balance, due_date')
-      .eq('due_date', todayStr)
-      .in('status', ['pending', 'partial'])
-      .gt('balance', 0)
-
-    if (dueTodayError) {
-      console.error('Error fetching dues due today:', dueTodayError)
-    } else if (dueTodayDues && dueTodayDues.length > 0) {
-      console.log(`Found ${dueTodayDues.length} dues due today`)
-
-      for (const dues of dueTodayDues) {
-        try {
-          // Check if we already sent a reminder for this dues (avoid duplicate)
-          const { data: existingEmail } = await supabaseAdmin
-            .from('email_queue')
-            .select('id')
-            .eq('to_email', dues.email)
-            .eq('template_type', 'payment_reminder')
-            .contains('template_data', { dues_id: dues.id, reminder_type: 'due_today' })
-            .limit(1)
-
-          if (existingEmail && existingEmail.length > 0) {
-            console.log(`Reminder already sent for dues ${dues.id}`)
-            continue
-          }
-
-          const { error: emailError } = await supabaseAdmin
-            .from('email_queue')
-            .insert({
-              to_email: dues.email,
-              to_user_id: dues.member_id,
-              template_type: 'payment_reminder',
-              template_data: {
-                dues_id: dues.id,
-                balance: parseFloat(dues.balance.toString()),
-                due_date: dues.due_date,
-                days_until_due: 0,
-                reminder_type: 'due_today'
-              },
-              status: 'pending'
-            })
-
-          if (emailError) {
-            console.error(`Error queueing due today reminder for dues ${dues.id}:`, emailError)
-            errors.push(`Failed to queue due today reminder for dues ${dues.id}: ${emailError.message}`)
-          } else {
-            emailsQueued++
-          }
-        } catch (error) {
-          console.error(`Error processing due today reminder for dues ${dues.id}:`, error)
-          errors.push(`Failed to process due today reminder for dues ${dues.id}: ${error.message}`)
-        }
-      }
-    }
-
-    // ========================================
-    // 3. Send reminders 3 days after due date (before overdue processing)
-    // ========================================
-
-    const threeDaysAgo = new Date(today)
-    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3)
-    const threeDaysAgoStr = threeDaysAgo.toISOString().split('T')[0]
-
-    const { data: pastDueDues, error: pastDueError } = await supabaseAdmin
-      .from('member_dues')
-      .select('id, member_id, email, balance, due_date')
-      .eq('due_date', threeDaysAgoStr)
-      .in('status', ['pending', 'partial']) // Not yet marked overdue
-      .gt('balance', 0)
-
-    if (pastDueError) {
-      console.error('Error fetching past due dues:', pastDueError)
-    } else if (pastDueDues && pastDueDues.length > 0) {
-      console.log(`Found ${pastDueDues.length} dues 3 days past due`)
-
-      for (const dues of pastDueDues) {
-        try {
-          // Check if we already sent a past due reminder
-          const { data: existingEmail } = await supabaseAdmin
-            .from('email_queue')
-            .select('id')
-            .eq('to_email', dues.email)
-            .eq('template_type', 'payment_reminder')
-            .contains('template_data', { dues_id: dues.id, reminder_type: 'past_due' })
-            .limit(1)
-
-          if (existingEmail && existingEmail.length > 0) {
-            console.log(`Past due reminder already sent for dues ${dues.id}`)
-            continue
-          }
-
-          const { error: emailError } = await supabaseAdmin
-            .from('email_queue')
-            .insert({
-              to_email: dues.email,
-              to_user_id: dues.member_id,
-              template_type: 'payment_reminder',
-              template_data: {
-                dues_id: dues.id,
-                balance: parseFloat(dues.balance.toString()),
-                due_date: dues.due_date,
-                days_overdue: 3,
-                reminder_type: 'past_due'
-              },
-              status: 'pending'
-            })
-
-          if (emailError) {
-            console.error(`Error queueing past due reminder for dues ${dues.id}:`, emailError)
-            errors.push(`Failed to queue past due reminder for dues ${dues.id}: ${emailError.message}`)
-          } else {
-            emailsQueued++
-          }
-        } catch (error) {
-          console.error(`Error processing past due reminder for dues ${dues.id}:`, error)
-          errors.push(`Failed to process past due reminder for dues ${dues.id}: ${error.message}`)
-        }
-      }
-    }
-
-    // ========================================
-    // 4. Return summary
+    // Return summary
     // ========================================
 
     const result = {

@@ -324,6 +324,26 @@ inspector_port = 8083
 # The Deno major version to use.
 deno_version = 2
 
+# Stripe webhook doesn't use JWT - it uses Stripe signature verification
+[functions.stripe-webhook]
+verify_jwt = false
+
+# Scheduled functions for email and dues processing
+[functions.process-email-queue]
+verify_jwt = false
+# Run every minute to process pending emails
+# schedule = "* * * * *"
+
+[functions.send-payment-reminders]
+verify_jwt = false
+# Run daily at 2 PM UTC (9 AM EST) to send 7-day reminders
+# schedule = "0 14 * * *"
+
+[functions.process-overdue-dues]
+verify_jwt = false
+# Run daily at 5 AM UTC (midnight EST) to mark dues overdue and apply late fees
+# schedule = "0 5 * * *"
+
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle, Download, ArrowLeft, Receipt } from 'lucide-react';
+import { formatCurrency } from '../utils/currency';
 
 const PaymentSuccess: React.FC = () => {
   const navigate = useNavigate();
@@ -61,7 +62,7 @@ const PaymentSuccess: React.FC = () => {
                   <div className="flex justify-between items-center">
                     <span className="text-gray-600 dark:text-gray-400">Amount Paid:</span>
                     <span className="font-bold text-2xl text-green-600 dark:text-green-400">
-                      ${parseFloat(amount).toFixed(2)}
+                      {formatCurrency(parseFloat(amount))}
                     </span>
                   </div>
                 )}

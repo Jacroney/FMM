@@ -3,12 +3,15 @@
  *
  * Creates a Stripe Payment Intent for a member to pay their dues.
  * Supports both ACH (bank account) and card payments.
+ * Supports using saved payment methods and saving new ones.
  *
  * Request body:
  * {
  *   member_dues_id: UUID,
  *   payment_method_type: 'us_bank_account' | 'card',
- *   payment_amount?: number (optional, defaults to full balance)
+ *   payment_amount?: number (optional, defaults to full balance),
+ *   save_payment_method?: boolean (optional, saves payment method for future use),
+ *   payment_method_id?: string (optional, use a saved payment method)
  * }
  *
  * Returns:
@@ -16,7 +19,8 @@
  *   success: true,
  *   client_secret: string,
  *   payment_intent_id: string,
- *   amount: number
+ *   amount: number,
+ *   requires_action?: boolean (true if using saved method that needs confirmation)
  * }
  */
 
@@ -53,40 +57,40 @@ serve(async (req) => {
       throw new Error('No authorization header')
     }
 
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        global: {
-          headers: { Authorization: authHeader }
-        }
-      }
-    )
-
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser()
+    // Extract token and verify user authentication using service role client
+    const token = authHeader.replace('Bearer ', '')
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token)
     if (userError || !user) {
       throw new Error('Unauthorized')
     }
 
     // Parse request body
-    const { member_dues_id, payment_method_type, payment_amount } = await req.json()
+    const {
+      member_dues_id,
+      payment_method_type,
+      payment_amount,
+      save_payment_method,
+      payment_method_id
+    } = await req.json()
 
     if (!member_dues_id) {
       throw new Error('member_dues_id is required')
     }
 
-    if (!payment_method_type || !['us_bank_account', 'card'].includes(payment_method_type)) {
+    // payment_method_type not required if using saved payment_method_id
+    if (!payment_method_id && (!payment_method_type || !['us_bank_account', 'card'].includes(payment_method_type))) {
       throw new Error('payment_method_type must be "us_bank_account" or "card"')
     }
 
     // Get member dues information with related data
+    // Use explicit FK name since there are multiple user_profiles relationships
     const { data: memberDues, error: duesError } = await supabaseAdmin
       .from('member_dues')
       .select(`
         *,
-        user_profiles (
+        user_profiles:user_profiles!member_dues_member_id_fkey (
           id,
-          name,
+          full_name,
           email,
           chapter_id
         ),
@@ -165,41 +169,68 @@ serve(async (req) => {
       stripeCustomerId = memberProfile?.stripe_customer_id || null
     }
 
-    // Calculate amounts in cents
-    const amountCents = Math.round(amountToPay * 100)
+    // Validate amount has at most 2 decimal places (valid for currency)
+    const expectedCents = amountToPay * 100
+    if (Math.round(expectedCents) !== expectedCents) {
+      console.warn(`[PAYMENT] Amount ${amountToPay} has more than 2 decimal places, rounding to nearest cent`)
+    }
 
-    // Calculate platform fee (if any)
+    // Calculate amounts in cents
+    const duesAmountCents = Math.round(amountToPay * 100)
+
+    // Calculate platform fee (if any) - this will be added ON TOP of dues
     const platformFeePercentage = parseFloat(Deno.env.get('STRIPE_PLATFORM_FEE_PERCENTAGE') || '0')
     const accountPlatformFee = stripeAccount.platform_fee_percentage || 0
     const totalPlatformFeePercentage = Math.max(platformFeePercentage, accountPlatformFee)
 
-    const platformFeeCents = Math.round(amountCents * (totalPlatformFeePercentage / 100))
-    const netAmountCents = amountCents - platformFeeCents
+    // Fee is calculated on the dues amount and added to the total charge
+    const platformFeeCents = Math.round(duesAmountCents * (totalPlatformFeePercentage / 100))
+
+    // Total charge = dues + fee (member pays the fee, chapter receives full dues amount)
+    const totalChargeCents = duesAmountCents + platformFeeCents
 
     console.log('Creating payment intent:', {
-      amount: amountCents,
+      dues_amount: duesAmountCents,
       platform_fee: platformFeeCents,
-      net_amount: netAmountCents,
+      total_charge: totalChargeCents,
+      chapter_receives: duesAmountCents,
       connected_account: stripeAccount.stripe_account_id,
-      customer_id: stripeCustomerId || 'none (will be created on first payment)'
+      customer_id: stripeCustomerId || 'none (will be created on first payment)',
+      using_saved_method: !!payment_method_id,
+      save_for_future: !!save_payment_method
     })
 
-    // Create Stripe Payment Intent with customer if available
-    const paymentIntentParams: Stripe.PaymentIntentCreateParams = {
-      amount: amountCents,
-      currency: 'usd',
-      payment_method_types: [payment_method_type],
+    // Determine the effective payment method type
+    let effectivePaymentMethodType = payment_method_type
 
-      // Stripe Connect: Charge to connected account
+    // If using a saved payment method, verify ownership and get its type
+    if (payment_method_id) {
+      // SECURITY: Verify the saved payment method belongs to this user
+      const { data: savedMethod, error: savedMethodError } = await supabaseAdmin
+        .from('saved_payment_methods')
+        .select('*')
+        .eq('stripe_payment_method_id', payment_method_id)
+        .eq('user_id', memberDues.member_id)
+        .single()
+
+      if (savedMethodError || !savedMethod) {
+        throw new Error('Invalid payment method. Please select a different payment method.')
+      }
+
+      effectivePaymentMethodType = savedMethod.type
+    }
+
+    // Create Stripe Payment Intent with customer if available
+    // Member pays: dues + fee. Chapter receives: full dues amount.
+    const paymentIntentParams: Stripe.PaymentIntentCreateParams = {
+      amount: totalChargeCents, // Total charge including fee
+      currency: 'usd',
+      payment_method_types: ['card', 'us_bank_account'],
+
+      // Stripe Connect: Fee goes to platform, rest goes to chapter
       application_fee_amount: platformFeeCents,
       transfer_data: {
         destination: stripeAccount.stripe_account_id,
-      },
-
-      // Automatic payment methods for better conversion
-      automatic_payment_methods: {
-        enabled: true,
-        allow_redirects: 'never',
       },
 
       // Metadata for tracking
@@ -208,7 +239,8 @@ serve(async (req) => {
         member_dues_id,
         member_id: memberDues.member_id || '',
         chapter_id: memberDues.user_profiles.chapter_id,
-        payment_method_type,
+        payment_method_type: effectivePaymentMethodType,
+        save_payment_method: save_payment_method ? 'true' : 'false',
         // Removed: member_name, member_email, period (PII minimization)
       },
 
@@ -216,10 +248,12 @@ serve(async (req) => {
       receipt_email: memberDues.user_profiles.email,
 
       // Description
-      description: `Dues payment for ${memberDues.user_profiles.name} - ${memberDues.dues_configuration.period_name} ${memberDues.dues_configuration.fiscal_year}`,
+      description: `Dues payment for ${memberDues.user_profiles.full_name} - ${memberDues.dues_configuration?.period_name || 'Dues'} ${memberDues.dues_configuration?.fiscal_year || ''}`,
+    }
 
-      // Setup for future payments
-      setup_future_usage: 'off_session', // Allows saving payment method for future use
+    // Only save payment method for future use if explicitly requested
+    if (save_payment_method) {
+      paymentIntentParams.setup_future_usage = 'off_session'
     }
 
     // Add customer if available (enables saved payment methods)
@@ -240,6 +274,13 @@ serve(async (req) => {
       paymentIntentParams.customer = stripeCustomerId
     }
 
+    // If using a saved payment method, attach it and confirm immediately
+    if (payment_method_id) {
+      paymentIntentParams.payment_method = payment_method_id
+      paymentIntentParams.confirm = true
+      paymentIntentParams.off_session = true
+    }
+
     const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams)
 
     // Store payment intent in database
@@ -253,7 +294,7 @@ serve(async (req) => {
         stripe_client_secret: paymentIntent.client_secret,
         amount: amountToPay,
         platform_fee: platformFeeCents / 100,
-        net_amount: netAmountCents / 100,
+        net_amount: duesAmountCents / 100, // Chapter receives full dues amount
         currency: 'usd',
         payment_method_type,
         status: 'pending',
@@ -264,15 +305,30 @@ serve(async (req) => {
       // Continue anyway - Stripe payment intent created
     }
 
+    // Build response based on payment intent status
+    const response: any = {
+      success: true,
+      client_secret: paymentIntent.client_secret,
+      payment_intent_id: paymentIntent.id,
+      dues_amount: amountToPay, // Original dues amount
+      processing_fee: platformFeeCents / 100, // Fee charged to member
+      total_charge: totalChargeCents / 100, // Total member pays
+      chapter_receives: duesAmountCents / 100, // What chapter gets (full dues)
+      status: paymentIntent.status,
+    }
+
+    // If using saved payment method, indicate if action is required
+    if (payment_method_id) {
+      response.using_saved_method = true
+      if (paymentIntent.status === 'requires_action') {
+        response.requires_action = true
+      } else if (paymentIntent.status === 'succeeded') {
+        response.payment_complete = true
+      }
+    }
+
     return new Response(
-      JSON.stringify({
-        success: true,
-        client_secret: paymentIntent.client_secret,
-        payment_intent_id: paymentIntent.id,
-        amount: amountToPay,
-        platform_fee: platformFeeCents / 100,
-        net_amount: netAmountCents / 100,
-      }),
+      JSON.stringify(response),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 

@@ -449,11 +449,11 @@ export class AuthService {
   }
 
   /**
-   * Update a member's profile
+   * Update a member's profile (admin can edit all fields including email)
    */
   static async updateMemberProfile(
     id: string,
-    updates: Partial<Omit<UserProfile, 'id' | 'email'>>
+    updates: Partial<Omit<UserProfile, 'id'>>
   ): Promise<UserProfile> {
     if (isDemoModeEnabled()) {
       const members = demoStore.getState().members;
@@ -504,7 +504,7 @@ export class AuthService {
   }
 
   /**
-   * Delete a member (soft delete by setting status to inactive)
+   * Delete a member (hard delete - permanently removes the record)
    */
   static async deleteMember(id: string): Promise<void> {
     if (isDemoModeEnabled()) {
@@ -514,10 +514,10 @@ export class AuthService {
     }
 
     try {
-      // Soft delete: set status to inactive instead of hard deleting
+      // Hard delete: permanently remove the member record
       const { error } = await supabase
         .from('user_profiles')
-        .update({ status: 'inactive' })
+        .delete()
         .eq('id', id);
 
       if (error) throw error;

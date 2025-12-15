@@ -84,10 +84,12 @@ serve(async (req) => {
     }
 
     // Build invitation URL
-    const frontendUrl = Deno.env.get('FRONTEND_URL')
-    if (!frontendUrl) {
-      throw new Error('FRONTEND_URL environment variable is required')
-    }
+    // TODO: Remove localhost override after testing - use FRONTEND_URL env var in production
+    // const frontendUrl = Deno.env.get('FRONTEND_URL')
+    // if (!frontendUrl) {
+    //   throw new Error('FRONTEND_URL environment variable is required')
+    // }
+    const frontendUrl = 'http://localhost:5173' // TEMPORARY: Testing with localhost
     const invitationUrl = `${frontendUrl}/invite?token=${invitation_token}&type=member`
 
     const displayFirstName = escapeHtml(first_name || invitation.first_name)

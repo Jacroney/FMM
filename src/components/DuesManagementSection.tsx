@@ -13,6 +13,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { DuesService } from '../services/duesService';
+import { formatCurrency } from '../utils/currency';
 import { AuthService } from '../services/authService';
 import {
   DuesConfiguration,
@@ -333,7 +334,7 @@ const DuesManagementSection: React.FC<DuesManagementSectionProps> = ({ chapterId
     }
 
     const confirmed = window.confirm(
-      `Are you sure you want to delete dues for ${dues.member_name}?\n\nAmount: $${dues.total_amount.toFixed(2)}\nStatus: ${dues.status}\n\nThis action cannot be undone.`
+      `Are you sure you want to delete dues for ${dues.member_name}?\n\nAmount: ${formatCurrency(dues.total_amount)}\nStatus: ${dues.status}\n\nThis action cannot be undone.`
     );
 
     if (!confirmed) return;
@@ -514,10 +515,10 @@ const DuesManagementSection: React.FC<DuesManagementSectionProps> = ({ chapterId
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">Collected</p>
                 <p className="text-3xl font-bold text-gray-900 dark:text-white">
-                  ${stats.total_collected.toLocaleString()}
+                  {formatCurrency(stats.total_collected)}
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
-                  of ${stats.total_expected.toLocaleString()}
+                  of {formatCurrency(stats.total_expected)}
                 </p>
               </div>
               <DollarSign className="w-8 h-8 text-blue-500" />
@@ -529,7 +530,7 @@ const DuesManagementSection: React.FC<DuesManagementSectionProps> = ({ chapterId
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">Outstanding</p>
                 <p className="text-3xl font-bold text-red-600">
-                  ${stats.total_outstanding.toLocaleString()}
+                  {formatCurrency(stats.total_outstanding)}
                 </p>
                 <p className="text-xs text-gray-500 mt-1">{stats.members_overdue} overdue</p>
               </div>
@@ -634,26 +635,26 @@ const DuesManagementSection: React.FC<DuesManagementSectionProps> = ({ chapterId
                     {dues.member_year || '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                    ${dues.base_amount.toFixed(2)}
+                    {formatCurrency(dues.base_amount)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                     {dues.late_fee > 0 ? (
-                      <span className="text-red-600 font-medium">${dues.late_fee.toFixed(2)}</span>
+                      <span className="text-red-600 font-medium">{formatCurrency(dues.late_fee)}</span>
                     ) : (
                       <span className="text-gray-400">-</span>
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                    ${dues.total_amount.toFixed(2)}
+                    {formatCurrency(dues.total_amount)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600">
-                    ${dues.amount_paid.toFixed(2)}
+                    {formatCurrency(dues.amount_paid)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     {dues.balance > 0 ? (
-                      <span className="text-red-600">${dues.balance.toFixed(2)}</span>
+                      <span className="text-red-600">{formatCurrency(dues.balance)}</span>
                     ) : (
-                      <span className="text-green-600">$0.00</span>
+                      <span className="text-green-600">{formatCurrency(0)}</span>
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -734,7 +735,7 @@ const DuesManagementSection: React.FC<DuesManagementSectionProps> = ({ chapterId
               <p className="text-sm text-gray-600 dark:text-gray-400">Member:</p>
               <p className="font-medium text-gray-900 dark:text-white">{selectedMemberDues.member_name}</p>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">Outstanding Balance:</p>
-              <p className="text-lg font-bold text-red-600">${selectedMemberDues.balance.toFixed(2)}</p>
+              <p className="text-lg font-bold text-red-600">{formatCurrency(selectedMemberDues.balance)}</p>
             </div>
 
             <form onSubmit={handleRecordPayment} className="space-y-4">

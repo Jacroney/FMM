@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../services/supabaseClient';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
+import { formatCurrency } from '../utils/currency';
 
 export default function Invite() {
   const [searchParams] = useSearchParams();
@@ -14,6 +15,9 @@ export default function Invite() {
   const [memberInfo, setMemberInfo] = useState(null); // For member-only invitations
   const [chapterInfo, setChapterInfo] = useState(null);
   const [error, setError] = useState(null);
+
+  // Prevent repeated linking attempts
+  const linkAttemptedRef = useRef(false);
 
   const [isSignUp, setIsSignUp] = useState(true);
   const [formData, setFormData] = useState({
@@ -30,6 +34,13 @@ export default function Invite() {
 
   useEffect(() => {
     if (user && user.id && invitationToken) {
+      // Prevent repeated link attempts
+      if (linkAttemptedRef.current) {
+        console.log('Link already attempted, skipping');
+        return;
+      }
+      linkAttemptedRef.current = true;
+
       // User is already logged in, try to link their account
       console.log('User detected, attempting to link invitation');
       if (invitationType === 'member') {
@@ -397,7 +408,7 @@ export default function Invite() {
                     Dues Amount
                   </p>
                   <p className="text-5xl font-bold text-white">
-                    ${duesInfo?.total_amount?.toFixed(2)}
+                    {duesInfo?.total_amount ? formatCurrency(duesInfo.total_amount) : '$0.00'}
                   </p>
                   {duesInfo?.due_date && (
                     <p className="mt-2 text-sm text-indigo-100">
@@ -473,7 +484,7 @@ export default function Invite() {
                 <div className="mt-4 rounded-lg bg-indigo-50 p-4">
                   <p className="text-sm text-gray-600">Dues Amount</p>
                   <p className="text-3xl font-bold text-indigo-600">
-                    ${duesInfo?.total_amount?.toFixed(2)}
+                    {duesInfo?.total_amount ? formatCurrency(duesInfo.total_amount) : '$0.00'}
                   </p>
                   {duesInfo?.due_date && (
                     <p className="mt-2 text-sm text-gray-600">

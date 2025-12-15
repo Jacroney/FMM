@@ -24,7 +24,8 @@ import {
   Filter,
   Search,
   Grid3x3,
-  LayoutGrid
+  LayoutGrid,
+  Settings
 } from 'lucide-react';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { BudgetCardSkeleton, BudgetCategorySkeleton, ChartSkeleton } from '../components/Skeleton';
@@ -75,6 +76,7 @@ const Budgets: React.FC = () => {
   const [filterType, setFilterType] = useState<'all' | 'Fixed Costs' | 'Operational Costs' | 'Event Costs'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'spent' | 'percent'>('name');
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
 
   const location = useLocation();
   const isDemoRoute = location.pathname.startsWith('/demo');
@@ -460,30 +462,13 @@ const Budgets: React.FC = () => {
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Budget & Expenses</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">Track budgets and manage all expenses</p>
         </div>
-        <div className="flex gap-3">
-          <button
-            onClick={() => setShowCategoryModal(true)}
-            className="px-4 py-2 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg hover:bg-gray-800 dark:hover:bg-gray-200 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={!currentChapter?.id}
-            title="Add new budget category"
-          >
-            <Plus className="w-4 h-4" />
-            Add Category
-          </button>
-          <button
-            onClick={() => setShowPeriodModal(true)}
-            className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={!currentChapter?.id}
-            title="Add new budget period"
-          >
-            <Calendar className="w-4 h-4" />
-            Add Period
-          </button>
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+          {/* Period Selector */}
           <select
             value={selectedPeriod}
             onChange={(e) => {
@@ -494,7 +479,7 @@ const Budgets: React.FC = () => {
                 setSelectedPeriodId(period.id);
               }
             }}
-            className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-400 dark:text-white [&>option]:dark:text-white [&>option]:dark:bg-gray-700"
+            className="flex-1 sm:flex-none px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-400 dark:text-white [&>option]:dark:text-white [&>option]:dark:bg-gray-700"
           >
             {periods.map(period => (
               <option key={period.id} value={period.name}>
@@ -502,9 +487,57 @@ const Budgets: React.FC = () => {
               </option>
             ))}
           </select>
+
+          {/* Settings Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setShowSettingsMenu(!showSettingsMenu)}
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!currentChapter?.id}
+            >
+              <Settings className="w-4 h-4" />
+              <span className="hidden sm:inline">Settings</span>
+              <ChevronDown className="w-4 h-4" />
+            </button>
+
+            {showSettingsMenu && (
+              <>
+                {/* Backdrop to close menu */}
+                <div
+                  className="fixed inset-0 z-10"
+                  onClick={() => setShowSettingsMenu(false)}
+                />
+                {/* Dropdown menu */}
+                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-20">
+                  <button
+                    onClick={() => {
+                      setShowCategoryModal(true);
+                      setShowSettingsMenu(false);
+                    }}
+                    className="w-full px-4 py-3 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 rounded-t-lg"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Category
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowPeriodModal(true);
+                      setShowSettingsMenu(false);
+                    }}
+                    className="w-full px-4 py-3 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 rounded-b-lg border-t border-gray-200 dark:border-gray-700"
+                  >
+                    <Calendar className="w-4 h-4" />
+                    Add Period
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Primary Action: Add Expense */}
           <button
             onClick={() => setShowExpenseModal(true)}
-            className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg hover:bg-gray-800 dark:hover:bg-gray-200 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
             disabled={!currentChapter?.id}
           >
             <Plus className="w-4 h-4" />

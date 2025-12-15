@@ -227,14 +227,14 @@ serve(async (req) => {
               chapter_id: user.chapter_id,
               category_id: categorizationResult.category_id,
               period_id: periodId,
-              amount: transaction.amount, // Preserve sign: negative=debit/expense, positive=credit/deposit
+              amount: Math.abs(transaction.amount), // Store as positive value, sign determined by transaction_type
               description: transaction.name,
               vendor: transaction.merchant_name,
               transaction_date: transaction.date,
               payment_method: 'ACH',
               status: 'completed',
               source: 'PLAID',
-              transaction_type: transaction.amount > 0 ? 'income' : 'expense', // Positive = income/deposit, negative = expense
+              transaction_type: transaction.amount < 0 ? 'income' : 'expense', // Plaid: positive = expense (money out), negative = income (money in)
               plaid_transaction_id: transaction.transaction_id,
               account_id: accountDbId || null,
               created_by: user.id,
@@ -263,11 +263,11 @@ serve(async (req) => {
           const { data: updated, error: updateError } = await supabase
             .from('expenses')
             .update({
-              amount: transaction.amount, // Preserve sign: negative=debit/expense, positive=credit/deposit
+              amount: Math.abs(transaction.amount), // Store as positive value, sign determined by transaction_type
               description: transaction.name,
               vendor: transaction.merchant_name,
               transaction_date: transaction.date,
-              transaction_type: transaction.amount > 0 ? 'income' : 'expense', // Positive = income/deposit, negative = expense
+              transaction_type: transaction.amount < 0 ? 'income' : 'expense', // Plaid: positive = expense (money out), negative = income (money in)
             })
             .eq('plaid_transaction_id', transaction.transaction_id)
             .select();
@@ -307,14 +307,14 @@ serve(async (req) => {
                 chapter_id: user.chapter_id,
                 category_id: categorizationResult.category_id,
                 period_id: periodId,
-                amount: transaction.amount, // Preserve sign: negative=debit/expense, positive=credit/deposit
+                amount: Math.abs(transaction.amount), // Store as positive value, sign determined by transaction_type
                 description: transaction.name,
                 vendor: transaction.merchant_name,
                 transaction_date: transaction.date,
                 payment_method: 'ACH',
                 status: 'completed',
                 source: 'PLAID',
-                transaction_type: transaction.amount > 0 ? 'income' : 'expense', // Positive = income/deposit, negative = expense
+                transaction_type: transaction.amount < 0 ? 'income' : 'expense', // Plaid: positive = expense (money out), negative = income (money in)
                 plaid_transaction_id: transaction.transaction_id,
                 account_id: accountDbId || null,
                 created_by: user.id,

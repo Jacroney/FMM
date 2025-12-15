@@ -551,6 +551,18 @@ export interface PaymentIntent {
   updated_at?: string;
 }
 
+export interface SavedPaymentMethod {
+  id: string;
+  user_id: string;
+  stripe_payment_method_id: string;
+  type: 'card' | 'us_bank_account';
+  last4: string | null;
+  brand: string | null;
+  is_default: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface DuesPaymentOnline extends DuesPayment {
   payment_intent_id: string | null;
   stripe_charge_id: string | null;

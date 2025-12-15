@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { XCircle, ArrowLeft, HelpCircle, RefreshCw } from 'lucide-react';
+import { formatCurrency } from '../utils/currency';
 
 const PaymentFailure: React.FC = () => {
   const navigate = useNavigate();
@@ -120,7 +121,7 @@ const PaymentFailure: React.FC = () => {
                 <div className="flex justify-between items-center pt-3 border-t border-red-200 dark:border-red-800">
                   <span className="text-red-700 dark:text-red-400">Attempted Amount:</span>
                   <span className="font-bold text-xl text-red-900 dark:text-red-200">
-                    ${parseFloat(amount).toFixed(2)}
+                    {formatCurrency(parseFloat(amount))}
                   </span>
                 </div>
               )}
