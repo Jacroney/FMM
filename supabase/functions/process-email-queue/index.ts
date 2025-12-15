@@ -224,18 +224,52 @@ async function sendPaymentConfirmation(item: any, supabaseAdmin: any): Promise<b
  * Send payment reminder email
  */
 async function sendPaymentReminder(item: any, supabaseAdmin: any): Promise<boolean> {
-  // TODO: Implement payment reminder email
-  console.log('Payment reminder email not yet implemented')
-  return true // Temporary
+  console.log(`Calling send-payment-reminder Edge Function for dues ${item.template_data?.dues_id}`)
+
+  const { data, error } = await supabaseAdmin.functions.invoke('send-payment-reminder', {
+    body: {
+      to_email: item.to_email,
+      template_data: item.template_data
+    }
+  })
+
+  if (error) {
+    console.error('Error calling send-payment-reminder:', error)
+    throw error
+  }
+
+  if (!data?.success) {
+    console.error('send-payment-reminder returned error:', data?.error)
+    throw new Error(data?.error || 'Failed to send payment reminder')
+  }
+
+  return true
 }
 
 /**
  * Send payment overdue email
  */
 async function sendPaymentOverdue(item: any, supabaseAdmin: any): Promise<boolean> {
-  // TODO: Implement payment overdue email
-  console.log('Payment overdue email not yet implemented')
-  return true // Temporary
+  console.log(`Calling send-overdue-notification Edge Function for dues ${item.template_data?.dues_id}`)
+
+  const { data, error } = await supabaseAdmin.functions.invoke('send-overdue-notification', {
+    body: {
+      to_email: item.to_email,
+      template_data: item.template_data
+    }
+  })
+
+  if (error) {
+    console.error('Error calling send-overdue-notification:', error)
+    throw error
+  }
+
+  if (!data?.success) {
+    console.error('send-overdue-notification returned error:', data?.error)
+    throw new Error(data?.error || 'Failed to send overdue notification')
+  }
+
+  return true
 }
 
 /**

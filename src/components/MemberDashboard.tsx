@@ -1,17 +1,53 @@
 import React, { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
+import {
+  User,
+  CreditCard,
+  Clock,
+  Lock,
+  Mail,
+  RefreshCw,
+  HelpCircle,
+  DollarSign,
+  GraduationCap,
+  BookOpen,
+  Award,
+  Phone,
+  ArrowRight,
+  LogOut,
+  Pencil,
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { MemberDuesInfo } from '../services/authService';
+import { DuesService } from '../services/duesService';
+import { MemberDuesSummary } from '../services/types';
 import ProfileEditModal from './ProfileEditModal';
 import PaymentHistoryModal from './PaymentHistoryModal';
 import PasswordChangeModal from './PasswordChangeModal';
+import PayDuesButton from './PayDuesButton';
+import CircularProgress from './CircularProgress';
 
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
 
+const getInitials = (name: string | undefined): string => {
+  if (!name) return '?';
+  const parts = name.trim().split(' ').filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+};
+
+const getFirstName = (name: string | undefined): string => {
+  if (!name) return 'Member';
+  const parts = name.trim().split(' ');
+  return parts[0] || 'Member';
+};
+
 export const MemberDashboard: React.FC = () => {
   const { profile, getMemberDues, signOut } = useAuth();
   const [duesInfo, setDuesInfo] = useState<MemberDuesInfo | null>(null);
+  const [memberDuesSummary, setMemberDuesSummary] = useState<MemberDuesSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Modal states
@@ -29,6 +65,12 @@ export const MemberDashboard: React.FC = () => {
       setIsLoading(true);
       const info = await getMemberDues();
       setDuesInfo(info);
+
+      // Also fetch detailed dues summary for payment button
+      if (profile?.email) {
+        const summary = await DuesService.getMemberDuesSummaryByEmail(profile.email);
+        setMemberDuesSummary(summary);
+      }
     } catch (error) {
       console.error('Error loading dues info:', error);
       toast.error('Unable to load dues information right now.');
@@ -67,26 +109,26 @@ export const MemberDashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[var(--brand-surface)] dark:bg-gray-900">
-      {/* Header with Logo */}
-      <header className="border-b border-[var(--brand-border)] bg-white/80 backdrop-blur dark:bg-gray-900/80">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+      {/* Header */}
+      <header className="sticky top-0 z-40 border-b border-[var(--brand-border)] bg-white/80 backdrop-blur-xl dark:bg-gray-900/80">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <img
               src="/GreekPay-logo-transparent.png"
               alt="GreekPay Logo"
-              className="h-10 w-auto dark:invert"
+              className="h-9 w-auto dark:invert"
             />
-            <div>
-              <h1 className="text-xl font-semibold text-slate-900 dark:text-white">Member Dashboard</h1>
-              <p className="text-sm text-slate-600 dark:text-slate-400">{chapterName}</p>
+            <div className="hidden sm:block">
+              <h1 className="text-lg font-semibold text-slate-900 dark:text-white">Member Portal</h1>
             </div>
           </div>
           <button
             type="button"
             onClick={signOut}
-            className="focus-ring inline-flex items-center justify-center rounded-xl border border-rose-200 bg-white px-4 py-2 text-sm font-semibold text-rose-600 transition-colors hover:bg-rose-50 dark:border-rose-700/40 dark:bg-gray-800 dark:text-rose-300 dark:hover:bg-gray-700"
+            className="focus-ring inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-gray-700 dark:hover:text-white"
           >
-            Sign out
+            <LogOut className="h-4 w-4" />
+            <span className="hidden sm:inline">Sign out</span>
           </button>
         </div>
       </header>
@@ -94,222 +136,288 @@ export const MemberDashboard: React.FC = () => {
       {/* Main Content */}
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
         <div className="space-y-6">
-          {/* Welcome Section */}
-          <div className="flex items-center gap-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-100 dark:bg-blue-900/40">
-              <svg className="h-8 w-8 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-slate-900 dark:text-white sm:text-3xl">
-                Welcome back, {profile?.full_name || 'Member'}!
-              </h2>
-              <p className="text-slate-600 dark:text-slate-400">Here's an overview of your account</p>
+          {/* Hero Welcome Card */}
+          <div className="surface-card overflow-hidden">
+            <div className="bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-gray-800 dark:via-gray-800 dark:to-indigo-900/20 p-6 sm:p-8">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+                <div className="flex items-center gap-4 sm:gap-5">
+                  {/* Avatar with initials */}
+                  <div className="relative flex-shrink-0">
+                    <div className="flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-xl sm:text-2xl font-bold shadow-lg">
+                      {getInitials(profile?.full_name)}
+                    </div>
+                    <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-emerald-500 border-[3px] border-white dark:border-gray-800" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
+                      Welcome back, {getFirstName(profile?.full_name)}!
+                    </h2>
+                    <p className="text-slate-600 dark:text-slate-400 mt-1">
+                      {chapterName}
+                    </p>
+                  </div>
+                </div>
+                {/* Profile completeness indicator - hidden when 100% */}
+                {profileCompleteness < 100 && (
+                  <div className="flex items-center gap-4 sm:flex-col sm:items-end">
+                    <CircularProgress
+                      percentage={profileCompleteness}
+                      size={64}
+                      strokeWidth={6}
+                      color={profileCompleteness < 50 ? 'yellow' : profileCompleteness < 75 ? 'blue' : 'green'}
+                      showPercentage={true}
+                      label="Profile"
+                    />
+                    {isProfileIncomplete && (
+                      <button
+                        onClick={() => setIsProfileModalOpen(true)}
+                        className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium flex items-center gap-1 transition-colors"
+                      >
+                        Complete profile <ArrowRight className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Profile Completeness Alert */}
-          {isProfileIncomplete && (
-            <div className="surface-card p-4 border-l-4 border-amber-500">
-              <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/40">
-                  <svg className="h-5 w-5 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-slate-900 dark:text-white">Complete Your Profile</h3>
-                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                    Your profile is {profileCompleteness}% complete. Add more information to help the chapter stay connected.
-                  </p>
-                  <button
-                    onClick={() => setIsProfileModalOpen(true)}
-                    className="mt-3 inline-flex items-center gap-2 rounded-lg bg-amber-100 px-3 py-1.5 text-sm font-medium text-amber-700 transition-colors hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:hover:bg-amber-900/60"
-                  >
-                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                    </svg>
-                    Update Profile
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Dues Balance - Hero Card */}
-          <div className="surface-card p-6 sm:p-8">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${
-                  isOwed ? 'bg-rose-100 dark:bg-rose-900/40' : 'bg-emerald-100 dark:bg-emerald-900/40'
-                }`}>
-                  <svg className={`h-6 w-6 ${isOwed ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <div>
-                  <h2 className="text-sm font-medium uppercase tracking-wider text-slate-600 dark:text-slate-400">Dues Balance</h2>
-                  <p className={`text-3xl sm:text-4xl font-bold ${
-                    isOwed ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
+          {/* Dues Balance Card */}
+          <div className="surface-card overflow-hidden transition-all duration-200 hover:shadow-lg">
+            <div className="p-6 sm:p-8">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
+                <div className="flex items-center gap-4">
+                  <div className={`flex h-14 w-14 items-center justify-center rounded-2xl ${
+                    isOwed ? 'bg-rose-100 dark:bg-rose-900/40' : 'bg-emerald-100 dark:bg-emerald-900/40'
                   }`}>
-                    {formatCurrency(Math.abs(duesBalance))}
-                  </p>
+                    <DollarSign className={`h-7 w-7 ${isOwed ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Dues Balance</p>
+                    <p className={`text-3xl sm:text-4xl font-bold tracking-tight ${
+                      isOwed ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
+                    }`}>
+                      {formatCurrency(Math.abs(duesBalance))}
+                    </p>
+                  </div>
                 </div>
+                <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium ${
+                  isOwed
+                    ? 'bg-rose-50 text-rose-700 dark:bg-rose-900/40 dark:text-rose-200'
+                    : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200'
+                }`}>
+                  {isOwed ? (
+                    <>
+                      <span className="h-2 w-2 rounded-full bg-rose-500 animate-pulse" />
+                      Payment Due
+                    </>
+                  ) : (
+                    <>
+                      <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                      Paid in Full
+                    </>
+                  )}
+                </span>
               </div>
-              <span className={`surface-pill ${
-                isOwed
-                  ? 'bg-rose-50 text-rose-700 dark:bg-rose-900/40 dark:text-rose-200'
-                  : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200'
-              }`}>
-                {isOwed ? '⚠️ Payment required' : '✅ Paid in full'}
-              </span>
-            </div>
-            <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
-              {isOwed ? 'Amount owed for the current term' : duesBalance === 0 ? 'Your balance is paid in full' : 'You have a credit balance'}
-            </p>
 
-            {isOwed && (
-              <div className="space-y-3 mt-6 pt-6 border-t border-[var(--brand-border)]">
-                <div className="surface-panel p-4">
-                  <h3 className="font-semibold text-slate-900 dark:text-white mb-2 text-sm">Payment Instructions</h3>
-                  <ul className="text-sm text-slate-600 dark:text-slate-400 space-y-1.5">
-                    <li className="flex items-start gap-2">
-                      <span className="text-blue-500 mt-0.5">•</span>
-                      <span>Coordinate with the treasurer on Venmo, Zelle, or cash payments</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-blue-500 mt-0.5">•</span>
-                      <span>Include your full name in every payment description</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-blue-500 mt-0.5">•</span>
-                      <span>Balances update automatically once payment is processed</span>
-                    </li>
-                  </ul>
+              <p className="text-sm text-slate-600 dark:text-slate-400">
+                {isOwed ? 'Amount owed for the current term' : duesBalance === 0 ? 'Your balance is paid in full - thank you!' : 'You have a credit balance'}
+              </p>
+
+              {isOwed && (
+                <div className="mt-6 pt-6 border-t border-[var(--brand-border)] space-y-4">
+                  <div className="rounded-xl bg-slate-50 dark:bg-gray-700/50 p-4">
+                    <h3 className="font-semibold text-slate-900 dark:text-white mb-3 text-sm flex items-center gap-2">
+                      <CreditCard className="h-4 w-4 text-slate-500" />
+                      Payment Options
+                    </h3>
+                    <ul className="text-sm text-slate-600 dark:text-slate-400 space-y-2">
+                      <li className="flex items-start gap-3">
+                        <span className="h-1.5 w-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
+                        <span>Pay online using the button below</span>
+                      </li>
+                      <li className="flex items-start gap-3">
+                        <span className="h-1.5 w-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
+                        <span>Contact treasurer for Venmo, Zelle, or cash</span>
+                      </li>
+                      <li className="flex items-start gap-3">
+                        <span className="h-1.5 w-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
+                        <span>Include your full name in payment description</span>
+                      </li>
+                    </ul>
+                  </div>
+                  {memberDuesSummary.length > 0 ? (
+                    <div className="space-y-2">
+                      {memberDuesSummary.map((dues) => (
+                        <PayDuesButton
+                          key={dues.id}
+                          memberDues={dues}
+                          onPaymentSuccess={loadDuesInfo}
+                          variant="primary"
+                          className="w-full"
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const email = 'joseph@greekpay.org';
+                        const subject = 'Question about dues';
+                        const body = `Hi,\n\nI have a question about my dues balance.\n\nBest regards,\n${profile?.full_name || ''}`;
+                        window.open(`mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
+                      }}
+                      className="focus-ring w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition-all hover:bg-blue-700 active:scale-[0.98] dark:bg-blue-500 dark:hover:bg-blue-600"
+                    >
+                      Contact Treasurer for Payment Options
+                    </button>
+                  )}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => toast('Online payments coming soon! Please reach out to the treasurer.')}
-                  className="focus-ring w-full rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700 transition-colors hover:bg-blue-100 dark:border-blue-700/40 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-900/30"
-                >
-                  Pay dues online (coming soon)
-                </button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
           {/* Grid Layout for Info and Actions */}
           <div className="grid gap-6 lg:grid-cols-2">
             {/* Member Information */}
             <div className="surface-card p-6">
-              <div className="mb-6 flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900/40">
-                  <svg className="h-5 w-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                </div>
+              <div className="flex items-center justify-between mb-5">
                 <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Member Information</h2>
+                <button
+                  type="button"
+                  onClick={() => setIsProfileModalOpen(true)}
+                  className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium flex items-center gap-1 transition-colors"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  Edit
+                </button>
               </div>
-              <dl className="grid gap-4 text-sm sm:grid-cols-2">
-                <div>
-                  <dt className="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">Email</dt>
-                  <dd className="mt-1 text-slate-900 dark:text-white font-medium">{profile?.email}</dd>
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-gray-700/50">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white dark:bg-gray-800 shadow-sm flex-shrink-0">
+                    <Mail className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Email</p>
+                    <p className="text-sm font-medium text-slate-900 dark:text-white truncate">{profile?.email}</p>
+                  </div>
                 </div>
-                <div>
-                  <dt className="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">Year</dt>
-                  <dd className="mt-1 text-slate-900 dark:text-white font-medium">{profile?.year || 'Not specified'}</dd>
+
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-gray-700/50">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white dark:bg-gray-800 shadow-sm flex-shrink-0">
+                    <GraduationCap className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Year</p>
+                    <p className="text-sm font-medium text-slate-900 dark:text-white truncate">{profile?.year || 'Not specified'}</p>
+                  </div>
                 </div>
-                <div>
-                  <dt className="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">Major</dt>
-                  <dd className="mt-1 text-slate-900 dark:text-white font-medium">{profile?.major || 'Not specified'}</dd>
+
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-gray-700/50">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white dark:bg-gray-800 shadow-sm flex-shrink-0">
+                    <BookOpen className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Major</p>
+                    <p className="text-sm font-medium text-slate-900 dark:text-white truncate">{profile?.major || 'Not specified'}</p>
+                  </div>
                 </div>
-                <div>
-                  <dt className="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">Position</dt>
-                  <dd className="mt-1 text-slate-900 dark:text-white font-medium">{profile?.position || 'Member'}</dd>
+
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-gray-700/50">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white dark:bg-gray-800 shadow-sm flex-shrink-0">
+                    <Award className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Position</p>
+                    <p className="text-sm font-medium text-slate-900 dark:text-white truncate">{profile?.position || 'Member'}</p>
+                  </div>
                 </div>
-                <div className="sm:col-span-2">
-                  <dt className="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">Phone</dt>
-                  <dd className="mt-1 text-slate-900 dark:text-white font-medium">{profile?.phone_number || 'Not provided'}</dd>
+
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-gray-700/50">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white dark:bg-gray-800 shadow-sm flex-shrink-0">
+                    <Phone className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Phone</p>
+                    <p className="text-sm font-medium text-slate-900 dark:text-white truncate">{profile?.phone_number || 'Not provided'}</p>
+                  </div>
                 </div>
-              </dl>
+              </div>
             </div>
 
             {/* Quick Actions */}
             <div className="surface-card p-6">
-              <div className="mb-6 flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/40">
-                  <svg className="h-5 w-5 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                </div>
-                <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Quick Actions</h2>
-              </div>
-              <div className="space-y-2">
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-5">Quick Actions</h2>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 <button
                   type="button"
                   onClick={() => setIsProfileModalOpen(true)}
-                  className="focus-ring group flex w-full items-center gap-3 rounded-xl border border-[var(--brand-border)] bg-white px-4 py-3 text-left text-sm font-medium text-slate-700 transition-all hover:bg-slate-50 dark:bg-gray-800 dark:text-slate-200 dark:hover:bg-gray-700"
+                  className="focus-ring group flex flex-col items-center gap-3 rounded-xl border border-[var(--brand-border)] bg-white p-4 text-center transition-all duration-200 hover:bg-slate-50 hover:border-blue-200 hover:shadow-md hover:scale-[1.02] active:scale-[0.98] dark:bg-gray-800 dark:hover:bg-gray-700 dark:hover:border-blue-700/50"
                 >
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400">
-                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                    </svg>
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600 group-hover:scale-110 transition-transform duration-200 dark:bg-blue-900/40 dark:text-blue-400">
+                    <User className="h-6 w-6" />
                   </div>
-                  <span>Update profile details</span>
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Edit Profile</span>
                 </button>
+
                 <button
                   type="button"
                   onClick={() => setIsPaymentHistoryModalOpen(true)}
-                  className="focus-ring group flex w-full items-center gap-3 rounded-xl border border-[var(--brand-border)] bg-white px-4 py-3 text-left text-sm font-medium text-slate-700 transition-all hover:bg-slate-50 dark:bg-gray-800 dark:text-slate-200 dark:hover:bg-gray-700"
+                  className="focus-ring group flex flex-col items-center gap-3 rounded-xl border border-[var(--brand-border)] bg-white p-4 text-center transition-all duration-200 hover:bg-slate-50 hover:border-purple-200 hover:shadow-md hover:scale-[1.02] active:scale-[0.98] dark:bg-gray-800 dark:hover:bg-gray-700 dark:hover:border-purple-700/50"
                 >
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-50 text-purple-600 dark:bg-purple-900/40 dark:text-purple-400">
-                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                    </svg>
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-purple-50 text-purple-600 group-hover:scale-110 transition-transform duration-200 dark:bg-purple-900/40 dark:text-purple-400">
+                    <Clock className="h-6 w-6" />
                   </div>
-                  <span>View payment history</span>
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-200">History</span>
                 </button>
+
                 <button
                   type="button"
                   onClick={() => setIsPasswordModalOpen(true)}
-                  className="focus-ring group flex w-full items-center gap-3 rounded-xl border border-[var(--brand-border)] bg-white px-4 py-3 text-left text-sm font-medium text-slate-700 transition-all hover:bg-slate-50 dark:bg-gray-800 dark:text-slate-200 dark:hover:bg-gray-700"
+                  className="focus-ring group flex flex-col items-center gap-3 rounded-xl border border-[var(--brand-border)] bg-white p-4 text-center transition-all duration-200 hover:bg-slate-50 hover:border-amber-200 hover:shadow-md hover:scale-[1.02] active:scale-[0.98] dark:bg-gray-800 dark:hover:bg-gray-700 dark:hover:border-amber-700/50"
                 >
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400">
-                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-50 text-amber-600 group-hover:scale-110 transition-transform duration-200 dark:bg-amber-900/40 dark:text-amber-400">
+                    <Lock className="h-6 w-6" />
                   </div>
-                  <span>Change password</span>
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Security</span>
                 </button>
+
                 <button
                   type="button"
                   onClick={() => {
-                    const email = 'treasurer@chapter.com';
+                    const email = 'joseph@greekpay.org';
                     const subject = 'Question about dues';
                     const body = `Hi,\n\nI have a question about my dues balance.\n\nBest regards,\n${profile?.full_name || ''}`;
                     window.open(`mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
                   }}
-                  className="focus-ring group flex w-full items-center gap-3 rounded-xl border border-[var(--brand-border)] bg-white px-4 py-3 text-left text-sm font-medium text-slate-700 transition-all hover:bg-slate-50 dark:bg-gray-800 dark:text-slate-200 dark:hover:bg-gray-700"
+                  className="focus-ring group flex flex-col items-center gap-3 rounded-xl border border-[var(--brand-border)] bg-white p-4 text-center transition-all duration-200 hover:bg-slate-50 hover:border-emerald-200 hover:shadow-md hover:scale-[1.02] active:scale-[0.98] dark:bg-gray-800 dark:hover:bg-gray-700 dark:hover:border-emerald-700/50"
                 >
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-50 text-green-600 dark:bg-green-900/40 dark:text-green-400">
-                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 group-hover:scale-110 transition-transform duration-200 dark:bg-emerald-900/40 dark:text-emerald-400">
+                    <Mail className="h-6 w-6" />
                   </div>
-                  <span>Contact treasurer</span>
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Contact</span>
                 </button>
+
                 <button
                   type="button"
                   onClick={loadDuesInfo}
-                  className="focus-ring group flex w-full items-center gap-3 rounded-xl border border-[var(--brand-border)] bg-white px-4 py-3 text-left text-sm font-medium text-slate-700 transition-all hover:bg-slate-50 dark:bg-gray-800 dark:text-slate-200 dark:hover:bg-gray-700"
+                  className="focus-ring group flex flex-col items-center gap-3 rounded-xl border border-[var(--brand-border)] bg-white p-4 text-center transition-all duration-200 hover:bg-slate-50 hover:border-cyan-200 hover:shadow-md hover:scale-[1.02] active:scale-[0.98] dark:bg-gray-800 dark:hover:bg-gray-700 dark:hover:border-cyan-700/50"
                 >
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-50 text-cyan-600 dark:bg-cyan-900/40 dark:text-cyan-400">
-                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600 group-hover:scale-110 transition-transform duration-200 dark:bg-cyan-900/40 dark:text-cyan-400">
+                    <RefreshCw className="h-6 w-6" />
                   </div>
-                  <span>Refresh balance</span>
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Refresh</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={signOut}
+                  className="focus-ring group flex flex-col items-center gap-3 rounded-xl border border-[var(--brand-border)] bg-white p-4 text-center transition-all duration-200 hover:bg-slate-50 hover:border-rose-200 hover:shadow-md hover:scale-[1.02] active:scale-[0.98] dark:bg-gray-800 dark:hover:bg-gray-700 dark:hover:border-rose-700/50"
+                >
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-rose-50 text-rose-600 group-hover:scale-110 transition-transform duration-200 dark:bg-rose-900/40 dark:text-rose-400">
+                    <LogOut className="h-6 w-6" />
+                  </div>
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Sign Out</span>
                 </button>
               </div>
             </div>
@@ -317,45 +425,34 @@ export const MemberDashboard: React.FC = () => {
 
           {/* Help Section */}
           <div className="surface-card p-6">
-            <div className="mb-4 flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-100 dark:bg-indigo-900/40">
-                <svg className="h-5 w-5 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+            <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-100 dark:bg-indigo-900/40 flex-shrink-0">
+                <HelpCircle className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
               </div>
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Need Help?</h2>
-            </div>
-            <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
-              Stay connected with chapter leadership and get support when you need it.
-            </p>
-            <ul className="space-y-3 text-sm text-slate-600 dark:text-slate-400">
-              <li className="flex items-start gap-2">
-                <svg className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-                </svg>
-                <span>Watch for weekly email updates from the executive board</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <svg className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-                </svg>
-                <span>Join the group chat for real-time announcements and reminders</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <svg className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-                </svg>
-                <span>
-                  Reach out any time at{' '}
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Need Help?</h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                  Questions about your dues or account? We're here to help.
+                </p>
+                <div className="flex flex-wrap gap-2 mt-4">
                   <a
-                    className="font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-                    href="mailto:treasurer@chapter.com"
+                    href="mailto:joseph@greekpay.org"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-50 text-blue-700 text-sm font-medium hover:bg-blue-100 transition-colors dark:bg-blue-900/40 dark:text-blue-300 dark:hover:bg-blue-900/60"
                   >
-                    treasurer@chapter.com
+                    <Mail className="h-4 w-4" />
+                    Email Treasurer
                   </a>
-                </span>
-              </li>
-            </ul>
+                  <button
+                    type="button"
+                    onClick={() => setIsPaymentHistoryModalOpen(true)}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-100 text-slate-700 text-sm font-medium hover:bg-slate-200 transition-colors dark:bg-gray-700 dark:text-slate-300 dark:hover:bg-gray-600"
+                  >
+                    <Clock className="h-4 w-4" />
+                    View History
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </main>

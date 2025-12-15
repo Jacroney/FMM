@@ -13,6 +13,7 @@ import {
   StripeConnectResponse,
   CreatePaymentIntentResponse,
   PaymentSummary,
+  SavedPaymentMethod,
 } from './types';
 
 export class PaymentService {
@@ -251,11 +252,19 @@ export class PaymentService {
   /**
    * Create a payment intent for a member to pay their dues
    * Returns the client secret needed for Stripe Elements
+   *
+   * @param memberDuesId - The dues record to pay
+   * @param paymentMethodType - Type of payment method (card or us_bank_account)
+   * @param paymentAmount - Optional amount to pay (defaults to full balance)
+   * @param savePaymentMethod - Whether to save the payment method for future use
+   * @param paymentMethodId - Optional saved payment method ID to use
    */
   static async createPaymentIntent(
     memberDuesId: string,
     paymentMethodType: 'us_bank_account' | 'card',
-    paymentAmount?: number
+    paymentAmount?: number,
+    savePaymentMethod?: boolean,
+    paymentMethodId?: string
   ): Promise<CreatePaymentIntentResponse> {
     try {
       const session = await this.getValidSession();
@@ -273,6 +282,8 @@ export class PaymentService {
             member_dues_id: memberDuesId,
             payment_method_type: paymentMethodType,
             payment_amount: paymentAmount,
+            save_payment_method: savePaymentMethod,
+            payment_method_id: paymentMethodId,
           }),
         }
       );
@@ -445,6 +456,91 @@ export class PaymentService {
       return data;
     } catch (error) {
       console.error('Error fetching payment summary:', error);
+      throw error;
+    }
+  }
+
+  // ============================================================================
+  // SAVED PAYMENT METHODS
+  // ============================================================================
+
+  /**
+   * Get saved payment methods for the current user
+   */
+  static async getSavedPaymentMethods(userId: string): Promise<SavedPaymentMethod[]> {
+    try {
+      const { data, error } = await supabase
+        .from('saved_payment_methods')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        throw error;
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching saved payment methods:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a saved payment method
+   */
+  static async deleteSavedPaymentMethod(paymentMethodId: string): Promise<void> {
+    try {
+      const session = await this.getValidSession();
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-payment-method`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            payment_method_id: paymentMethodId,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to delete payment method');
+      }
+    } catch (error) {
+      console.error('Error deleting payment method:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Set a payment method as default
+   */
+  static async setDefaultPaymentMethod(paymentMethodId: string, userId: string): Promise<void> {
+    try {
+      // First, unset all other defaults for this user
+      await supabase
+        .from('saved_payment_methods')
+        .update({ is_default: false })
+        .eq('user_id', userId);
+
+      // Then set this one as default
+      const { error } = await supabase
+        .from('saved_payment_methods')
+        .update({ is_default: true })
+        .eq('stripe_payment_method_id', paymentMethodId)
+        .eq('user_id', userId);
+
+      if (error) {
+        throw error;
+      }
+    } catch (error) {
+      console.error('Error setting default payment method:', error);
       throw error;
     }
   }

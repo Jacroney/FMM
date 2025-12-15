@@ -60,18 +60,9 @@ serve(async (req) => {
       throw new Error('No authorization header provided')
     }
 
-    // Verify user authentication
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        global: {
-          headers: { Authorization: authHeader }
-        }
-      }
-    )
-
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser()
+    // Extract token and verify user authentication using service role client
+    const token = authHeader.replace('Bearer ', '')
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token)
 
     if (userError || !user) {
       throw new Error(`Authentication failed: ${userError?.message || 'Auth session missing!'}`)

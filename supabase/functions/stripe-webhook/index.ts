@@ -13,9 +13,8 @@
  * IMPORTANT: Set STRIPE_WEBHOOK_SECRET in Supabase secrets
  */
 
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
-import Stripe from 'https://esm.sh/stripe@14.5.0?target=deno'
+import Stripe from 'https://esm.sh/stripe@14.5.0?target=deno&no-check'
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
   apiVersion: '2023-10-16',
@@ -24,7 +23,67 @@ const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
 
 const webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET') || ''
 
-serve(async (req) => {
+// Manual signature verification to avoid Deno compatibility issues
+async function verifyStripeSignature(payload: string, signature: string, secret: string): Promise<boolean> {
+  // Parse the signature header
+  const elements = signature.split(',')
+  let timestamp = ''
+  let v1Signature = ''
+
+  for (const element of elements) {
+    const [key, value] = element.split('=')
+    if (key === 't') timestamp = value
+    if (key === 'v1') v1Signature = value
+  }
+
+  if (!timestamp || !v1Signature) {
+    console.error('Missing timestamp or v1 signature')
+    return false
+  }
+
+  // Check timestamp (allow 5 minutes tolerance)
+  const now = Math.floor(Date.now() / 1000)
+  const webhookTimestamp = parseInt(timestamp, 10)
+  if (Math.abs(now - webhookTimestamp) > 300) {
+    console.error('Webhook timestamp too old')
+    return false
+  }
+
+  // Create signed payload
+  const signedPayload = `${timestamp}.${payload}`
+
+  // Compute expected signature using Web Crypto API
+  const encoder = new TextEncoder()
+  const keyData = encoder.encode(secret)
+  const data = encoder.encode(signedPayload)
+
+  const key = await crypto.subtle.importKey(
+    'raw',
+    keyData,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  )
+
+  const signatureBuffer = await crypto.subtle.sign('HMAC', key, data)
+  const expectedSignature = Array.from(new Uint8Array(signatureBuffer))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('')
+
+  // Constant-time comparison
+  if (expectedSignature.length !== v1Signature.length) {
+    return false
+  }
+
+  let result = 0
+  for (let i = 0; i < expectedSignature.length; i++) {
+    result |= expectedSignature.charCodeAt(i) ^ v1Signature.charCodeAt(i)
+  }
+
+  return result === 0
+}
+
+Deno.serve(async (req) => {
   try {
     // Get the Stripe signature from headers
     const signature = req.headers.get('stripe-signature')
@@ -35,18 +94,18 @@ serve(async (req) => {
     // Get the raw body
     const body = await req.text()
 
-    // Verify webhook signature
-    let event: Stripe.Event
-    try {
-      event = stripe.webhooks.constructEvent(body, signature, webhookSecret)
-    } catch (err) {
-      // SECURITY: Don't log specific error details to prevent information leakage
+    // Verify webhook signature using manual verification
+    const isValid = await verifyStripeSignature(body, signature, webhookSecret)
+    if (!isValid) {
       console.error('Webhook signature verification failed')
       return new Response(
         JSON.stringify({ error: 'Invalid signature' }),
         { status: 400 }
       )
     }
+
+    // Parse the event
+    const event = JSON.parse(body) as Stripe.Event
 
     console.log('Received webhook event:', event.type)
 
@@ -114,8 +173,14 @@ serve(async (req) => {
       }
 
       // SECURITY: Check if payment already processed (idempotency)
-      // Stripe webhooks can be retried, so we need to prevent duplicate recording
-      if (intent.status === 'succeeded') {
+      // Check dues_payments table for existing payment, not just payment_intent status
+      const { data: existingPayment } = await supabase
+        .from('dues_payments')
+        .select('id')
+        .eq('reference_number', paymentIntent.id)
+        .single()
+
+      if (existingPayment) {
         console.log('Payment already processed (idempotent):', paymentIntent.id)
         return new Response(
           JSON.stringify({ received: true, already_processed: true }),
@@ -123,16 +188,24 @@ serve(async (req) => {
         )
       }
 
+      // Map Stripe payment method to valid dues_payments constraint values
+      const paymentMethodMap: Record<string, string> = {
+        'card': 'Credit Card',
+        'us_bank_account': 'ACH',
+        'bank': 'ACH'
+      }
+      const mappedPaymentMethod = paymentMethodMap[intent.payment_method_type] || 'Credit Card'
+
       // Record the payment using the database function
       const { data: paymentResult, error: paymentError } = await supabase
         .rpc('record_dues_payment', {
           p_member_dues_id: intent.member_dues_id,
-          p_payment_amount: intent.amount,
-          p_payment_method: `stripe_${intent.payment_method_type}`,
+          p_amount: intent.amount,
+          p_payment_method: mappedPaymentMethod,
           p_reference_number: paymentIntent.id,
           p_notes: `Payment via ${paymentMethodBrand} ending in ${paymentMethodLast4}`,
-          p_stripe_charge_id: paymentIntent.latest_charge as string || null,
-          p_payment_intent_id: intent.id
+          p_payment_date: new Date().toISOString().split('T')[0],
+          p_recorded_by: intent.member_id
         })
 
       if (paymentError) {
@@ -151,31 +224,32 @@ serve(async (req) => {
 
       // Queue payment confirmation email
       try {
-        const { data: memberDues } = await supabase
-          .from('member_dues')
-          .select('email, member_id, balance, amount_paid')
-          .eq('id', intent.member_dues_id)
+        // Get user email from user_profiles (member_dues doesn't have email column)
+        const { data: userProfile } = await supabase
+          .from('user_profiles')
+          .select('email')
+          .eq('id', intent.member_id)
           .single()
 
-        if (memberDues && memberDues.email) {
+        if (userProfile && userProfile.email) {
           await supabase
             .from('email_queue')
             .insert({
-              to_email: memberDues.email,
-              to_user_id: memberDues.member_id,
+              to_email: userProfile.email,
+              to_user_id: intent.member_id,
               template_type: 'payment_confirmation',
               template_data: {
                 payment_id: paymentResult.payment_id,
                 amount_paid: intent.amount,
                 payment_method: `${paymentMethodBrand} ending in ${paymentMethodLast4}`,
-                remaining_balance: memberDues.balance,
-                total_paid: memberDues.amount_paid,
+                remaining_balance: paymentResult.new_balance,
+                total_paid: paymentResult.new_amount_paid,
                 reference_number: paymentIntent.id
               },
               status: 'pending'
             })
 
-          console.log('Payment confirmation email queued for:', memberDues.email)
+          console.log('Payment confirmation email queued for:', userProfile.email)
 
           // Mark confirmation as sent in member_dues
           await supabase
@@ -189,6 +263,65 @@ serve(async (req) => {
       } catch (emailError) {
         console.error('Error queueing payment confirmation email:', emailError)
         // Don't fail the webhook if email queueing fails
+      }
+
+      // ================================================
+      // Save payment method if requested
+      // ================================================
+      try {
+        const savePaymentMethod = paymentIntent.metadata?.save_payment_method === 'true'
+        const paymentMethodId = paymentIntent.payment_method as string
+
+        if (savePaymentMethod && paymentMethodId && intent.member_id) {
+          // Check if this payment method is already saved
+          const { data: existingSavedMethod } = await supabase
+            .from('saved_payment_methods')
+            .select('id')
+            .eq('stripe_payment_method_id', paymentMethodId)
+            .single()
+
+          if (!existingSavedMethod) {
+            // Retrieve payment method details from Stripe
+            const paymentMethod = await stripe.paymentMethods.retrieve(paymentMethodId)
+
+            let type = 'card'
+            let last4 = ''
+            let brand = ''
+
+            if (paymentMethod.type === 'us_bank_account') {
+              type = 'us_bank_account'
+              last4 = paymentMethod.us_bank_account?.last4 || ''
+              brand = paymentMethod.us_bank_account?.bank_name || 'Bank'
+            } else if (paymentMethod.type === 'card') {
+              type = 'card'
+              last4 = paymentMethod.card?.last4 || ''
+              brand = paymentMethod.card?.brand || 'card'
+            }
+
+            // Save to database
+            const { error: saveError } = await supabase
+              .from('saved_payment_methods')
+              .insert({
+                user_id: intent.member_id,
+                stripe_payment_method_id: paymentMethodId,
+                type,
+                last4,
+                brand,
+                is_default: false
+              })
+
+            if (saveError) {
+              console.error('Error saving payment method:', saveError)
+            } else {
+              console.log('Payment method saved for future use:', paymentMethodId)
+            }
+          } else {
+            console.log('Payment method already saved:', paymentMethodId)
+          }
+        }
+      } catch (saveMethodError) {
+        console.error('Error in save payment method flow:', saveMethodError)
+        // Don't fail the webhook if saving payment method fails
       }
 
       return new Response(
@@ -221,34 +354,42 @@ serve(async (req) => {
       try {
         const { data: intent } = await supabase
           .from('payment_intents')
-          .select('member_dues_id, amount')
+          .select('member_dues_id, member_id, amount')
           .eq('stripe_payment_intent_id', paymentIntent.id)
           .single()
 
         if (intent) {
+          // Get user email from user_profiles (member_dues doesn't have email column)
+          const { data: userProfile } = await supabase
+            .from('user_profiles')
+            .select('email')
+            .eq('id', intent.member_id)
+            .single()
+
+          // Get balance from member_dues
           const { data: memberDues } = await supabase
             .from('member_dues')
-            .select('email, member_id, balance')
+            .select('balance')
             .eq('id', intent.member_dues_id)
             .single()
 
-          if (memberDues && memberDues.email) {
+          if (userProfile && userProfile.email) {
             await supabase
               .from('email_queue')
               .insert({
-                to_email: memberDues.email,
-                to_user_id: memberDues.member_id,
+                to_email: userProfile.email,
+                to_user_id: intent.member_id,
                 template_type: 'payment_failed',
                 template_data: {
                   attempted_amount: intent.amount,
-                  remaining_balance: memberDues.balance,
+                  remaining_balance: memberDues?.balance || 0,
                   failure_reason: paymentIntent.last_payment_error?.message || 'Payment failed',
                   reference_number: paymentIntent.id
                 },
                 status: 'pending'
               })
 
-            console.log('Payment failed email queued for:', memberDues.email)
+            console.log('Payment failed email queued for:', userProfile.email)
           }
         }
       } catch (emailError) {

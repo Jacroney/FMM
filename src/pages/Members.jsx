@@ -1,14 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import Papa from 'papaparse';
+import { Pencil, Trash2 } from 'lucide-react';
 import { AuthService } from '../services/authService';
 import { useChapter } from '../context/ChapterContext';
+import { useAuth } from '../context/AuthContext';
 import DuesManagementSection from '../components/DuesManagementSection';
+import EditMemberModal from '../components/EditMemberModal';
+import { ConfirmModal } from '../components/ConfirmModal';
 import { supabase } from '../services/supabaseClient';
 
 const Members = () => {
   const { currentChapter } = useChapter();
+  const { profile, hasAdminAccess } = useAuth();
   const [members, setMembers] = useState([]);
   const [pendingInvitations, setPendingInvitations] = useState([]);
+
+  // Edit/Delete member state
+  const [editingMember, setEditingMember] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [deletingMember, setDeletingMember] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSemester, setSelectedSemester] = useState('Winter 2025');
   const [showImportModal, setShowImportModal] = useState(false);
@@ -49,6 +61,53 @@ const Members = () => {
   const showNotification = (message, type = 'success') => {
     setNotification({ show: true, message, type });
     setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
+  };
+
+  // Handle edit member button click
+  const handleEditMember = (member) => {
+    setEditingMember(member);
+    setShowEditModal(true);
+  };
+
+  // Handle delete member button click
+  const handleDeleteClick = (member) => {
+    // Prevent self-deletion
+    if (member.id === profile?.id) {
+      showNotification('You cannot delete your own account', 'error');
+      return;
+    }
+    setDeletingMember(member);
+    setShowDeleteConfirm(true);
+  };
+
+  // Confirm delete action
+  const handleConfirmDelete = async () => {
+    if (!deletingMember) return;
+
+    setIsDeleting(true);
+    try {
+      await AuthService.deleteMember(deletingMember.id);
+      showNotification(`${deletingMember.full_name} has been deleted`);
+      // Refresh members list
+      const memberList = await AuthService.getChapterMembers(currentChapter.id);
+      setMembers(memberList);
+      setShowDeleteConfirm(false);
+      setDeletingMember(null);
+    } catch (error) {
+      console.error('Error deleting member:', error);
+      showNotification('Failed to delete member', 'error');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // Handle successful edit
+  const handleEditSuccess = async () => {
+    // Refresh members list
+    const memberList = await AuthService.getChapterMembers(currentChapter.id);
+    setMembers(memberList);
+    setShowEditModal(false);
+    setEditingMember(null);
   };
 
   // Sanitize input
@@ -607,16 +666,40 @@ const Members = () => {
                     {member.paymentDate || '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                    <button
-                      onClick={() => togglePaymentStatus(member.id)}
-                      className={`px-3 py-1 rounded transition-colors ${
-                        member.duesPaid
-                          ? 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 hover:bg-red-200 dark:hover:bg-red-800'
-                          : 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 hover:bg-green-200 dark:hover:bg-green-800'
-                      }`}
-                    >
-                      {member.duesPaid ? 'Mark Unpaid' : 'Mark Paid'}
-                    </button>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => togglePaymentStatus(member.id)}
+                        className={`px-3 py-1 rounded transition-colors ${
+                          member.duesPaid
+                            ? 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 hover:bg-red-200 dark:hover:bg-red-800'
+                            : 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 hover:bg-green-200 dark:hover:bg-green-800'
+                        }`}
+                      >
+                        {member.duesPaid ? 'Mark Unpaid' : 'Mark Paid'}
+                      </button>
+
+                      {/* Edit Button - only show if hasAdminAccess */}
+                      {hasAdminAccess && (
+                        <button
+                          onClick={() => handleEditMember(member)}
+                          className="p-2 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-colors"
+                          title="Edit member"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                      )}
+
+                      {/* Delete Button - only show if hasAdminAccess and not self */}
+                      {hasAdminAccess && member.id !== profile?.id && (
+                        <button
+                          onClick={() => handleDeleteClick(member)}
+                          className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors"
+                          title="Delete member"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -990,6 +1073,36 @@ const Members = () => {
       )}
         </>
       )}
+
+      {/* Edit Member Modal */}
+      {showEditModal && editingMember && (
+        <EditMemberModal
+          isOpen={showEditModal}
+          onClose={() => {
+            setShowEditModal(false);
+            setEditingMember(null);
+          }}
+          onSuccess={handleEditSuccess}
+          member={editingMember}
+          currentUserRole={profile?.role}
+        />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showDeleteConfirm}
+        onClose={() => {
+          setShowDeleteConfirm(false);
+          setDeletingMember(null);
+        }}
+        onConfirm={handleConfirmDelete}
+        title="Delete Member"
+        message={`Are you sure you want to permanently delete ${deletingMember?.full_name}? This action cannot be undone.`}
+        confirmText="Delete Member"
+        cancelText="Cancel"
+        type="danger"
+        loading={isDeleting}
+      />
     </div>
   );
 };

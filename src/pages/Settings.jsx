@@ -4,6 +4,7 @@ import { PlaidSync } from './PlaidSync';
 import { ChapterBrandingConfig } from '../components/ChapterBrandingConfig';
 import { useAuth } from '../context/AuthContext';
 import { UserCircleIcon, EnvelopeIcon, PhoneIcon, AcademicCapIcon, BriefcaseIcon } from '@heroicons/react/24/outline';
+import { formatCurrency } from '../utils/currency';
 
 const Settings = () => {
   const { profile } = useAuth();
@@ -118,7 +119,7 @@ const Settings = () => {
                   <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
                     {profile?.is_active ? 'Active Member' : 'Inactive'}
                     {profile?.dues_balance && profile.dues_balance > 0 && (
-                      <span className="ml-2">• Dues Balance: ${profile.dues_balance.toFixed(2)}</span>
+                      <span className="ml-2">• Dues Balance: {formatCurrency(profile.dues_balance)}</span>
                     )}
                   </p>
                 </div>

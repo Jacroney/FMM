@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Check, X, DollarSign, Calendar, ArrowRight, ArrowLeft, Info } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { ExpenseService } from '../services/expenseService';
+import { formatCurrency } from '../utils/currency';
 
 interface RecommendedCategory {
   name: string;
@@ -396,7 +397,7 @@ const BudgetSetupWizard: React.FC<BudgetSetupWizardProps> = ({ chapterId, onComp
                             {category.description}
                           </p>
                           <p className="text-sm text-primary dark:text-primary-400 mt-1">
-                            Suggested: ${category.suggestedAmount.toLocaleString()}
+                            Suggested: {formatCurrency(category.suggestedAmount)}
                           </p>
                         </div>
                       </div>
@@ -549,7 +550,7 @@ const BudgetSetupWizard: React.FC<BudgetSetupWizardProps> = ({ chapterId, onComp
               Total Budget:
             </span>
             <span className="text-2xl font-bold text-blue-900 dark:text-blue-100">
-              ${totalBudget.toLocaleString()}
+              {formatCurrency(totalBudget)}
             </span>
           </div>
         </div>
@@ -686,7 +687,7 @@ const BudgetSetupWizard: React.FC<BudgetSetupWizardProps> = ({ chapterId, onComp
                   <div className="flex items-center justify-between mb-2">
                     <h4 className="font-medium text-gray-700 dark:text-gray-300">{type}</h4>
                     <span className="font-semibold text-gray-900 dark:text-white">
-                      ${typeTotal.toLocaleString()}
+                      {formatCurrency(typeTotal)}
                     </span>
                   </div>
                   <div className="space-y-2 ml-4">
@@ -697,7 +698,7 @@ const BudgetSetupWizard: React.FC<BudgetSetupWizardProps> = ({ chapterId, onComp
                       >
                         <span className="text-gray-600 dark:text-gray-400">{cat.name}</span>
                         <span className="text-gray-900 dark:text-white">
-                          ${(categoryAmounts[cat.name] || 0).toLocaleString()}
+                          {formatCurrency(categoryAmounts[cat.name] || 0)}
                         </span>
                       </div>
                     ))}
@@ -712,7 +713,7 @@ const BudgetSetupWizard: React.FC<BudgetSetupWizardProps> = ({ chapterId, onComp
                   Total Budget
                 </span>
                 <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                  ${totalBudget.toLocaleString()}
+                  {formatCurrency(totalBudget)}
                 </span>
               </div>
             </div>

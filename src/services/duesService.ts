@@ -161,6 +161,28 @@ export class DuesService {
   }
 
   /**
+   * Get member dues summary by email (for member dashboard)
+   */
+  static async getMemberDuesSummaryByEmail(
+    email: string
+  ): Promise<MemberDuesSummary[]> {
+    try {
+      const { data, error } = await supabase
+        .from('member_dues_summary')
+        .select('*')
+        .eq('member_email', email)
+        .gt('balance', 0)
+        .order('fiscal_year', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching member dues summary by email:', error);
+      return [];
+    }
+  }
+
+  /**
    * Get dues for a specific member
    */
   static async getMemberDuesByMember(

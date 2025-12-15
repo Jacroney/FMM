@@ -17,8 +17,9 @@ import {
   YAxis
 } from 'recharts';
 import { useFinancial } from '../context/FinancialContext';
+import { formatCurrency } from '../utils/currency';
 
-const formatterCurrency = (value) => `$${value.toLocaleString()}`;
+const formatterCurrency = (value) => formatCurrency(value);
 
 const Reports = () => {
   const { transactions, budgets, members, isLoading } = useFinancial();
