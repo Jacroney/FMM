@@ -150,7 +150,7 @@ serve(async (req) => {
     }
 
     // Determine transaction type from amount if not provided
-    const transactionType = body.transaction_type || (amount < 0 ? 'expense' : 'income');
+    const transactionType = body.transaction_type || (amount > 0 ? 'expense' : 'income');
 
     // Create the expense
     const { data: expense, error: insertError } = await supabase

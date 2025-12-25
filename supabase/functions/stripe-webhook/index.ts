@@ -157,19 +157,59 @@ Deno.serve(async (req) => {
       }
 
       // Get payment intent data from our database
-      const { data: intent, error: intentError } = await supabase
+      const { data: intentData, error: intentError } = await supabase
         .from('payment_intents')
         .select('*')
         .eq('stripe_payment_intent_id', paymentIntent.id)
         .single()
 
-      if (intentError || !intent) {
-        console.error('Payment intent not found in database:', paymentIntent.id)
-        // Still return success to Stripe
-        return new Response(
-          JSON.stringify({ received: true, error: 'Payment intent not found' }),
-          { status: 200 }
-        )
+      // If payment intent not found in our DB, try to recover from Stripe metadata
+      let intent = intentData
+      if (intentError || !intentData) {
+        console.log('Payment intent not found in database, attempting recovery from Stripe metadata:', paymentIntent.id)
+
+        const metadata = paymentIntent.metadata
+        if (metadata?.member_dues_id && metadata?.member_id && metadata?.chapter_id) {
+          // Create the payment intent record from Stripe metadata
+          const { data: recoveredIntent, error: createError } = await supabase
+            .from('payment_intents')
+            .insert({
+              chapter_id: metadata.chapter_id,
+              member_dues_id: metadata.member_dues_id,
+              member_id: metadata.member_id,
+              stripe_payment_intent_id: paymentIntent.id,
+              stripe_client_secret: null,
+              amount: paymentIntent.amount / 100,
+              platform_fee: 0,
+              net_amount: paymentIntent.amount / 100,
+              currency: 'usd',
+              payment_method_type: metadata.payment_method_type || 'card',
+              status: 'succeeded',
+              succeeded_at: new Date().toISOString(),
+              payment_method_last4: paymentMethodLast4,
+              payment_method_brand: paymentMethodBrand,
+              stripe_charge_id: paymentIntent.latest_charge as string || null,
+            })
+            .select()
+            .single()
+
+          if (createError || !recoveredIntent) {
+            console.error('Failed to create payment intent from metadata:', createError)
+            return new Response(
+              JSON.stringify({ received: true, error: 'Could not recover payment intent' }),
+              { status: 200 }
+            )
+          }
+
+          console.log('Successfully recovered payment intent from Stripe metadata:', paymentIntent.id)
+          intent = recoveredIntent
+        } else {
+          console.error('Payment intent not found and missing required metadata:', paymentIntent.id, metadata)
+          return new Response(
+            JSON.stringify({ received: true, error: 'Payment intent not found and missing metadata' }),
+            { status: 200 }
+          )
+        }
       }
 
       // SECURITY: Check if payment already processed (idempotency)

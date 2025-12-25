@@ -350,6 +350,32 @@ export class PaymentService {
   }
 
   /**
+   * Get pending or processing payment intent for a specific dues record
+   * Used to prevent duplicate payments (especially for ACH which takes 3-5 days)
+   */
+  static async getPendingPaymentForDues(memberDuesId: string): Promise<PaymentIntent | null> {
+    try {
+      const { data, error } = await supabase
+        .from('payment_intents')
+        .select('*')
+        .eq('member_dues_id', memberDuesId)
+        .in('status', ['pending', 'processing'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) {
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error fetching pending payment for dues:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Get payment intents for a chapter
    */
   static async getChapterPaymentIntents(
@@ -487,38 +513,6 @@ export class PaymentService {
   }
 
   /**
-   * Delete a saved payment method
-   */
-  static async deleteSavedPaymentMethod(paymentMethodId: string): Promise<void> {
-    try {
-      const session = await this.getValidSession();
-
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-payment-method`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            payment_method_id: paymentMethodId,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to delete payment method');
-      }
-    } catch (error) {
-      console.error('Error deleting payment method:', error);
-      throw error;
-    }
-  }
-
-  /**
    * Set a payment method as default
    */
   static async setDefaultPaymentMethod(paymentMethodId: string, userId: string): Promise<void> {
@@ -572,27 +566,78 @@ export class PaymentService {
     return formatted;
   }
 
+  // Fee constants (must match edge function)
+  private static readonly STRIPE_CARD_PERCENTAGE = 0.029;      // 2.9%
+  private static readonly STRIPE_CARD_FIXED = 0.30;            // $0.30
+  private static readonly STRIPE_ACH_PERCENTAGE = 0.008;       // 0.8%
+  private static readonly STRIPE_ACH_CAP = 5.00;               // $5.00 cap
+  private static readonly PLATFORM_FEE_PERCENTAGE = 0.01;      // 1%
+
   /**
-   * Calculate transaction fee for display
+   * Calculate Stripe processing fee using reverse calculation
+   * This ensures chapter receives the exact dues amount after Stripe takes fees
    */
-  static calculateTransactionFee(amount: number, paymentMethodType: 'us_bank_account' | 'card'): number {
-    if (paymentMethodType === 'us_bank_account') {
-      // ACH fee is flat $0.80
-      return 0.80;
+  static calculateStripeFee(amount: number, paymentMethodType: 'us_bank_account' | 'card'): number {
+    if (paymentMethodType === 'card') {
+      // Card: Reverse calculate - chargeAmount = (dues + fixed) / (1 - percentage)
+      const chargeAmount = (amount + this.STRIPE_CARD_FIXED) / (1 - this.STRIPE_CARD_PERCENTAGE);
+      return Math.ceil((chargeAmount - amount) * 100) / 100;
     } else {
-      // Card fee is 2.9% + $0.30
-      return amount * 0.029 + 0.30;
+      // ACH: 0.8% capped at $5
+      const uncappedChargeAmount = amount / (1 - this.STRIPE_ACH_PERCENTAGE);
+      const uncappedFee = uncappedChargeAmount - amount;
+
+      if (uncappedFee <= this.STRIPE_ACH_CAP) {
+        return Math.ceil(uncappedFee * 100) / 100;
+      } else {
+        return this.STRIPE_ACH_CAP;
+      }
     }
   }
 
   /**
-   * Calculate total amount member will be charged (including fees)
+   * Calculate platform fee (0.5% of dues)
+   */
+  static calculatePlatformFee(amount: number): number {
+    return Math.round(amount * this.PLATFORM_FEE_PERCENTAGE * 100) / 100;
+  }
+
+  /**
+   * Calculate total amount member will be charged
+   * ACH: Member pays just dues (no fees)
+   * Card: Member pays dues + Stripe processing fee (no platform fee passed to member)
    */
   static calculateTotalCharge(amount: number, paymentMethodType: 'us_bank_account' | 'card'): number {
-    const fee = this.calculateTransactionFee(amount, paymentMethodType);
-    // Note: Fees are typically charged to the chapter, not the member
-    // But this can be used to show the total if chapter wants to pass fees to members
-    return amount; // Just return amount for now (chapter absorbs fees)
+    if (paymentMethodType === 'us_bank_account') {
+      // ACH: Member pays just the dues amount - no fees!
+      return amount;
+    } else {
+      // Card: Member pays dues + Stripe fees
+      const stripeFee = this.calculateStripeFee(amount, paymentMethodType);
+      return Math.round((amount + stripeFee) * 100) / 100;
+    }
+  }
+
+  /**
+   * Calculate what the chapter will receive after fees
+   * ACH: Chapter receives dues - ACH fee - platform fee (1%)
+   * Card: Chapter receives dues - platform fee (1%)
+   */
+  static calculateChapterReceives(amount: number, paymentMethodType: 'us_bank_account' | 'card'): number {
+    const platformFee = this.calculatePlatformFee(amount);
+    if (paymentMethodType === 'us_bank_account') {
+      const achFee = this.calculateStripeFee(amount, paymentMethodType);
+      return Math.round((amount - achFee - platformFee) * 100) / 100;
+    } else {
+      return Math.round((amount - platformFee) * 100) / 100;
+    }
+  }
+
+  /**
+   * @deprecated Use calculateStripeFee() instead
+   */
+  static calculateTransactionFee(amount: number, paymentMethodType: 'us_bank_account' | 'card'): number {
+    return this.calculateStripeFee(amount, paymentMethodType);
   }
 
   /**

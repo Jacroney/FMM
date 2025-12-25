@@ -54,6 +54,7 @@ export const MemberDashboard: React.FC = () => {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isPaymentHistoryModalOpen, setIsPaymentHistoryModalOpen] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     void loadDuesInfo();
@@ -63,6 +64,7 @@ export const MemberDashboard: React.FC = () => {
   const loadDuesInfo = async () => {
     try {
       setIsLoading(true);
+      setRefreshKey(prev => prev + 1); // Trigger re-check of pending payments
       const info = await getMemberDues();
       setDuesInfo(info);
 
@@ -162,8 +164,8 @@ export const MemberDashboard: React.FC = () => {
                   <div className="flex items-center gap-4 sm:flex-col sm:items-end">
                     <CircularProgress
                       percentage={profileCompleteness}
-                      size={64}
-                      strokeWidth={6}
+                      size={56}
+                      strokeWidth={5}
                       color={profileCompleteness < 50 ? 'yellow' : profileCompleteness < 75 ? 'blue' : 'green'}
                       showPercentage={true}
                       label="Profile"
@@ -253,6 +255,7 @@ export const MemberDashboard: React.FC = () => {
                           key={dues.id}
                           memberDues={dues}
                           onPaymentSuccess={loadDuesInfo}
+                          refreshKey={refreshKey}
                           variant="primary"
                           className="w-full"
                         />
@@ -280,7 +283,7 @@ export const MemberDashboard: React.FC = () => {
           {/* Grid Layout for Info and Actions */}
           <div className="grid gap-6 lg:grid-cols-2">
             {/* Member Information */}
-            <div className="surface-card p-6">
+            <div className="surface-card p-4 sm:p-6">
               <div className="flex items-center justify-between mb-5">
                 <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Member Information</h2>
                 <button
@@ -346,9 +349,9 @@ export const MemberDashboard: React.FC = () => {
             </div>
 
             {/* Quick Actions */}
-            <div className="surface-card p-6">
+            <div className="surface-card p-4 sm:p-6">
               <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-5">Quick Actions</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 gap-3">
                 <button
                   type="button"
                   onClick={() => setIsProfileModalOpen(true)}
@@ -424,7 +427,7 @@ export const MemberDashboard: React.FC = () => {
           </div>
 
           {/* Help Section */}
-          <div className="surface-card p-6">
+          <div className="surface-card p-4 sm:p-6">
             <div className="flex flex-col sm:flex-row sm:items-start gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-100 dark:bg-indigo-900/40 flex-shrink-0">
                 <HelpCircle className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />

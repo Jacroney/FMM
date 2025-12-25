@@ -35,7 +35,8 @@ function getPlaidCredentials(environment: string): { clientId: string; secret: s
 }
 
 // Enable AI categorization for Plaid transactions (set to false to disable)
-const USE_AI_CATEGORIZATION = Deno.env.get('USE_AI_CATEGORIZATION') !== 'false'; // Defaults to true
+// TEMPORARILY DISABLED for faster bulk sync - run recategorize-transactions afterward
+const USE_AI_CATEGORIZATION = false; // Deno.env.get('USE_AI_CATEGORIZATION') !== 'false';
 
 // Helper function to get current period for a chapter
 async function getCurrentPeriodId(supabase: any, chapterId: string): Promise<string | null> {
@@ -66,6 +67,47 @@ async function getCurrentPeriodId(supabase: any, chapterId: string): Promise<str
     console.error('[DB_ERROR] Failed to get current period');
     return null;
   }
+}
+
+// Helper to get all periods for a chapter (for date-based matching)
+interface PeriodDateRange {
+  id: string;
+  start_date: string;
+  end_date: string;
+}
+
+async function getAllPeriods(supabase: any, chapterId: string): Promise<PeriodDateRange[]> {
+  try {
+    const { data: periods, error } = await supabase
+      .from('budget_periods')
+      .select('id, start_date, end_date')
+      .eq('chapter_id', chapterId)
+      .order('start_date', { ascending: false });
+
+    if (error || !periods) {
+      return [];
+    }
+
+    return periods;
+  } catch (error) {
+    console.error('[DB_ERROR] Failed to get periods');
+    return [];
+  }
+}
+
+// Helper to find the period that contains a given transaction date
+function getPeriodForDate(
+  transactionDate: string,
+  periods: PeriodDateRange[],
+  fallbackPeriodId: string | null
+): string | null {
+  for (const period of periods) {
+    if (transactionDate >= period.start_date && transactionDate <= period.end_date) {
+      return period.id;
+    }
+  }
+  // No matching period found, use fallback
+  return fallbackPeriodId;
 }
 
 serve(async (req) => {
@@ -133,12 +175,15 @@ serve(async (req) => {
     let totalRemoved = 0;
     let accountsUpdated = 0;
 
-    // Get current period for this chapter
-    const periodId = await getCurrentPeriodId(supabase, user.chapter_id);
+    // Get current period as fallback for transactions outside defined periods
+    const fallbackPeriodId = await getCurrentPeriodId(supabase, user.chapter_id);
 
-    if (!periodId) {
+    if (!fallbackPeriodId) {
       throw new Error('Chapter must have at least one budget period configured');
     }
+
+    // Get all periods for date-based matching
+    const periods = await getAllPeriods(supabase, user.chapter_id);
 
     // Fetch account ID mappings for this connection
     const { data: accounts, error: accountsError } = await supabase
@@ -221,6 +266,9 @@ serve(async (req) => {
 
           const accountDbId = accountIdMap.get(transaction.account_id);
 
+          // Find the correct period based on transaction date
+          const periodId = getPeriodForDate(transaction.date, periods, fallbackPeriodId);
+
           const { error: insertError } = await supabase
             .from('expenses')
             .insert({
@@ -300,6 +348,9 @@ serve(async (req) => {
             });
 
             const accountDbId = accountIdMap.get(transaction.account_id);
+
+            // Find the correct period based on transaction date
+            const periodId = getPeriodForDate(transaction.date, periods, fallbackPeriodId);
 
             const { error: insertError } = await supabase
               .from('expenses')

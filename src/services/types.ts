@@ -114,24 +114,6 @@ export interface CSVImportResult {
   errors: string[];
 }
 
-export interface ChaseTransaction {
-  transactionDate: string;
-  description: string;
-  amount: number;
-  category: string;
-  accountNumber: string;
-}
-
-export interface SwitchTransaction {
-  id: string;
-  date: string;
-  amount: number;
-  description: string;
-  sender: string;
-  recipient: string;
-  status: string;
-}
-
 export interface Fraternity {
   id: string;
   name: string;
@@ -193,20 +175,6 @@ export interface Member {
   dues_balance: number;
   created_at?: string;
   updated_at?: string;
-}
-
-// Legacy fields for backward compatibility (deprecated)
-export interface LegacyMember {
-  id: string;
-  chapter_id: string;
-  name: string;
-  email: string;
-  status: 'Active' | 'Inactive' | 'Pledge' | 'Alumni';
-  year: 'Freshman' | 'Sophomore' | 'Junior' | 'Senior' | 'Graduate' | 'Alumni' | null;
-  duesPaid: boolean;
-  paymentDate: string | null;
-  semester: string;
-  lastUpdated: string;
 }
 
 // ============================================================================
@@ -375,20 +343,6 @@ export interface RecurringTransactionDetail extends RecurringTransaction {
   period_name: string | null;
 }
 
-export interface AutomationAudit {
-  id: string;
-  job_type: string;
-  run_time: string;
-  chapter_id: string | null;
-  records_processed: number;
-  records_inserted: number;
-  records_updated: number;
-  records_errored: number;
-  errors: string[] | null;
-  status: 'running' | 'completed' | 'failed';
-  completed_at: string | null;
-}
-
 export interface ForecastBalance {
   date: string;
   chapter_id: string;
@@ -527,7 +481,9 @@ export interface PaymentIntent {
 
   // Payment amounts
   amount: number;
+  stripe_fee: number;
   platform_fee: number;
+  total_charge: number;
   net_amount: number;
   currency: string;
 
@@ -592,9 +548,16 @@ export interface CreatePaymentIntentResponse {
   success: boolean;
   client_secret?: string;
   payment_intent_id?: string;
-  amount?: number;
+  dues_amount?: number;
+  stripe_fee?: number;
   platform_fee?: number;
-  net_amount?: number;
+  total_charge?: number;
+  chapter_receives?: number;
+  payment_method_type?: 'card' | 'us_bank_account';
+  status?: string;
+  using_saved_method?: boolean;
+  requires_action?: boolean;
+  payment_complete?: boolean;
   error?: string;
 }
 

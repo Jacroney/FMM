@@ -16,29 +16,10 @@ export const formatCurrency = (amount: number): string =>
   }).format(amount);
 
 /**
- * Format a dollar amount for display, without the dollar sign
- * Example: 1234.56 => "1,234.56"
- */
-export const formatCurrencyNoSymbol = (amount: number): string =>
-  new Intl.NumberFormat('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  }).format(amount);
-
-/**
- * Check if an amount has at most 2 decimal places (valid for currency)
- */
-export const isValidCurrencyAmount = (amount: number): boolean =>
-  Math.round(amount * 100) === amount * 100;
-
-/**
- * Convert dollars to cents with validation warning
+ * Convert dollars to cents
  * Use this when preparing amounts for Stripe API calls
  */
 export const dollarsToCents = (dollars: number): number => {
-  if (!isValidCurrencyAmount(dollars)) {
-    console.warn(`Currency amount ${dollars} has more than 2 decimal places, rounding to nearest cent`);
-  }
   return Math.round(dollars * 100);
 };
 
