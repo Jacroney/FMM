@@ -2,7 +2,6 @@ import { supabase } from './supabaseClient';
 import {
   RecurringTransaction,
   RecurringTransactionDetail,
-  AutomationAudit,
   ForecastBalance
 } from './types';
 import { isDemoModeEnabled } from '../utils/env';
@@ -410,33 +409,6 @@ export class RecurringService {
         error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
-  }
-
-  /**
-   * Get automation audit logs
-   */
-  static async getAutomationAudit(
-    chapterId?: string,
-    limit: number = 50
-  ): Promise<AutomationAudit[]> {
-    let query = supabase
-      .from('automation_audit')
-      .select('*')
-      .order('run_time', { ascending: false })
-      .limit(limit);
-
-    if (chapterId) {
-      query = query.eq('chapter_id', chapterId);
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
-      console.error('Error fetching automation audit:', error);
-      throw new Error(`Failed to fetch automation audit: ${error.message}`);
-    }
-
-    return data || [];
   }
 
   // ============================================================================

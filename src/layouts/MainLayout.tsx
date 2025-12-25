@@ -1,6 +1,6 @@
 import React, { ReactNode, useEffect, useMemo, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { Bars3Icon, ChevronDoubleLeftIcon, ChevronDoubleRightIcon } from '@heroicons/react/24/outline';
+import { ChevronDoubleLeftIcon, ChevronDoubleRightIcon } from '@heroicons/react/24/outline';
 import { Sidebar, type MenuItem } from '../components/Sidebar';
 import { ChapterSelector } from '../components/ChapterSelector';
 import CommandPalette from '../components/CommandPalette';

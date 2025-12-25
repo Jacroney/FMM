@@ -167,7 +167,7 @@ serve(async (req) => {
         else if (categorizationMethod === 'manual') categorizationStats.manual++;
 
         // Determine transaction type from amount if not provided
-        const transactionType = exp.transaction_type || (exp.amount < 0 ? 'expense' : 'income');
+        const transactionType = exp.transaction_type || (exp.amount > 0 ? 'expense' : 'income');
 
         // Build expense object
         expensesToInsert.push({

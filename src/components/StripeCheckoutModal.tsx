@@ -29,6 +29,8 @@ interface CheckoutFormProps {
   onCancel: () => void;
   savePaymentMethod: boolean;
   onSaveToggle: (save: boolean) => void;
+  totalCharge: number;
+  paymentMethodType: 'card' | 'us_bank_account';
 }
 
 const CheckoutForm: React.FC<CheckoutFormProps> = ({
@@ -38,6 +40,8 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
   onCancel,
   savePaymentMethod,
   onSaveToggle,
+  totalCharge,
+  paymentMethodType,
 }) => {
   const stripe = useStripe();
   const elements = useElements();
@@ -108,12 +112,12 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Payment Element */}
+      {/* Payment Element - only shows the selected payment method type */}
       <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
         <PaymentElement
           options={{
-            layout: 'tabs',
-            paymentMethodOrder: ['card', 'us_bank_account'],
+            layout: 'accordion',
+            paymentMethodOrder: [paymentMethodType],
           }}
         />
       </div>
@@ -124,7 +128,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
           type="checkbox"
           checked={savePaymentMethod}
           onChange={(e) => onSaveToggle(e.target.checked)}
-          className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+          className="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
         />
         <span className="text-sm text-gray-700 dark:text-gray-300">
           Save this payment method for future payments
@@ -179,7 +183,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
               Processing...
             </>
           ) : (
-            `Pay ${formatCurrency(memberDues.balance)}`
+            `Pay ${formatCurrency(totalCharge)}`
           )}
         </button>
       </div>
@@ -221,10 +225,11 @@ const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
 
   useEffect(() => {
     // Create payment intent when not using a saved method
+    // Also recreate when payment method type changes (fees are different for card vs ACH)
     if (isOpen && memberDues.balance > 0 && !usingSavedMethod) {
       createPaymentIntent();
     }
-  }, [isOpen, memberDues.id, usingSavedMethod, savePaymentMethod]);
+  }, [isOpen, memberDues.id, usingSavedMethod, savePaymentMethod, paymentMethodType]);
 
   const loadSavedPaymentMethods = async () => {
     try {
@@ -324,7 +329,7 @@ const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-gray-900 bg-opacity-75 dark:bg-opacity-90 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-lg sm:max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between z-10">
           <div>
@@ -335,7 +340,7 @@ const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 transition-colors"
+            className="p-2 -m-2 text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 transition-colors rounded-lg"
           >
             <X className="w-6 h-6" />
           </button>
@@ -376,9 +381,44 @@ const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
                 </div>
               )}
               <div className="pt-2 mt-2 border-t border-blue-200 dark:border-blue-800 flex justify-between">
-                <span className="font-semibold text-gray-900 dark:text-white">Amount Due:</span>
-                <span className="font-bold text-xl text-blue-600 dark:text-blue-400">
+                <span className="font-semibold text-gray-900 dark:text-white">Dues Amount:</span>
+                <span className="font-bold text-gray-900 dark:text-white">
                   {formatCurrency(memberDues.balance)}
+                </span>
+              </div>
+              {/* Fee Breakdown */}
+              <div className="pt-2 mt-2 border-t border-blue-200 dark:border-blue-800">
+                {paymentMethodType === 'us_bank_account' ? (
+                  <div className="bg-green-50 dark:bg-green-900/30 rounded-lg p-3 text-center">
+                    <p className="text-lg font-bold text-green-600 dark:text-green-400">
+                      No Processing Fees!
+                    </p>
+                    <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                      Bank transfer is the recommended payment method
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                      Processing fees:
+                    </p>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Card Processing:</span>
+                      <span className="text-gray-900 dark:text-white">
+                        {formatCurrency(PaymentService.calculateStripeFee(memberDues.balance, paymentMethodType))}
+                      </span>
+                    </div>
+                    <p className="text-xs text-green-600 dark:text-green-400 mt-2 text-center">
+                      Switch to Bank Account (ACH) to avoid fees
+                    </p>
+                  </>
+                )}
+              </div>
+              {/* Total */}
+              <div className="pt-2 mt-2 border-t border-blue-200 dark:border-blue-800 flex justify-between">
+                <span className="font-semibold text-gray-900 dark:text-white">Total to Pay:</span>
+                <span className="font-bold text-xl text-blue-600 dark:text-blue-400">
+                  {formatCurrency(PaymentService.calculateTotalCharge(memberDues.balance, paymentMethodType))}
                 </span>
               </div>
             </div>
@@ -440,27 +480,43 @@ const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
 
           {/* Payment Methods Info - only show when using new method */}
           {(!usingSavedMethod || savedMethods.length === 0) && !paymentComplete && (
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border-2 border-gray-200 dark:border-gray-600">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+              <button
+                type="button"
+                onClick={() => setPaymentMethodType('card')}
+                className={`bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border-2 transition-all text-left ${
+                  paymentMethodType === 'card'
+                    ? 'border-blue-500 dark:border-blue-400 ring-1 ring-blue-500'
+                    : 'border-gray-200 dark:border-gray-600 hover:border-blue-300'
+                }`}
+              >
                 <div className="flex items-center mb-2">
                   <CreditCard className="w-5 h-5 text-gray-600 dark:text-gray-400 mr-2" />
                   <h4 className="font-semibold text-gray-900 dark:text-white">Credit/Debit Card</h4>
                 </div>
                 <p className="text-xs text-gray-600 dark:text-gray-400">
                   Instant processing<br />
-                  Fee: 2.9% + $0.30
+                  Fee: {formatCurrency(PaymentService.calculateStripeFee(memberDues.balance, 'card'))}
                 </p>
-              </div>
-              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border-2 border-gray-200 dark:border-gray-600">
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaymentMethodType('us_bank_account')}
+                className={`bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border-2 transition-all text-left ${
+                  paymentMethodType === 'us_bank_account'
+                    ? 'border-blue-500 dark:border-blue-400 ring-1 ring-blue-500'
+                    : 'border-gray-200 dark:border-gray-600 hover:border-blue-300'
+                }`}
+              >
                 <div className="flex items-center mb-2">
                   <Building2 className="w-5 h-5 text-gray-600 dark:text-gray-400 mr-2" />
                   <h4 className="font-semibold text-gray-900 dark:text-white">Bank Account (ACH)</h4>
                 </div>
                 <p className="text-xs text-gray-600 dark:text-gray-400">
                   3-5 business days<br />
-                  Flat fee: $0.80
+                  No fee
                 </p>
-              </div>
+              </button>
             </div>
           )}
 
@@ -547,6 +603,8 @@ const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
                     onCancel={onClose}
                     savePaymentMethod={savePaymentMethod}
                     onSaveToggle={setSavePaymentMethod}
+                    totalCharge={PaymentService.calculateTotalCharge(memberDues.balance, paymentMethodType)}
+                    paymentMethodType={paymentMethodType}
                   />
                 </Elements>
               ) : null}

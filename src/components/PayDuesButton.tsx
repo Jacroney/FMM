@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { CreditCard, AlertCircle, Lock } from 'lucide-react';
+import { CreditCard, AlertCircle, Lock, Clock } from 'lucide-react';
 import { PaymentService } from '../services/paymentService';
-import { MemberDuesSummary } from '../services/types';
+import { MemberDuesSummary, PaymentIntent } from '../services/types';
 import StripeCheckoutModal from './StripeCheckoutModal';
 import toast from 'react-hot-toast';
 
 interface PayDuesButtonProps {
   memberDues: MemberDuesSummary;
   onPaymentSuccess: () => void;
+  refreshKey?: number;
   variant?: 'primary' | 'secondary' | 'small';
   className?: string;
 }
@@ -15,6 +16,7 @@ interface PayDuesButtonProps {
 const PayDuesButton: React.FC<PayDuesButtonProps> = ({
   memberDues,
   onPaymentSuccess,
+  refreshKey = 0,
   variant = 'primary',
   className = '',
 }) => {
@@ -26,10 +28,17 @@ const PayDuesButton: React.FC<PayDuesButtonProps> = ({
     charges_enabled: boolean;
   } | null>(null);
   const [error, setError] = useState<string>('');
+  const [pendingPayment, setPendingPayment] = useState<PaymentIntent | null>(null);
 
+  // Re-check when dues data changes (e.g., after payment modal closes and parent refreshes)
   useEffect(() => {
     checkStripeAccount();
   }, [memberDues.chapter_id]);
+
+  // Check for pending payments when refreshKey changes (parent triggers after data refresh)
+  useEffect(() => {
+    checkPendingPayment();
+  }, [memberDues.id, refreshKey]);
 
   const checkStripeAccount = async () => {
     setIsCheckingAccount(true);
@@ -65,6 +74,16 @@ const PayDuesButton: React.FC<PayDuesButtonProps> = ({
     }
   };
 
+  const checkPendingPayment = async () => {
+    try {
+      const pending = await PaymentService.getPendingPaymentForDues(memberDues.id);
+      setPendingPayment(pending);
+    } catch (err) {
+      console.error('Error checking pending payment:', err);
+      // Don't block the UI if this check fails
+    }
+  };
+
   const handlePayClick = () => {
     if (memberDues.balance <= 0) {
       toast.error('No outstanding balance to pay');
@@ -82,6 +101,8 @@ const PayDuesButton: React.FC<PayDuesButtonProps> = ({
   const handlePaymentSuccess = () => {
     setShowCheckout(false);
     toast.success('Payment successful!');
+    // Refresh pending payment status
+    checkPendingPayment();
     onPaymentSuccess();
   };
 
@@ -139,6 +160,36 @@ const PayDuesButton: React.FC<PayDuesButtonProps> = ({
         </svg>
         Checking...
       </button>
+    );
+  }
+
+  // Show pending payment state if a payment is already in progress
+  if (pendingPayment) {
+    const isProcessing = pendingPayment.status === 'processing';
+    const paymentType = pendingPayment.payment_method_type === 'us_bank_account' ? 'Bank transfer' : 'Card payment';
+
+    return (
+      <div className="space-y-2">
+        <div
+          className={`${getButtonStyles()} ${className} bg-amber-500 dark:bg-amber-600 hover:bg-amber-500 dark:hover:bg-amber-600 cursor-default`}
+        >
+          <Clock className={`mr-2 ${getIconSize()} animate-pulse`} />
+          {variant === 'small' ? 'Processing' : 'Payment Processing'}
+        </div>
+        {variant !== 'small' && (
+          <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 flex items-start">
+            <Clock className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 mr-2 flex-shrink-0" />
+            <div className="text-sm text-amber-800 dark:text-amber-200">
+              <p className="font-medium">{paymentType} {isProcessing ? 'is processing' : 'is pending'}</p>
+              <p className="text-amber-700 dark:text-amber-300 mt-1">
+                {pendingPayment.payment_method_type === 'us_bank_account'
+                  ? 'Bank transfers typically take 3-5 business days to complete.'
+                  : 'Your payment is being processed.'}
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
     );
   }
 

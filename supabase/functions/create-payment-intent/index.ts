@@ -137,6 +137,22 @@ serve(async (req) => {
       throw new Error('No outstanding balance to pay')
     }
 
+    // Check for existing pending/processing payment intent to prevent duplicates
+    // This is especially important for ACH payments which take 3-5 business days
+    const { data: existingIntent } = await supabaseAdmin
+      .from('payment_intents')
+      .select('id, status, created_at, payment_method_type')
+      .eq('member_dues_id', member_dues_id)
+      .in('status', ['pending', 'processing'])
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (existingIntent) {
+      const paymentType = existingIntent.payment_method_type === 'us_bank_account' ? 'bank transfer' : 'card payment'
+      throw new Error(`A ${paymentType} is already ${existingIntent.status} for these dues. Please wait for it to complete or contact support if you need to cancel it.`)
+    }
+
     // Determine payment amount (defaults to full balance)
     const amountToPay = payment_amount && payment_amount > 0 && payment_amount <= memberDues.balance
       ? payment_amount
@@ -178,29 +194,14 @@ serve(async (req) => {
     // Calculate amounts in cents
     const duesAmountCents = Math.round(amountToPay * 100)
 
-    // Calculate platform fee (if any) - this will be added ON TOP of dues
-    const platformFeePercentage = parseFloat(Deno.env.get('STRIPE_PLATFORM_FEE_PERCENTAGE') || '0')
-    const accountPlatformFee = stripeAccount.platform_fee_percentage || 0
-    const totalPlatformFeePercentage = Math.max(platformFeePercentage, accountPlatformFee)
+    // Fee constants
+    const STRIPE_CARD_PERCENTAGE = 0.029      // 2.9%
+    const STRIPE_CARD_FIXED_CENTS = 30        // $0.30
+    const STRIPE_ACH_PERCENTAGE = 0.008       // 0.8%
+    const STRIPE_ACH_CAP_CENTS = 500          // $5.00 cap
+    const PLATFORM_FEE_PERCENTAGE = 0.01      // 1%
 
-    // Fee is calculated on the dues amount and added to the total charge
-    const platformFeeCents = Math.round(duesAmountCents * (totalPlatformFeePercentage / 100))
-
-    // Total charge = dues + fee (member pays the fee, chapter receives full dues amount)
-    const totalChargeCents = duesAmountCents + platformFeeCents
-
-    console.log('Creating payment intent:', {
-      dues_amount: duesAmountCents,
-      platform_fee: platformFeeCents,
-      total_charge: totalChargeCents,
-      chapter_receives: duesAmountCents,
-      connected_account: stripeAccount.stripe_account_id,
-      customer_id: stripeCustomerId || 'none (will be created on first payment)',
-      using_saved_method: !!payment_method_id,
-      save_for_future: !!save_payment_method
-    })
-
-    // Determine the effective payment method type
+    // Determine the effective payment method type (may be overridden by saved method)
     let effectivePaymentMethodType = payment_method_type
 
     // If using a saved payment method, verify ownership and get its type
@@ -220,17 +221,63 @@ serve(async (req) => {
       effectivePaymentMethodType = savedMethod.type
     }
 
-    // Create Stripe Payment Intent with customer if available
-    // Member pays: dues + fee. Chapter receives: full dues amount.
-    const paymentIntentParams: Stripe.PaymentIntentCreateParams = {
-      amount: totalChargeCents, // Total charge including fee
-      currency: 'usd',
-      payment_method_types: ['card', 'us_bank_account'],
+    // Calculate platform fee (1% of dues - platform revenue)
+    const platformFeeCents = Math.round(duesAmountCents * PLATFORM_FEE_PERCENTAGE)
 
-      // Stripe Connect: Fee goes to platform, rest goes to chapter
-      application_fee_amount: platformFeeCents,
+    // NEW FEE STRUCTURE:
+    // - ACH: Member pays $0 fees, chapter absorbs Stripe + platform fees
+    // - Card: Member pays Stripe fees, chapter absorbs platform fee only
+    let chargeAmountCents: number
+    let stripeFeeCents: number
+    let transferAmountCents: number
+
+    if (effectivePaymentMethodType === 'card') {
+      // CARD: Member pays dues + Stripe processing fees
+      // Reverse calculate so after Stripe takes their cut, we have exactly dues
+      chargeAmountCents = Math.ceil((duesAmountCents + STRIPE_CARD_FIXED_CENTS) / (1 - STRIPE_CARD_PERCENTAGE))
+      stripeFeeCents = chargeAmountCents - duesAmountCents
+      // Chapter receives: dues - platform fee (1%)
+      transferAmountCents = duesAmountCents - platformFeeCents
+    } else {
+      // ACH: Member pays just dues (no extra fees!)
+      chargeAmountCents = duesAmountCents
+      // Calculate ACH fee (0.8% capped at $5)
+      stripeFeeCents = Math.min(Math.ceil(duesAmountCents * STRIPE_ACH_PERCENTAGE), STRIPE_ACH_CAP_CENTS)
+      // Chapter receives: dues - ACH fee - platform fee
+      transferAmountCents = duesAmountCents - stripeFeeCents - platformFeeCents
+    }
+
+    // Total charge is what member pays
+    const totalChargeCents = chargeAmountCents
+
+    console.log('Creating payment intent:', {
+      dues_amount: duesAmountCents,
+      stripe_fee: stripeFeeCents,
+      platform_fee: platformFeeCents,
+      member_pays: totalChargeCents,
+      chapter_receives: transferAmountCents,
+      payment_method_type: effectivePaymentMethodType,
+      connected_account: stripeAccount.stripe_account_id,
+      customer_id: stripeCustomerId || 'none (will be created on first payment)',
+      using_saved_method: !!payment_method_id,
+      save_for_future: !!save_payment_method
+    })
+
+    // Create Stripe Payment Intent with customer if available
+    // ACH: Member pays dues only, chapter absorbs all fees
+    // Card: Member pays dues + Stripe fees, chapter absorbs platform fee
+    // Note: application_fee_amount and transfer_data.amount are mutually exclusive
+    // We use transfer_data.amount to explicitly control chapter payout
+    // Platform keeps: totalChargeCents - transferAmountCents - Stripe fees
+    const paymentIntentParams: Stripe.PaymentIntentCreateParams = {
+      amount: totalChargeCents, // What member pays
+      currency: 'usd',
+      payment_method_types: [effectivePaymentMethodType],
+
+      // Stripe Connect: Explicit transfer amount to chapter
       transfer_data: {
         destination: stripeAccount.stripe_account_id,
+        amount: transferAmountCents, // What chapter receives after all fees
       },
 
       // Metadata for tracking
@@ -293,16 +340,22 @@ serve(async (req) => {
         stripe_payment_intent_id: paymentIntent.id,
         stripe_client_secret: paymentIntent.client_secret,
         amount: amountToPay,
-        platform_fee: platformFeeCents / 100,
-        net_amount: duesAmountCents / 100, // Chapter receives full dues amount
+        platform_fee: (stripeFeeCents + platformFeeCents) / 100, // Combined fees
+        net_amount: transferAmountCents / 100, // What chapter receives after all fees
         currency: 'usd',
-        payment_method_type,
+        payment_method_type: effectivePaymentMethodType,
         status: 'pending',
       })
 
     if (insertError) {
       console.error('Error storing payment intent:', insertError)
-      // Continue anyway - Stripe payment intent created
+      // Cancel the Stripe payment intent since we can't track it
+      try {
+        await stripe.paymentIntents.cancel(paymentIntent.id)
+      } catch (cancelError) {
+        console.error('Failed to cancel payment intent:', cancelError)
+      }
+      throw new Error('Failed to initialize payment tracking. Please try again.')
     }
 
     // Build response based on payment intent status
@@ -311,9 +364,11 @@ serve(async (req) => {
       client_secret: paymentIntent.client_secret,
       payment_intent_id: paymentIntent.id,
       dues_amount: amountToPay, // Original dues amount
-      processing_fee: platformFeeCents / 100, // Fee charged to member
+      stripe_fee: stripeFeeCents / 100, // Stripe processing fee
+      platform_fee: platformFeeCents / 100, // GreekPay platform fee (0.5%)
       total_charge: totalChargeCents / 100, // Total member pays
       chapter_receives: duesAmountCents / 100, // What chapter gets (full dues)
+      payment_method_type: effectivePaymentMethodType,
       status: paymentIntent.status,
     }
 

@@ -4,6 +4,9 @@ export default {
   darkMode: 'class',
   theme: {
     extend: {
+      screens: {
+        'xs': '375px',
+      },
       colors: {
         // Chapter-specific dynamic colors using CSS custom properties
         // These will be set by ChapterThemeContext based on the current chapter
