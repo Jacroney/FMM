@@ -27,16 +27,13 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
 import Stripe from 'https://esm.sh/stripe@14.5.0?target=deno'
+import { getCorsHeaders, handleCorsPreflightRequest } from '../_shared/cors.ts'
+import { checkRateLimit, getIdentifier, rateLimitResponse, RATE_LIMITS } from '../_shared/rate-limit.ts'
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
   apiVersion: '2023-10-16',
   httpClient: Stripe.createFetchHttpClient()
 })
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
 
 // Fee calculation constants
 const STRIPE_CARD_PERCENTAGE = 0.029
@@ -64,9 +61,12 @@ function calculateTotalCharge(amount: number, paymentMethodType: string): number
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
-  }
+  // Handle CORS preflight requests
+  const corsResponse = handleCorsPreflightRequest(req)
+  if (corsResponse) return corsResponse
+
+  const origin = req.headers.get('origin')
+  const corsHeaders = getCorsHeaders(origin)
 
   try {
     const supabaseAdmin = createClient(
@@ -84,6 +84,18 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token)
     if (userError || !user) {
       throw new Error('Unauthorized')
+    }
+
+    // SECURITY: Rate limiting to prevent payment abuse
+    const rateLimitIdentifier = getIdentifier(req, user.id, RATE_LIMITS.payment)
+    const rateLimitResult = await checkRateLimit(
+      supabaseAdmin,
+      'create-installment-plan',
+      rateLimitIdentifier,
+      RATE_LIMITS.payment
+    )
+    if (!rateLimitResult.allowed) {
+      return rateLimitResponse(rateLimitResult, corsHeaders)
     }
 
     // Parse request
