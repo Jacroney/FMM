@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
+import { YEAR_OPTIONS, YearValue } from '../utils/yearUtils';
 
 interface ProfileEditModalProps {
   isOpen: boolean;
@@ -30,7 +31,7 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
   const [formData, setFormData] = useState({
     full_name: '',
     phone_number: '',
-    year: '' as 'Freshman' | 'Sophomore' | 'Junior' | 'Senior' | 'Graduate' | 'Alumni' | '',
+    year: '' as YearValue | '',
     major: '',
     position: ''
   });
@@ -178,12 +179,9 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
               disabled={isSubmitting}
             >
               <option value="">Select year</option>
-              <option value="Freshman">Freshman</option>
-              <option value="Sophomore">Sophomore</option>
-              <option value="Junior">Junior</option>
-              <option value="Senior">Senior</option>
-              <option value="Graduate">Graduate</option>
-              <option value="Alumni">Alumni</option>
+              {YEAR_OPTIONS.map(({ value, label }) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
             </select>
           </div>
 

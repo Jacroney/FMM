@@ -167,7 +167,7 @@ export interface Member {
   full_name: string;
   email: string;
   status: 'active' | 'inactive' | 'pledge' | 'alumni';
-  member_year?: 'Freshman' | 'Sophomore' | 'Junior' | 'Senior' | 'Graduate' | 'Alumni';
+  member_year?: '1' | '2' | '3' | '4' | 'Graduate' | 'Alumni';
   phone_number?: string;
   major?: string;
   position?: string;
@@ -194,10 +194,10 @@ export interface DuesConfiguration {
   is_current: boolean;
 
   // Dues amounts by year/class
-  freshman_dues: number;
-  sophomore_dues: number;
-  junior_dues: number;
-  senior_dues: number;
+  year_1_dues: number;
+  year_2_dues: number;
+  year_3_dues: number;
+  year_4_dues: number;
   graduate_dues: number;
   alumni_dues: number;
   pledge_dues: number;

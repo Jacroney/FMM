@@ -28,6 +28,7 @@ import StripeConnectSetup from './StripeConnectSetup';
 import AssignDuesModal from './AssignDuesModal';
 import InstallmentEligibilityModal from './InstallmentEligibilityModal';
 import toast from 'react-hot-toast';
+import { getYearLabel } from '../utils/yearUtils';
 
 const computeStatsFromSummaries = (
   summaries: MemberDuesSummary[],
@@ -638,7 +639,7 @@ const DuesManagementSection: React.FC<DuesManagementSectionProps> = ({ chapterId
                     <div className="text-xs text-gray-500">{dues.member_email}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                    {dues.member_year || '-'}
+                    {getYearLabel(dues.member_year)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                     {formatCurrency(dues.base_amount)}

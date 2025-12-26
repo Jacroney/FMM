@@ -4,6 +4,7 @@ import { useChapter } from '../../context/ChapterContext';
 import { SignUpData } from '../../services/authService';
 import { supabase } from '../../services/supabaseClient';
 import { useSearchParams } from 'react-router-dom';
+import { YEAR_OPTIONS } from '../../utils/yearUtils';
 
 interface SignupFormProps {
   onSwitchToLogin: () => void;
@@ -28,7 +29,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({ onSwitchToLogin }) => {
     password: '',
     full_name: '',
     phone_number: '',
-    year: 'Freshman',
+    year: '1',
     major: '',
     chapter_id: '',
     position: 'Member',
@@ -112,7 +113,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({ onSwitchToLogin }) => {
         password: '',
         full_name: '',
         phone_number: '',
-        year: 'Freshman',
+        year: '1',
         major: '',
         chapter_id: '',
         position: 'Member',
@@ -136,7 +137,6 @@ export const SignupForm: React.FC<SignupFormProps> = ({ onSwitchToLogin }) => {
     }));
   };
 
-  const years = ['Freshman', 'Sophomore', 'Junior', 'Senior', 'Graduate', 'Alumni'];
   const positions = [
     'Member',
     'President',
@@ -310,8 +310,8 @@ export const SignupForm: React.FC<SignupFormProps> = ({ onSwitchToLogin }) => {
                        focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
                        dark:bg-gray-700 dark:text-white [&>option]:dark:text-white [&>option]:dark:bg-gray-700"
             >
-              {years.map((year) => (
-                <option key={year} value={year}>{year}</option>
+              {YEAR_OPTIONS.map(({ value, label }) => (
+                <option key={value} value={value}>{label}</option>
               ))}
             </select>
           </div>

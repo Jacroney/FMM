@@ -2,6 +2,7 @@ import { supabase } from './supabaseClient';
 import { User, Session } from '@supabase/supabase-js';
 import { isDemoModeEnabled } from '../utils/env';
 import { getDemoUser, getDemoProfile, demoHelpers, demoStore } from '../demo/demoStore';
+import { getYearLabel } from '../utils/yearUtils';
 
 export interface UserProfile {
   id: string;
@@ -9,7 +10,7 @@ export interface UserProfile {
   email: string;
   full_name: string;
   phone_number?: string;
-  year?: 'Freshman' | 'Sophomore' | 'Junior' | 'Senior' | 'Graduate' | 'Alumni';
+  year?: '1' | '2' | '3' | '4' | 'Graduate' | 'Alumni';
   member_year?: string; // Renamed 'year' field from database
   major?: string;
   position?: string;
@@ -538,7 +539,7 @@ export class AuthService {
     const rows = members.map(m => [
       m.full_name,
       m.email,
-      m.year || '',
+      m.year ? getYearLabel(m.year) : '',
       m.status || 'active',
       m.role,
       m.dues_balance?.toFixed(2) || '0.00'
@@ -560,7 +561,7 @@ export class AuthService {
         firstName,
         lastName,
         m.email,
-        m.year || '',
+        m.year ? getYearLabel(m.year) : '',
         m.status || 'active',
         m.phone_number || ''
       ];

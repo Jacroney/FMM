@@ -8,6 +8,7 @@ import DuesManagementSection from '../components/DuesManagementSection';
 import EditMemberModal from '../components/EditMemberModal';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { supabase } from '../services/supabaseClient';
+import { getYearLabel, getYearValue } from '../utils/yearUtils';
 
 const Members = () => {
   const { currentChapter } = useChapter();
@@ -174,7 +175,7 @@ const Members = () => {
                   last_name: lastName,
                   email: email,
                   phone: phone,
-                  year: year,
+                  year: getYearValue(year) || year || null, // Normalize year (accepts both '1' and 'Freshman')
                   status: 'active', // Default status, editable in preview
                   errors: rowErrors,
                   rowIndex: index + 1,
@@ -642,7 +643,7 @@ const Members = () => {
                     {member.phone_number || '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                    {member.year || '-'}
+                    {getYearLabel(member.year)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-center">
                     <input
@@ -705,7 +706,7 @@ const Members = () => {
                     {invitation.phone_number || '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                    {invitation.year || '-'}
+                    {getYearLabel(invitation.year)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-400">
                     -

@@ -28,6 +28,7 @@ import ProfileEditModal from './ProfileEditModal';
 import PaymentHistoryModal from './PaymentHistoryModal';
 import PasswordChangeModal from './PasswordChangeModal';
 import PayDuesButton from './PayDuesButton';
+import { getYearLabel } from '../utils/yearUtils';
 import CircularProgress from './CircularProgress';
 
 const formatCurrency = (amount: number) =>
@@ -485,7 +486,7 @@ export const MemberDashboard: React.FC = () => {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs text-slate-500 dark:text-slate-400">Year</p>
-                    <p className="text-sm font-medium text-slate-900 dark:text-white truncate">{profile?.year || 'Not specified'}</p>
+                    <p className="text-sm font-medium text-slate-900 dark:text-white truncate">{profile?.year ? getYearLabel(profile.year) : 'Not specified'}</p>
                   </div>
                 </div>
 

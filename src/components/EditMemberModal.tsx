@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { AuthService } from '../services/authService';
 import toast from 'react-hot-toast';
+import { YEAR_OPTIONS, YearValue } from '../utils/yearUtils';
 
 interface Member {
   id: string;
@@ -36,7 +37,7 @@ const EditMemberModal: React.FC<EditMemberModalProps> = ({
     full_name: '',
     email: '',
     phone_number: '',
-    year: '' as 'Freshman' | 'Sophomore' | 'Junior' | 'Senior' | 'Graduate' | 'Alumni' | '',
+    year: '' as YearValue | '',
     major: '',
     position: '',
     status: '' as 'active' | 'inactive' | 'pledge' | 'alumni' | '',
@@ -243,12 +244,9 @@ const EditMemberModal: React.FC<EditMemberModalProps> = ({
               disabled={isSubmitting}
             >
               <option value="">Select year</option>
-              <option value="Freshman">Freshman</option>
-              <option value="Sophomore">Sophomore</option>
-              <option value="Junior">Junior</option>
-              <option value="Senior">Senior</option>
-              <option value="Graduate">Graduate</option>
-              <option value="Alumni">Alumni</option>
+              {YEAR_OPTIONS.map(({ value, label }) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
             </select>
           </div>
 
