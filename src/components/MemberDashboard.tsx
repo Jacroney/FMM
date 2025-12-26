@@ -16,11 +16,14 @@ import {
   ArrowRight,
   LogOut,
   Pencil,
+  Calendar,
+  CheckCircle,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { MemberDuesInfo } from '../services/authService';
 import { DuesService } from '../services/duesService';
-import { MemberDuesSummary } from '../services/types';
+import { InstallmentService } from '../services/installmentService';
+import { MemberDuesSummary, InstallmentPlanWithPayments } from '../services/types';
 import ProfileEditModal from './ProfileEditModal';
 import PaymentHistoryModal from './PaymentHistoryModal';
 import PasswordChangeModal from './PasswordChangeModal';
@@ -48,6 +51,7 @@ export const MemberDashboard: React.FC = () => {
   const { profile, getMemberDues, signOut } = useAuth();
   const [duesInfo, setDuesInfo] = useState<MemberDuesInfo | null>(null);
   const [memberDuesSummary, setMemberDuesSummary] = useState<MemberDuesSummary[]>([]);
+  const [installmentPlans, setInstallmentPlans] = useState<InstallmentPlanWithPayments[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Modal states
@@ -72,6 +76,25 @@ export const MemberDashboard: React.FC = () => {
       if (profile?.email) {
         const summary = await DuesService.getMemberDuesSummaryByEmail(profile.email);
         setMemberDuesSummary(summary);
+
+        // Fetch installment plans for each dues item
+        const plans: InstallmentPlanWithPayments[] = [];
+        for (const dues of summary) {
+          try {
+            // First get the active plan by member_dues_id
+            const activePlan = await InstallmentService.getActivePlan(dues.id);
+            if (activePlan) {
+              // Then get the full plan with payments using the plan's id
+              const planWithPayments = await InstallmentService.getPlanWithPayments(activePlan.id);
+              if (planWithPayments) {
+                plans.push(planWithPayments);
+              }
+            }
+          } catch {
+            // No plan for this dues - that's ok
+          }
+        }
+        setInstallmentPlans(plans);
       }
     } catch (error) {
       console.error('Error loading dues info:', error);
@@ -279,6 +302,156 @@ export const MemberDashboard: React.FC = () => {
               )}
             </div>
           </div>
+
+          {/* Active Installment Plans */}
+          {installmentPlans.length > 0 && (
+            <div className="space-y-4">
+              {installmentPlans.map((plan) => {
+                const completedPayments = plan.payments.filter(p => p.status === 'succeeded').length;
+                const progressPercentage = (completedPayments / plan.num_installments) * 100;
+                const nextPayment = plan.payments.find(p => p.status === 'scheduled');
+
+                return (
+                  <div key={plan.id} className="surface-card overflow-hidden">
+                    <div className="p-6">
+                      <div className="flex items-start justify-between gap-4 mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-100 dark:bg-indigo-900/40">
+                            <Calendar className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-slate-900 dark:text-white">Payment Plan Active</h3>
+                            <p className="text-sm text-slate-500 dark:text-slate-400">
+                              {plan.num_installments} payments of {formatCurrency(plan.installment_amount)}
+                            </p>
+                          </div>
+                        </div>
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
+                          plan.status === 'active'
+                            ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+                            : plan.status === 'completed'
+                            ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+                            : 'bg-rose-50 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
+                        }`}>
+                          {plan.status === 'active' ? 'Active' : plan.status === 'completed' ? 'Completed' : 'Cancelled'}
+                        </span>
+                      </div>
+
+                      {/* Progress Bar */}
+                      <div className="mb-4">
+                        <div className="flex items-center justify-between text-sm mb-2">
+                          <span className="text-slate-600 dark:text-slate-400">Progress</span>
+                          <span className="font-medium text-slate-900 dark:text-white">
+                            {completedPayments} of {plan.num_installments} payments
+                          </span>
+                        </div>
+                        <div className="h-2.5 bg-slate-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full transition-all duration-500"
+                            style={{ width: `${progressPercentage}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Payment Schedule */}
+                      <div className="space-y-2">
+                        {plan.payments.map((payment, idx) => (
+                          <div
+                            key={payment.id}
+                            className={`flex items-center justify-between p-3 rounded-lg ${
+                              payment.status === 'succeeded'
+                                ? 'bg-emerald-50 dark:bg-emerald-900/20'
+                                : payment.status === 'scheduled'
+                                ? 'bg-slate-50 dark:bg-gray-700/50'
+                                : payment.status === 'failed'
+                                ? 'bg-rose-50 dark:bg-rose-900/20'
+                                : 'bg-yellow-50 dark:bg-yellow-900/20'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className={`flex h-8 w-8 items-center justify-center rounded-full ${
+                                payment.status === 'succeeded'
+                                  ? 'bg-emerald-500 text-white'
+                                  : payment.status === 'scheduled'
+                                  ? 'bg-slate-300 dark:bg-gray-600 text-slate-600 dark:text-slate-300'
+                                  : payment.status === 'failed'
+                                  ? 'bg-rose-500 text-white'
+                                  : 'bg-yellow-500 text-white'
+                              }`}>
+                                {payment.status === 'succeeded' ? (
+                                  <CheckCircle className="h-4 w-4" />
+                                ) : (
+                                  <span className="text-sm font-medium">{idx + 1}</span>
+                                )}
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium text-slate-900 dark:text-white">
+                                  Payment {idx + 1}
+                                </p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">
+                                  {payment.status === 'succeeded' && payment.processed_at
+                                    ? `Paid ${new Date(payment.processed_at).toLocaleDateString()}`
+                                    : `Due ${new Date(payment.scheduled_date).toLocaleDateString()}`
+                                  }
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                                {formatCurrency(payment.amount)}
+                              </p>
+                              <p className={`text-xs ${
+                                payment.status === 'succeeded'
+                                  ? 'text-emerald-600 dark:text-emerald-400'
+                                  : payment.status === 'failed'
+                                  ? 'text-rose-600 dark:text-rose-400'
+                                  : 'text-slate-500 dark:text-slate-400'
+                              }`}>
+                                {payment.status === 'succeeded' ? 'Paid'
+                                  : payment.status === 'failed' ? 'Failed'
+                                  : payment.status === 'processing' ? 'Processing'
+                                  : 'Scheduled'}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Next Payment Info */}
+                      {nextPayment && plan.status === 'active' && (
+                        <div className="mt-4 p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                          <div className="flex items-start gap-3">
+                            <CreditCard className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5" />
+                            <div>
+                              <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                                Next payment: {formatCurrency(nextPayment.amount)}
+                              </p>
+                              <p className="text-xs text-blue-600 dark:text-blue-300">
+                                Scheduled for {new Date(nextPayment.scheduled_date).toLocaleDateString()}
+                                {plan.payment_method_type && ` via ${plan.payment_method_type === 'card' ? 'Card' : 'Bank Transfer'}`}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Completion Message */}
+                      {plan.status === 'completed' && (
+                        <div className="mt-4 p-4 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
+                          <div className="flex items-center gap-3">
+                            <CheckCircle className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                            <p className="text-sm font-medium text-emerald-800 dark:text-emerald-200">
+                              Payment plan completed! Thank you for your payments.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           {/* Grid Layout for Info and Actions */}
           <div className="grid gap-6 lg:grid-cols-2">

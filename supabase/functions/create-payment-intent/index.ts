@@ -137,11 +137,11 @@ serve(async (req) => {
       throw new Error('No outstanding balance to pay')
     }
 
-    // Check for existing pending/processing payment intent to prevent duplicates
-    // This is especially important for ACH payments which take 3-5 business days
+    // Check for existing pending/processing payment intent
+    // This handles reuse (same payment type) or cancel+recreate (different payment type)
     const { data: existingIntent } = await supabaseAdmin
       .from('payment_intents')
-      .select('id, status, created_at, payment_method_type')
+      .select('id, status, created_at, payment_method_type, stripe_payment_intent_id, stripe_client_secret')
       .eq('member_dues_id', member_dues_id)
       .in('status', ['pending', 'processing'])
       .order('created_at', { ascending: false })
@@ -149,8 +149,40 @@ serve(async (req) => {
       .maybeSingle()
 
     if (existingIntent) {
-      const paymentType = existingIntent.payment_method_type === 'us_bank_account' ? 'bank transfer' : 'card payment'
-      throw new Error(`A ${paymentType} is already ${existingIntent.status} for these dues. Please wait for it to complete or contact support if you need to cancel it.`)
+      // If same payment method type and still pending, reuse the existing intent
+      if (existingIntent.payment_method_type === payment_method_type &&
+          existingIntent.status === 'pending' &&
+          existingIntent.stripe_client_secret) {
+        console.log('Reusing existing payment intent:', existingIntent.stripe_payment_intent_id)
+        return new Response(
+          JSON.stringify({
+            success: true,
+            client_secret: existingIntent.stripe_client_secret,
+            payment_intent_id: existingIntent.stripe_payment_intent_id,
+            amount: memberDues.balance,
+            reused: true
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      // If processing (ACH in progress), don't allow changes
+      if (existingIntent.status === 'processing') {
+        const paymentType = existingIntent.payment_method_type === 'us_bank_account' ? 'bank transfer' : 'card payment'
+        throw new Error(`A ${paymentType} is already processing for these dues. Please wait for it to complete.`)
+      }
+
+      // Different payment method type - cancel the old intent and create new
+      console.log('Canceling existing intent for new payment method type:', existingIntent.stripe_payment_intent_id)
+      try {
+        await stripe.paymentIntents.cancel(existingIntent.stripe_payment_intent_id)
+      } catch (cancelErr) {
+        console.log('Could not cancel Stripe intent (may already be cancelled):', cancelErr)
+      }
+      await supabaseAdmin
+        .from('payment_intents')
+        .update({ status: 'canceled' })
+        .eq('id', existingIntent.id)
     }
 
     // Determine payment amount (defaults to full balance)

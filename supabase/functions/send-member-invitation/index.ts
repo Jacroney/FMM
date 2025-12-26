@@ -83,14 +83,12 @@ serve(async (req) => {
       chapterDisplayName = chapter?.name || 'Your Chapter'
     }
 
-    // Build invitation URL
-    // TODO: Remove localhost override after testing - use FRONTEND_URL env var in production
-    // const frontendUrl = Deno.env.get('FRONTEND_URL')
-    // if (!frontendUrl) {
-    //   throw new Error('FRONTEND_URL environment variable is required')
-    // }
-    const frontendUrl = 'http://localhost:5173' // TEMPORARY: Testing with localhost
-    const invitationUrl = `${frontendUrl}/invite?token=${invitation_token}&type=member`
+    // Build invitation URL - points to sign-in page with token
+    const frontendUrl = Deno.env.get('FRONTEND_URL')
+    if (!frontendUrl) {
+      throw new Error('FRONTEND_URL environment variable is required')
+    }
+    const invitationUrl = `${frontendUrl}/signin?token=${invitation_token}`
 
     const displayFirstName = escapeHtml(first_name || invitation.first_name)
     const displayChapterName = escapeHtml(chapterDisplayName)

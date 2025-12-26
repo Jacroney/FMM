@@ -428,6 +428,19 @@ const Members = () => {
     }
   };
 
+  // Toggle installment eligibility
+  const handleToggleInstallmentEligible = async (memberId, currentValue) => {
+    try {
+      await AuthService.setMemberInstallmentEligible(memberId, !currentValue);
+      setMembers(prev => prev.map(m =>
+        m.id === memberId ? { ...m, installment_eligible: !currentValue } : m
+      ));
+      showNotification('Payment plan eligibility updated');
+    } catch (error) {
+      showNotification('Failed to update eligibility', 'error');
+    }
+  };
+
   // Export members
   const handleExport = (format) => {
     try {
@@ -625,9 +638,10 @@ const Members = () => {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Name</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Email</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Phone</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Year</th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Payment Plan</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Dues Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Payment Date</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
@@ -648,36 +662,28 @@ const Members = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                     {member.email}
                   </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    {member.phone_number || '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    {member.year || '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                    <input
+                      type="checkbox"
+                      checked={member.installment_eligible || false}
+                      onChange={() => handleToggleInstallmentEligible(member.id, member.installment_eligible)}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
+                      title="Allow payment plans"
+                    />
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
                       {member.status || 'Active'}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      member.duesPaid
-                        ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200'
-                        : 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200'
-                    }`}>
-                      {member.duesPaid ? 'Paid' : 'Unpaid'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                    {member.paymentDate || '-'}
-                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                     <div className="flex items-center space-x-2">
-                      <button
-                        onClick={() => togglePaymentStatus(member.id)}
-                        className={`px-3 py-1 rounded transition-colors ${
-                          member.duesPaid
-                            ? 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 hover:bg-red-200 dark:hover:bg-red-800'
-                            : 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 hover:bg-green-200 dark:hover:bg-green-800'
-                        }`}
-                      >
-                        {member.duesPaid ? 'Mark Unpaid' : 'Mark Paid'}
-                      </button>
-
                       {/* Edit Button - only show if hasAdminAccess */}
                       {hasAdminAccess && (
                         <button
@@ -719,18 +725,19 @@ const Members = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                     {invitation.email}
                   </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    {invitation.phone_number || '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    {invitation.year || '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-400">
+                    -
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200">
                       Invited
                     </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
-                      Pending
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                    -
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
                     <button
@@ -755,7 +762,7 @@ const Members = () => {
               {/* Empty state */}
               {filteredMembers.length === 0 && filteredInvitations.length === 0 && (
                 <tr>
-                  <td colSpan="6" className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                  <td colSpan="7" className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
                     No members found. Import members using the button above.
                   </td>
                 </tr>

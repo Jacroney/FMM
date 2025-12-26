@@ -6,10 +6,12 @@ import {
   useStripe,
   useElements,
 } from '@stripe/react-stripe-js';
-import { X, CreditCard, Building2, AlertCircle, CheckCircle, Trash2 } from 'lucide-react';
+import { X, CreditCard, Building2, AlertCircle, CheckCircle, Trash2, Calendar, ChevronRight } from 'lucide-react';
 import { PaymentService } from '../services/paymentService';
+import { InstallmentService } from '../services/installmentService';
+import { supabase } from '../services/supabaseClient';
 import { formatCurrency } from '../utils/currency';
-import { MemberDuesSummary, SavedPaymentMethod } from '../services/types';
+import { MemberDuesSummary, SavedPaymentMethod, InstallmentEligibility, InstallmentPlan } from '../services/types';
 import toast from 'react-hot-toast';
 
 // Initialize Stripe
@@ -214,12 +216,24 @@ const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
   const [usingSavedMethod, setUsingSavedMethod] = useState(false);
   const [paymentComplete, setPaymentComplete] = useState(false);
 
+  // Installment plan state
+  const [installmentEligibility, setInstallmentEligibility] = useState<InstallmentEligibility | null>(null);
+  const [activePlan, setActivePlan] = useState<InstallmentPlan | null>(null);
+  const [showInstallmentOption, setShowInstallmentOption] = useState(false);
+  const [selectedInstallmentPlan, setSelectedInstallmentPlan] = useState<number | null>(null);
+  const [selectedInstallmentMethod, setSelectedInstallmentMethod] = useState<string>('');
+  const [creatingInstallmentPlan, setCreatingInstallmentPlan] = useState(false);
+
   useEffect(() => {
     if (isOpen && memberDues.balance > 0) {
       loadSavedPaymentMethods();
+      loadInstallmentData();
       setPaymentComplete(false);
       setSelectedSavedMethod(null);
       setUsingSavedMethod(false);
+      setShowInstallmentOption(false);
+      setSelectedInstallmentPlan(null);
+      setSelectedInstallmentMethod('');
     }
   }, [isOpen, memberDues.id]);
 
@@ -238,6 +252,74 @@ const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
     } catch (err) {
       console.error('Error loading saved payment methods:', err);
       // Don't show error - just continue without saved methods
+    }
+  };
+
+  const loadInstallmentData = async () => {
+    try {
+      const [eligibility, plan, memberProfile] = await Promise.all([
+        InstallmentService.getEligibility(memberDues.id),
+        InstallmentService.getActivePlan(memberDues.id),
+        // Also check member-level eligibility
+        supabase
+          .from('user_profiles')
+          .select('installment_eligible')
+          .eq('id', memberDues.member_id)
+          .single()
+      ]);
+
+      // Member is eligible if either per-dues OR per-member eligibility is true
+      const memberEligible = memberProfile?.data?.installment_eligible === true;
+
+      if (memberEligible && !eligibility) {
+        // Create a synthetic eligibility object for member-level eligibility
+        setInstallmentEligibility({
+          id: 'member-level',
+          member_dues_id: memberDues.id,
+          chapter_id: memberDues.chapter_id,
+          is_eligible: true,
+          allowed_plans: [2, 3], // Default plan options
+          enabled_by: null,
+          enabled_at: null,
+          notes: null,
+        });
+      } else {
+        setInstallmentEligibility(eligibility);
+      }
+
+      setActivePlan(plan);
+    } catch (err) {
+      console.error('Error loading installment data:', err);
+    }
+  };
+
+  const handleCreateInstallmentPlan = async () => {
+    if (!selectedInstallmentPlan || !selectedInstallmentMethod) {
+      toast.error('Please select a payment plan and payment method');
+      return;
+    }
+
+    setCreatingInstallmentPlan(true);
+    try {
+      const response = await InstallmentService.createPlan(
+        memberDues.id,
+        selectedInstallmentPlan,
+        selectedInstallmentMethod
+      );
+
+      if (response.success && response.first_payment_client_secret) {
+        // Set up to process the first payment
+        setClientSecret(response.first_payment_client_secret);
+        setShowInstallmentOption(false);
+        toast.success(`Installment plan created! Processing first payment of ${formatCurrency(response.first_payment_amount || 0)}`);
+      } else if (response.error) {
+        toast.error(response.error);
+      }
+    } catch (err: any) {
+      console.error('Error creating installment plan:', err);
+      toast.error(err.message || 'Failed to create installment plan');
+    } finally {
+      setCreatingInstallmentPlan(false);
     }
   };
 
@@ -424,8 +506,132 @@ const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
             </div>
           </div>
 
+          {/* Installment Plan Option */}
+          {installmentEligibility?.is_eligible && savedMethods.length > 0 && !paymentComplete && !activePlan && (
+            <div className="mb-6">
+              {!showInstallmentOption ? (
+                <button
+                  onClick={() => setShowInstallmentOption(true)}
+                  className="w-full flex items-center justify-between p-4 bg-purple-50 dark:bg-purple-900/20 border-2 border-purple-200 dark:border-purple-800 rounded-lg hover:border-purple-400 dark:hover:border-purple-600 transition-all"
+                >
+                  <div className="flex items-center">
+                    <Calendar className="w-5 h-5 text-purple-600 dark:text-purple-400 mr-3" />
+                    <div className="text-left">
+                      <p className="font-medium text-gray-900 dark:text-white">Pay in Installments</p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">
+                        Split into {installmentEligibility.allowed_plans.join(' or ')} monthly payments
+                      </p>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                </button>
+              ) : (
+                <div className="bg-purple-50 dark:bg-purple-900/20 border-2 border-purple-200 dark:border-purple-800 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-semibold text-gray-900 dark:text-white flex items-center">
+                      <Calendar className="w-5 h-5 text-purple-600 dark:text-purple-400 mr-2" />
+                      Installment Payment Plan
+                    </h3>
+                    <button
+                      onClick={() => setShowInstallmentOption(false)}
+                      className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Plan Selection */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Select Payment Plan
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {installmentEligibility.allowed_plans.map(plan => (
+                        <button
+                          key={plan}
+                          type="button"
+                          onClick={() => setSelectedInstallmentPlan(plan)}
+                          className={`p-3 rounded-lg border-2 transition-all text-center ${
+                            selectedInstallmentPlan === plan
+                              ? 'border-purple-500 bg-purple-100 dark:bg-purple-900/40'
+                              : 'border-gray-200 dark:border-gray-600 hover:border-purple-300'
+                          }`}
+                        >
+                          <p className="font-bold text-gray-900 dark:text-white">{plan} Payments</p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            {formatCurrency(memberDues.balance / plan)}/mo
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Payment Method Selection */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Payment Method (for auto-pay)
+                    </label>
+                    <select
+                      value={selectedInstallmentMethod}
+                      onChange={(e) => setSelectedInstallmentMethod(e.target.value)}
+                      className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    >
+                      <option value="">Select a saved payment method</option>
+                      {savedMethods.map(method => (
+                        <option key={method.id} value={method.stripe_payment_method_id}>
+                          {method.brand} ****{method.last4}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Info */}
+                  <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 mb-4 text-sm text-blue-800 dark:text-blue-200">
+                    <p>Your first payment will be charged today. Remaining payments will be automatically charged monthly.</p>
+                  </div>
+
+                  {/* Action Button */}
+                  <button
+                    onClick={handleCreateInstallmentPlan}
+                    disabled={!selectedInstallmentPlan || !selectedInstallmentMethod || creatingInstallmentPlan}
+                    className="w-full px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center justify-center"
+                  >
+                    {creatingInstallmentPlan ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Creating Plan...
+                      </>
+                    ) : selectedInstallmentPlan ? (
+                      `Start ${selectedInstallmentPlan}-Payment Plan`
+                    ) : (
+                      'Select a Plan'
+                    )}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Active Installment Plan Notice */}
+          {activePlan && !paymentComplete && (
+            <div className="mb-6 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+              <div className="flex items-center">
+                <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 mr-3" />
+                <div>
+                  <p className="font-medium text-green-800 dark:text-green-200">
+                    Active Installment Plan
+                  </p>
+                  <p className="text-sm text-green-600 dark:text-green-300">
+                    {activePlan.installments_paid} of {activePlan.num_installments} payments completed.
+                    Next payment: {activePlan.next_payment_date}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Saved Payment Methods */}
-          {savedMethods.length > 0 && !paymentComplete && (
+          {savedMethods.length > 0 && !paymentComplete && !showInstallmentOption && (
             <div className="mb-6">
               <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Saved Payment Methods</h3>
               <div className="space-y-2">
