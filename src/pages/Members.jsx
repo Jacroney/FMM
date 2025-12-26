@@ -403,30 +403,6 @@ const Members = () => {
     }
   };
 
-  // Toggle payment status with audit trail
-  const togglePaymentStatus = async (memberId) => {
-    try {
-      const member = members.find(m => m.id === memberId);
-      if (!member) return;
-
-      await AuthService.updatePaymentStatus(memberId, !member.duesPaid);
-      setMembers(prevMembers =>
-        prevMembers.map(member =>
-          member.id === memberId
-            ? {
-                ...member,
-                duesPaid: !member.duesPaid,
-                paymentDate: !member.duesPaid ? new Date().toISOString().split('T')[0] : null,
-                lastUpdated: new Date().toISOString()
-              }
-            : member
-        )
-      );
-      showNotification(`Payment status updated for ${member.full_name || 'member'}`);
-    } catch (error) {
-      showNotification('Failed to update payment status', 'error');
-    }
-  };
 
   // Toggle installment eligibility
   const handleToggleInstallmentEligible = async (memberId, currentValue) => {
