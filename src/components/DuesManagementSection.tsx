@@ -10,7 +10,8 @@ import {
   RefreshCw,
   Edit2,
   MailPlus,
-  Trash2
+  Trash2,
+  Calendar
 } from 'lucide-react';
 import { DuesService } from '../services/duesService';
 import { formatCurrency } from '../utils/currency';
@@ -25,6 +26,7 @@ import DuesConfigurationModal from './DuesConfigurationModal';
 import PayDuesButton from './PayDuesButton';
 import StripeConnectSetup from './StripeConnectSetup';
 import AssignDuesModal from './AssignDuesModal';
+import InstallmentEligibilityModal from './InstallmentEligibilityModal';
 import toast from 'react-hot-toast';
 
 const computeStatsFromSummaries = (
@@ -118,6 +120,10 @@ const DuesManagementSection: React.FC<DuesManagementSectionProps> = ({ chapterId
 
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Installment eligibility modal
+  const [showInstallmentModal, setShowInstallmentModal] = useState(false);
+  const [installmentMemberDues, setInstallmentMemberDues] = useState<MemberDuesSummary | null>(null);
 
   const applyDemoData = useCallback(() => {
     if (!demoData) return;
@@ -668,6 +674,18 @@ const DuesManagementSection: React.FC<DuesManagementSectionProps> = ({ chapterId
                         onPaymentSuccess={loadData}
                         variant="small"
                       />
+                      {/* Installment Eligibility Button */}
+                      <button
+                        onClick={() => {
+                          setInstallmentMemberDues(dues);
+                          setShowInstallmentModal(true);
+                        }}
+                        disabled={dues.balance <= 0 || isDemo}
+                        className="px-3 py-1.5 bg-purple-600 text-white text-xs rounded hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                        title="Configure installment payment eligibility"
+                      >
+                        <Calendar className="w-3 h-3" />
+                      </button>
                       {/* Admin Manual Payment Button */}
                       <button
                         onClick={() => openPaymentModal(dues)}
@@ -838,6 +856,20 @@ const DuesManagementSection: React.FC<DuesManagementSectionProps> = ({ chapterId
             </form>
           </div>
         </div>
+      )}
+
+      {/* Installment Eligibility Modal */}
+      {installmentMemberDues && (
+        <InstallmentEligibilityModal
+          isOpen={showInstallmentModal}
+          onClose={() => {
+            setShowInstallmentModal(false);
+            setInstallmentMemberDues(null);
+          }}
+          memberDues={installmentMemberDues}
+          chapterId={chapterId}
+          onUpdate={loadData}
+        />
       )}
     </div>
   );

@@ -159,14 +159,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           major: '',
           chapter_id: '',
           position: '',
-          role: 'admin',
+          role: 'member',
           dues_balance: 0,
           is_active: true,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         };
 
-        toast.error('Profile could not be loaded from the database. Using temporary admin access.');
+        toast.error('Profile could not be loaded from the database. Please try refreshing the page.');
         setProfile(fallbackProfile);
         return;
       }
@@ -189,14 +189,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         major: '',
         chapter_id: '',
         position: '',
-        role: 'admin',
+        role: 'member',
         dues_balance: 0,
         is_active: true,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
 
-      toast.error('We had trouble loading your profile. Using temporary access.');
+      toast.error('We had trouble loading your profile. Please try refreshing the page.');
       setProfile(fallbackProfile);
     }
   };

@@ -228,6 +228,38 @@ Deno.serve(async (req) => {
         )
       }
 
+      // ================================================
+      // Handle INSTALLMENT payments specially
+      // ================================================
+      const isInstallmentPayment = paymentIntent.metadata?.type === 'installment' ||
+                                   paymentIntent.metadata?.type === 'installment_auto' ||
+                                   paymentIntent.metadata?.installment_payment_id
+
+      if (isInstallmentPayment) {
+        console.log('Processing installment payment:', paymentIntent.id)
+
+        const installmentPaymentId = paymentIntent.metadata?.installment_payment_id
+        const installmentPlanId = paymentIntent.metadata?.installment_plan_id
+
+        if (installmentPaymentId) {
+          // Record the installment payment success using database function
+          const { data: installmentResult, error: installmentError } = await supabase
+            .rpc('record_installment_payment', {
+              p_installment_payment_id: installmentPaymentId,
+              p_stripe_payment_intent_id: paymentIntent.id,
+              p_payment_intent_id: intent.id
+            })
+
+          if (installmentError) {
+            console.error('Error recording installment payment:', installmentError)
+          } else {
+            console.log('Installment payment recorded:', installmentResult)
+          }
+        }
+
+        // Continue to record as regular dues payment below
+      }
+
       // Map Stripe payment method to valid dues_payments constraint values
       const paymentMethodMap: Record<string, string> = {
         'card': 'Credit Card',
@@ -389,6 +421,44 @@ Deno.serve(async (req) => {
           updated_at: new Date().toISOString()
         })
         .eq('stripe_payment_intent_id', paymentIntent.id)
+
+      // ================================================
+      // Handle INSTALLMENT payment failures
+      // ================================================
+      const isInstallmentPayment = paymentIntent.metadata?.type === 'installment' ||
+                                   paymentIntent.metadata?.type === 'installment_auto' ||
+                                   paymentIntent.metadata?.installment_payment_id
+
+      if (isInstallmentPayment) {
+        console.log('Processing installment payment failure:', paymentIntent.id)
+
+        const installmentPaymentId = paymentIntent.metadata?.installment_payment_id
+        const installmentPlanId = paymentIntent.metadata?.installment_plan_id
+
+        if (installmentPaymentId) {
+          // Get the installment plan to check late fee settings
+          const { data: plan } = await supabase
+            .from('installment_plans')
+            .select('late_fee_enabled')
+            .eq('id', installmentPlanId)
+            .single()
+
+          // Record the installment payment failure using database function
+          const { error: failError } = await supabase
+            .rpc('fail_installment_payment', {
+              p_installment_payment_id: installmentPaymentId,
+              p_failure_reason: paymentIntent.last_payment_error?.message || 'Payment failed',
+              p_failure_code: paymentIntent.last_payment_error?.code || null,
+              p_apply_late_fee: plan?.late_fee_enabled || false
+            })
+
+          if (failError) {
+            console.error('Error recording installment payment failure:', failError)
+          } else {
+            console.log('Installment payment failure recorded')
+          }
+        }
+      }
 
       // Queue payment failed notification email
       try {

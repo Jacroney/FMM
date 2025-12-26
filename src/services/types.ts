@@ -572,3 +572,107 @@ export interface PaymentSummary {
   manual_amount: number;
   last_payment_date: string | null;
 }
+
+// ============================================================================
+// INSTALLMENT PAYMENT TYPES
+// ============================================================================
+
+export interface InstallmentEligibility {
+  id: string;
+  member_dues_id: string;
+  chapter_id: string;
+  is_eligible: boolean;
+  allowed_plans: number[];  // Array of allowed installment counts, e.g., [2, 3]
+  enabled_by: string | null;
+  enabled_at: string | null;
+  notes: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface InstallmentPlan {
+  id: string;
+  member_dues_id: string;
+  member_id: string;
+  chapter_id: string;
+
+  // Plan configuration
+  total_amount: number;
+  num_installments: number;
+  installment_amount: number;
+
+  // Payment method for auto-charging
+  stripe_payment_method_id: string;
+  payment_method_type: 'card' | 'us_bank_account';
+  payment_method_last4: string | null;
+  payment_method_brand: string | null;
+
+  // Status tracking
+  status: 'active' | 'completed' | 'cancelled' | 'failed';
+  installments_paid: number;
+  amount_paid: number;
+
+  // Dates
+  start_date: string;
+  next_payment_date: string | null;
+  completed_at: string | null;
+  cancelled_at: string | null;
+
+  // Late fee settings
+  late_fee_enabled: boolean;
+  late_fee_amount: number;
+  late_fee_type: 'flat' | 'percentage' | null;
+
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface InstallmentPayment {
+  id: string;
+  installment_plan_id: string;
+  member_dues_id: string;
+
+  // Payment details
+  installment_number: number;
+  amount: number;
+  late_fee: number;
+  total_amount: number;
+
+  // Stripe tracking
+  stripe_payment_intent_id: string | null;
+  payment_intent_id: string | null;
+
+  // Status
+  status: 'scheduled' | 'processing' | 'succeeded' | 'failed' | 'cancelled';
+  scheduled_date: string;
+  processed_at: string | null;
+
+  // Error handling
+  failure_reason: string | null;
+  failure_code: string | null;
+  retry_count: number;
+  next_retry_at: string | null;
+
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface InstallmentPlanWithPayments extends InstallmentPlan {
+  payments: InstallmentPayment[];
+}
+
+export interface CreateInstallmentPlanResponse {
+  success: boolean;
+  plan_id?: string;
+  total_amount?: number;
+  num_installments?: number;
+  installment_amount?: number;
+  first_payment_amount?: number;
+  first_payment_client_secret?: string;
+  schedule?: {
+    installment_number: number;
+    amount: number;
+    scheduled_date: string;
+  }[];
+  error?: string;
+}

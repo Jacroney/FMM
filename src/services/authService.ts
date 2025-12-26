@@ -17,6 +17,7 @@ export interface UserProfile {
   dues_balance: number;
   status?: 'active' | 'inactive' | 'alumni' | 'pledge'; // New unified status field
   is_active: boolean;
+  installment_eligible?: boolean; // Global eligibility for payment plans
   created_at: string;
   updated_at: string;
 }
@@ -786,6 +787,28 @@ export class AuthService {
     } catch (error) {
       console.error('Error canceling invitation:', error);
       return { success: false, error: (error as Error).message };
+    }
+  }
+
+  /**
+   * Set a member's global installment eligibility
+   * When enabled, the member can use payment plans for any current/future dues
+   */
+  static async setMemberInstallmentEligible(memberId: string, eligible: boolean): Promise<void> {
+    if (isDemoModeEnabled()) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('user_profiles')
+        .update({ installment_eligible: eligible })
+        .eq('id', memberId);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error updating installment eligibility:', error);
+      throw error;
     }
   }
 }

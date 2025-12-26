@@ -212,6 +212,7 @@ export class DuesService {
 
   /**
    * Create or update member dues assignment
+   * If member already has dues for this config, the new amount is ADDED to the existing balance
    */
   static async assignDuesToMember(
     chapterId: string,
@@ -225,19 +226,38 @@ export class DuesService {
       // Check if already assigned
       const { data: existing } = await supabase
         .from('member_dues')
-        .select('id')
+        .select('id, base_amount, late_fee, adjustments, amount_paid')
         .eq('member_id', memberId)
         .eq('config_id', configId)
         .single();
 
       if (existing) {
-        // Update existing
+        // Add to existing dues balance
+        const newBaseAmount = (existing.base_amount || 0) + baseAmount;
+        const lateFee = existing.late_fee || 0;
+        const adjustments = existing.adjustments || 0;
+        const newTotalAmount = newBaseAmount + lateFee + adjustments;
+        const newBalance = newTotalAmount - (existing.amount_paid || 0);
+
+        // Determine new status based on balance
+        let newStatus: string;
+        if (newBalance <= 0) {
+          newStatus = 'paid';
+        } else if ((existing.amount_paid || 0) > 0) {
+          newStatus = 'partial';
+        } else {
+          newStatus = 'pending';
+        }
+
         const { data, error } = await supabase
           .from('member_dues')
           .update({
-            base_amount: baseAmount,
+            base_amount: newBaseAmount,
+            total_amount: newTotalAmount,
+            balance: newBalance,
+            status: newStatus,
             due_date: dueDate || null,
-            notes: notes || null
+            notes: notes ? `${existing.notes || ''}\n${notes}`.trim() : existing.notes
           })
           .eq('id', existing.id)
           .select()
@@ -254,6 +274,9 @@ export class DuesService {
             member_id: memberId,
             config_id: configId,
             base_amount: baseAmount,
+            total_amount: baseAmount,
+            balance: baseAmount,
+            amount_paid: 0,
             due_date: dueDate || null,
             notes: notes || null,
             status: 'pending'
