@@ -18,6 +18,9 @@ dist-ssr
 .env.production
 !.env.example
 
+# Internal documentation (contains production URLs)
+CLAUDE.md
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

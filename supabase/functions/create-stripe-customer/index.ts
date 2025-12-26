@@ -12,22 +12,21 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
 import Stripe from 'https://esm.sh/stripe@14.5.0?target=deno'
+import { getCorsHeaders, handleCorsPreflightRequest } from '../_shared/cors.ts'
+import { checkRateLimit, getIdentifier, rateLimitResponse, RATE_LIMITS } from '../_shared/rate-limit.ts'
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
   apiVersion: '2023-10-16',
   httpClient: Stripe.createFetchHttpClient()
 })
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
 serve(async (req) => {
   // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
-  }
+  const corsResponse = handleCorsPreflightRequest(req)
+  if (corsResponse) return corsResponse
+
+  const origin = req.headers.get('origin')
+  const corsHeaders = getCorsHeaders(origin)
 
   try {
     // Create Supabase admin client
@@ -47,6 +46,18 @@ serve(async (req) => {
 
     if (!user_id) {
       throw new Error('user_id is required')
+    }
+
+    // SECURITY: Rate limiting to prevent abuse
+    const rateLimitIdentifier = getIdentifier(req, user_id, RATE_LIMITS.stripeConnect)
+    const rateLimitResult = await checkRateLimit(
+      supabaseAdmin,
+      'create-stripe-customer',
+      rateLimitIdentifier,
+      RATE_LIMITS.stripeConnect
+    )
+    if (!rateLimitResult.allowed) {
+      return rateLimitResponse(rateLimitResult, corsHeaders)
     }
 
     console.log('Creating Stripe customer for user:', user_id)
