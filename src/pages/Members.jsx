@@ -8,7 +8,7 @@ import DuesManagementSection from '../components/DuesManagementSection';
 import EditMemberModal from '../components/EditMemberModal';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { supabase } from '../services/supabaseClient';
-import { getYearLabel, getYearValue } from '../utils/yearUtils';
+import { getYearLabel, getYearValue, YEAR_OPTIONS } from '../utils/yearUtils';
 
 const Members = () => {
   const { currentChapter } = useChapter();
@@ -370,7 +370,7 @@ const Members = () => {
           last_name: lastName || '',
           email: (email || '').toLowerCase(),
           phone: phone || '',
-          year: year || '',
+          year: getYearValue(year) || null, // Normalize year (accepts both '1' and 'Freshman')
           status: 'active', // Default status, editable in preview
           errors: rowErrors,
           rowIndex: index + 1,
@@ -911,16 +911,14 @@ const Members = () => {
                               </td>
                               <td className="px-2 py-1">
                                 <select
-                                  value={member.year}
-                                  onChange={(e) => updateMemberField(idx, 'year', e.target.value)}
-                                  className="w-16 px-1 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                  value={member.year || ''}
+                                  onChange={(e) => updateMemberField(idx, 'year', e.target.value || null)}
+                                  className="w-24 px-1 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                                 >
                                   <option value="">-</option>
-                                  <option value="1">1</option>
-                                  <option value="2">2</option>
-                                  <option value="3">3</option>
-                                  <option value="4">4</option>
-                                  <option value="5">5</option>
+                                  {YEAR_OPTIONS.map(({ value, label }) => (
+                                    <option key={value} value={value}>{label}</option>
+                                  ))}
                                 </select>
                               </td>
                               <td className="px-2 py-1">
