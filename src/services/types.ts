@@ -615,6 +615,7 @@ export interface InstallmentPlan {
   // Dates
   start_date: string;
   next_payment_date: string | null;
+  deadline_date: string | null;
   completed_at: string | null;
   cancelled_at: string | null;
 
@@ -661,6 +662,13 @@ export interface InstallmentPlanWithPayments extends InstallmentPlan {
   payments: InstallmentPayment[];
 }
 
+export interface DeadlineEligibility {
+  eligible: boolean;
+  deadline: string | null;
+  daysRemaining: number;
+  error?: string;
+}
+
 export interface CreateInstallmentPlanResponse {
   success: boolean;
   plan_id?: string;
@@ -669,6 +677,7 @@ export interface CreateInstallmentPlanResponse {
   installment_amount?: number;
   first_payment_amount?: number;
   first_payment_client_secret?: string;
+  deadline_date?: string;
   schedule?: {
     installment_number: number;
     amount: number;

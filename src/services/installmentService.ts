@@ -262,11 +262,13 @@ export class InstallmentService {
   /**
    * Create a new installment plan
    * This calls the edge function which handles Stripe integration
+   * @param skipFirstPayment - If true, first payment has already been processed via Stripe Checkout
    */
   static async createPlan(
     memberDuesId: string,
     numInstallments: number,
-    stripePaymentMethodId: string
+    stripePaymentMethodId: string,
+    skipFirstPayment: boolean = false
   ): Promise<CreateInstallmentPlanResponse> {
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -285,7 +287,8 @@ export class InstallmentService {
           body: JSON.stringify({
             member_dues_id: memberDuesId,
             num_installments: numInstallments,
-            stripe_payment_method_id: stripePaymentMethodId
+            stripe_payment_method_id: stripePaymentMethodId,
+            skip_first_payment: skipFirstPayment
           })
         }
       );
@@ -446,18 +449,125 @@ export class InstallmentService {
   }
 
   /**
-   * Generate payment schedule dates (30 days apart)
+   * Generate payment schedule dates based on deadline
+   * Payments are evenly spaced between today and the deadline
+   * @param startDate - First payment date (typically today)
+   * @param numInstallments - Number of payments
+   * @param deadlineDate - Final payment date (the dues deadline). If not provided, falls back to 30-day intervals.
    */
   static generateScheduleDates(
     startDate: Date,
-    numInstallments: number
+    numInstallments: number,
+    deadlineDate?: Date
   ): Date[] {
     const dates: Date[] = [];
-    for (let i = 0; i < numInstallments; i++) {
-      const date = new Date(startDate);
-      date.setDate(date.getDate() + (i * 30));
-      dates.push(date);
+
+    if (!deadlineDate) {
+      // Legacy fallback to 30-day intervals
+      for (let i = 0; i < numInstallments; i++) {
+        const date = new Date(startDate);
+        date.setDate(date.getDate() + (i * 30));
+        dates.push(date);
+      }
+      return dates;
     }
+
+    // Calculate total days between start and deadline
+    const start = new Date(startDate);
+    start.setHours(0, 0, 0, 0);
+    const deadline = new Date(deadlineDate);
+    deadline.setHours(0, 0, 0, 0);
+
+    const totalDays = Math.floor(
+      (deadline.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)
+    );
+
+    // Calculate interval for equal spacing
+    // For n payments, we have (n-1) intervals
+    const intervalDays = numInstallments > 1 ? totalDays / (numInstallments - 1) : 0;
+
+    for (let i = 0; i < numInstallments; i++) {
+      if (i === numInstallments - 1) {
+        // Last payment is exactly on deadline
+        dates.push(new Date(deadline));
+      } else {
+        const date = new Date(start);
+        date.setDate(date.getDate() + Math.round(i * intervalDays));
+        dates.push(date);
+      }
+    }
+
     return dates;
+  }
+
+  /**
+   * Check if installment plan creation is allowed based on deadline
+   */
+  static async checkDeadlineEligibility(
+    memberDuesId: string
+  ): Promise<{
+    eligible: boolean;
+    deadline: string | null;
+    daysRemaining: number;
+    error?: string;
+  }> {
+    try {
+      const { data, error } = await supabase
+        .from('member_dues')
+        .select(`
+          id,
+          due_date,
+          dues_configuration!inner (
+            due_date
+          )
+        `)
+        .eq('id', memberDuesId)
+        .single();
+
+      if (error) throw error;
+
+      const deadline = data.due_date || (data.dues_configuration as { due_date: string | null })?.due_date;
+
+      if (!deadline) {
+        return {
+          eligible: false,
+          deadline: null,
+          daysRemaining: 0,
+          error: 'No deadline configured for this dues period'
+        };
+      }
+
+      const deadlineDate = new Date(deadline);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      deadlineDate.setHours(0, 0, 0, 0);
+
+      const daysRemaining = Math.floor(
+        (deadlineDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+      );
+
+      if (daysRemaining <= 0) {
+        return {
+          eligible: false,
+          deadline,
+          daysRemaining,
+          error: 'Deadline has already passed'
+        };
+      }
+
+      return {
+        eligible: true,
+        deadline,
+        daysRemaining
+      };
+    } catch (error) {
+      console.error('Error checking deadline eligibility:', error);
+      return {
+        eligible: false,
+        deadline: null,
+        daysRemaining: 0,
+        error: 'Failed to check deadline'
+      };
+    }
   }
 }

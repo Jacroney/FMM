@@ -113,15 +113,15 @@ const PayDuesButton: React.FC<PayDuesButtonProps> = ({
 
   // Determine button styles based on variant
   const getButtonStyles = () => {
-    const baseStyles = 'font-medium transition-all duration-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed';
+    const baseStyles = 'font-semibold transition-all duration-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed';
 
     switch (variant) {
       case 'primary':
-        return `${baseStyles} px-6 py-3 bg-blue-600 dark:bg-blue-700 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-800 shadow-md hover:shadow-lg`;
+        return `${baseStyles} px-6 py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:-translate-y-0.5 active:translate-y-0 disabled:shadow-none disabled:hover:translate-y-0`;
       case 'secondary':
-        return `${baseStyles} px-4 py-2 bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 border-2 border-blue-600 dark:border-blue-500 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-600`;
+        return `${baseStyles} px-4 py-2.5 bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 border-2 border-blue-500 dark:border-blue-500 rounded-xl hover:bg-blue-50 dark:hover:bg-gray-600 hover:border-blue-600 dark:hover:border-blue-400`;
       case 'small':
-        return `${baseStyles} px-3 py-1.5 text-sm bg-blue-600 dark:bg-blue-700 text-white rounded hover:bg-blue-700 dark:hover:bg-blue-800`;
+        return `${baseStyles} px-3 py-1.5 text-sm bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg shadow-sm hover:shadow-md`;
       default:
         return baseStyles;
     }
@@ -138,26 +138,7 @@ const PayDuesButton: React.FC<PayDuesButtonProps> = ({
         disabled
         className={`${getButtonStyles()} ${className}`}
       >
-        <svg
-          className={`animate-spin mr-2 ${getIconSize()}`}
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-        >
-          <circle
-            className="opacity-25"
-            cx="12"
-            cy="12"
-            r="10"
-            stroke="currentColor"
-            strokeWidth="4"
-          ></circle>
-          <path
-            className="opacity-75"
-            fill="currentColor"
-            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-          ></path>
-        </svg>
+        <div className={`animate-spin mr-2 ${getIconSize()} border-2 border-white/30 border-t-white rounded-full`}></div>
         Checking...
       </button>
     );
@@ -169,18 +150,20 @@ const PayDuesButton: React.FC<PayDuesButtonProps> = ({
     const paymentType = pendingPayment.payment_method_type === 'us_bank_account' ? 'Bank transfer' : 'Card payment';
 
     return (
-      <div className="space-y-2">
+      <div className="space-y-3">
         <div
-          className={`${getButtonStyles()} ${className} bg-amber-500 dark:bg-amber-600 hover:bg-amber-500 dark:hover:bg-amber-600 cursor-default`}
+          className={`font-semibold transition-all duration-200 flex items-center justify-center px-6 py-3.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl shadow-lg shadow-amber-500/25 cursor-default ${className}`}
         >
           <Clock className={`mr-2 ${getIconSize()} animate-pulse`} />
           {variant === 'small' ? 'Processing' : 'Payment Processing'}
         </div>
         {variant !== 'small' && (
-          <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 flex items-start">
-            <Clock className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 mr-2 flex-shrink-0" />
+          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl p-4 flex items-start gap-3">
+            <div className="flex-shrink-0 flex h-9 w-9 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/50">
+              <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+            </div>
             <div className="text-sm text-amber-800 dark:text-amber-200">
-              <p className="font-medium">{paymentType} {isProcessing ? 'is processing' : 'is pending'}</p>
+              <p className="font-semibold">{paymentType} {isProcessing ? 'is processing' : 'is pending'}</p>
               <p className="text-amber-700 dark:text-amber-300 mt-1">
                 {pendingPayment.payment_method_type === 'us_bank_account'
                   ? 'Bank transfers typically take 3-5 business days to complete.'
@@ -196,18 +179,20 @@ const PayDuesButton: React.FC<PayDuesButtonProps> = ({
   // Show error state if account is not ready
   if (error) {
     return (
-      <div className="space-y-2">
+      <div className="space-y-3">
         <button
           disabled
-          className={`${getButtonStyles()} ${className} opacity-50 cursor-not-allowed`}
+          className={`font-semibold transition-all duration-200 flex items-center justify-center px-6 py-3.5 bg-gray-400 dark:bg-gray-600 text-white rounded-xl cursor-not-allowed ${className}`}
           title={error}
         >
           <Lock className={`mr-2 ${getIconSize()}`} />
           Pay Online
         </button>
         {variant !== 'small' && (
-          <div className="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 flex items-start">
-            <AlertCircle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 mt-0.5 mr-2 flex-shrink-0" />
+          <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-xl p-4 flex items-start gap-3">
+            <div className="flex-shrink-0 flex h-9 w-9 items-center justify-center rounded-lg bg-yellow-100 dark:bg-yellow-900/50">
+              <AlertCircle className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
+            </div>
             <p className="text-sm text-yellow-800 dark:text-yellow-200">{error}</p>
           </div>
         )}

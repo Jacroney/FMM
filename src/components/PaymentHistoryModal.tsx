@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, CreditCard, Building2, ExternalLink } from 'lucide-react';
+import { X, CreditCard, Building2, ExternalLink, Clock, Receipt, FileText } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { DuesService } from '../services/duesService';
 import { DuesPayment, DuesPaymentOnline, MemberDues } from '../services/types';
@@ -108,83 +108,97 @@ const PaymentHistoryModal: React.FC<PaymentHistoryModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black bg-opacity-50 p-0 sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4">
       <div className="bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-2xl max-h-[92vh] sm:max-h-[90vh] overflow-y-auto animate-slideUp sm:animate-none">
         {/* Drag handle (mobile only) */}
         <div className="sm:hidden flex justify-center pt-3 pb-2">
           <div className="w-12 h-1.5 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
         </div>
 
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
-          <div>
-            <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
-              Payment History
-            </h2>
-            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
-              Your dues payment records
-            </p>
+        {/* Header with gradient */}
+        <div className="bg-gradient-to-r from-purple-600 via-violet-500 to-indigo-600 dark:from-purple-700 dark:via-violet-600 dark:to-indigo-700 px-6 py-5 sm:rounded-t-2xl">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
+                <Receipt className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h2 className="text-lg sm:text-xl font-semibold text-white">
+                  Payment History
+                </h2>
+                <p className="text-xs sm:text-sm text-purple-100 mt-0.5">
+                  Your dues payment records
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-colors active:scale-95 touch-manipulation"
+              aria-label="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors active:scale-95 touch-manipulation"
-            aria-label="Close"
-          >
-            <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-          </button>
         </div>
 
         {/* Content */}
         <div className="p-4 sm:p-6">
           {isLoading ? (
             // Loading State
-            <div className="flex items-center justify-center py-12">
-              <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-blue-500" />
-                Loading payment history...
+            <div className="flex items-center justify-center py-16">
+              <div className="text-center">
+                <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-purple-50 dark:bg-purple-900/30 mb-4">
+                  <div className="animate-spin rounded-full h-7 w-7 border-3 border-purple-200 dark:border-purple-800 border-t-purple-600 dark:border-t-purple-400"></div>
+                </div>
+                <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">Loading payment history...</p>
               </div>
             </div>
           ) : payments.length === 0 ? (
             // Empty State
-            <div className="text-center py-12">
-              <div className="mx-auto h-16 w-16 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center mb-4">
-                <svg className="h-8 w-8 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
+            <div className="text-center py-16">
+              <div className="mx-auto h-20 w-20 rounded-2xl bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/30 dark:to-indigo-900/30 flex items-center justify-center mb-5 border border-purple-100 dark:border-purple-800/50">
+                <FileText className="h-9 w-9 text-purple-400 dark:text-purple-500" />
               </div>
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                No payment history
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                No payment history yet
               </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                You haven't made any dues payments yet.
+              <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xs mx-auto">
+                When you make dues payments, they will appear here for your records.
               </p>
             </div>
           ) : (
             // Payment List
             <>
               {/* Summary Card */}
-              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700/40 rounded-lg p-4 mb-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-blue-800 dark:text-blue-300 font-medium">
-                      Total Payments Made
-                    </p>
-                    <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">
-                      {payments.length} payment{payments.length !== 1 ? 's' : ''} recorded
+              <div className="surface-card overflow-hidden mb-6">
+                <div className="bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 p-4 sm:p-5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100 dark:bg-purple-900/50">
+                        <Clock className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                          Total Payments Made
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {payments.length} payment{payments.length !== 1 ? 's' : ''} recorded
+                        </p>
+                      </div>
+                    </div>
+                    <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                      {formatCurrency(totalPaid)}
                     </p>
                   </div>
-                  <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">
-                    {formatCurrency(totalPaid)}
-                  </p>
                 </div>
               </div>
 
               {/* Payment Table */}
-              <div className="space-y-2.5 sm:space-y-3">
+              <div className="space-y-3">
                 {payments.map((payment) => (
                   <div
                     key={payment.id}
-                    className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 sm:p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors active:scale-[0.99]"
+                    className="border border-[var(--brand-border)] rounded-xl p-4 hover:bg-slate-50 dark:hover:bg-gray-700/50 transition-all duration-200 hover:shadow-sm"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
@@ -262,10 +276,10 @@ const PaymentHistoryModal: React.FC<PaymentHistoryModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="border-t border-gray-200 dark:border-gray-700 p-4 sm:p-6">
+        <div className="border-t border-[var(--brand-border)] p-4 sm:p-6 bg-slate-50/50 dark:bg-gray-800/50">
           <button
             onClick={onClose}
-            className="w-full px-4 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-all active:scale-[0.99] touch-manipulation"
+            className="w-full px-4 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-all active:scale-[0.99] touch-manipulation font-medium"
           >
             Close
           </button>

@@ -352,14 +352,23 @@ export class PaymentService {
   /**
    * Get pending or processing payment intent for a specific dues record
    * Used to prevent duplicate payments (especially for ACH which takes 3-5 days)
+   *
+   * Time-based filtering to exclude stale intents:
+   * - Pending intents: Only consider if less than 30 minutes old
+   * - Processing intents: Only consider if less than 7 days old (ACH takes 3-5 days)
    */
   static async getPendingPaymentForDues(memberDuesId: string): Promise<PaymentIntent | null> {
     try {
+      // Pending intents expire after 30 minutes
+      const pendingCutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+      // Processing intents (ACH) can take up to 7 days
+      const processingCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
       const { data, error } = await supabase
         .from('payment_intents')
         .select('*')
         .eq('member_dues_id', memberDuesId)
-        .in('status', ['pending', 'processing'])
+        .or(`and(status.eq.pending,created_at.gte.${pendingCutoff}),and(status.eq.processing,created_at.gte.${processingCutoff})`)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
