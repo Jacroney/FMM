@@ -329,20 +329,18 @@ deno_version = 2
 verify_jwt = false
 
 # Scheduled functions for email and dues processing
+# NOTE: Schedules must be configured via Supabase Dashboard > Edge Functions > Schedules
 [functions.process-email-queue]
 verify_jwt = false
-# Run every minute to process pending emails
-# schedule = "* * * * *"
+# Schedule: * * * * * (every minute)
 
 [functions.send-payment-reminders]
 verify_jwt = false
-# Run daily at 2 PM UTC (9 AM EST) to send 7-day reminders
-# schedule = "0 14 * * *"
+# Schedule: 0 14 * * * (daily at 2 PM UTC / 9 AM EST)
 
 [functions.process-overdue-dues]
 verify_jwt = false
-# Run daily at 5 AM UTC (midnight EST) to mark dues overdue and apply late fees
-# schedule = "0 5 * * *"
+# Schedule: 0 5 * * * (daily at 5 AM UTC / midnight EST)
 
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
