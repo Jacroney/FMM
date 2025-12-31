@@ -977,6 +977,7 @@ const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
                     </div>
                   )}
                   <Elements
+                    key={clientSecret}
                     stripe={stripePromise}
                     options={{
                       clientSecret,
