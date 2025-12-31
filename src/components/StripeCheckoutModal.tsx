@@ -63,12 +63,14 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
 
     try {
       // Confirm the payment
+      // For ACH (us_bank_account), always redirect to ensure Financial Connections
+      // bank verification completes. Card payments stay on page if possible.
       const { error, paymentIntent } = await stripe.confirmPayment({
         elements,
         confirmParams: {
           return_url: `${window.location.origin}/app/payment-success`,
         },
-        redirect: 'if_required', // Stay on page if possible
+        redirect: paymentMethodType === 'us_bank_account' ? 'always' : 'if_required',
       });
 
       if (error) {
@@ -173,7 +175,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
           {isProcessing ? (
             <>
               <div className="animate-spin rounded-full h-5 w-5 border-2 border-white/30 border-t-white mr-2"></div>
-              Processing...
+              {paymentMethodType === 'us_bank_account' ? 'Verifying Bank...' : 'Processing...'}
             </>
           ) : (
             `Pay ${formatCurrency(totalCharge)}`
