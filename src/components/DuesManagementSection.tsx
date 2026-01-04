@@ -27,6 +27,8 @@ import PayDuesButton from './PayDuesButton';
 import StripeConnectSetup from './StripeConnectSetup';
 import AssignDuesModal from './AssignDuesModal';
 import InstallmentEligibilityModal from './InstallmentEligibilityModal';
+import ApplyCustomLateFeeModal from './ApplyCustomLateFeeModal';
+import EditMemberDuesModal from './EditMemberDuesModal';
 import toast from 'react-hot-toast';
 import { getYearLabel } from '../utils/yearUtils';
 
@@ -125,6 +127,13 @@ const DuesManagementSection: React.FC<DuesManagementSectionProps> = ({ chapterId
   // Installment eligibility modal
   const [showInstallmentModal, setShowInstallmentModal] = useState(false);
   const [installmentMemberDues, setInstallmentMemberDues] = useState<MemberDuesSummary | null>(null);
+
+  // Custom late fee modal
+  const [showCustomLateFeeModal, setShowCustomLateFeeModal] = useState(false);
+
+  // Edit dues modal
+  const [showEditDuesModal, setShowEditDuesModal] = useState(false);
+  const [editingDues, setEditingDues] = useState<MemberDuesSummary | null>(null);
 
   const applyDemoData = useCallback(() => {
     if (!demoData) return;
@@ -576,6 +585,14 @@ const DuesManagementSection: React.FC<DuesManagementSectionProps> = ({ chapterId
               Apply Late Fees
             </button>
             <button
+              onClick={() => setShowCustomLateFeeModal(true)}
+              disabled={isProcessing}
+              className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <DollarSign className="w-4 h-4" />
+              Custom Late Fee
+            </button>
+            <button
               onClick={loadData}
               disabled={isProcessing}
               className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -695,6 +712,18 @@ const DuesManagementSection: React.FC<DuesManagementSectionProps> = ({ chapterId
                         title="Record manual payment (admin only)"
                       >
                         Record
+                      </button>
+                      {/* Edit Button */}
+                      <button
+                        onClick={() => {
+                          setEditingDues(dues);
+                          setShowEditDuesModal(true);
+                        }}
+                        disabled={isProcessing || isDemo}
+                        className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                        title="Edit dues amount and due date"
+                      >
+                        <Edit2 className="w-3 h-3" />
                       </button>
                       {/* Delete Button */}
                       <button
@@ -870,6 +899,28 @@ const DuesManagementSection: React.FC<DuesManagementSectionProps> = ({ chapterId
           memberDues={installmentMemberDues}
           chapterId={chapterId}
           onUpdate={loadData}
+        />
+      )}
+
+      {/* Custom Late Fee Modal */}
+      <ApplyCustomLateFeeModal
+        isOpen={showCustomLateFeeModal}
+        onClose={() => setShowCustomLateFeeModal(false)}
+        chapterId={chapterId}
+        memberDues={memberDues}
+        onSuccess={loadData}
+      />
+
+      {/* Edit Dues Modal */}
+      {editingDues && (
+        <EditMemberDuesModal
+          isOpen={showEditDuesModal}
+          onClose={() => {
+            setShowEditDuesModal(false);
+            setEditingDues(null);
+          }}
+          memberDues={editingDues}
+          onSuccess={loadData}
         />
       )}
     </div>

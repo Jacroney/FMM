@@ -380,6 +380,55 @@ export class DuesService {
     }
   }
 
+  /**
+   * Preview custom late fee application
+   * Returns list of members who would be affected by the late fee
+   */
+  static async previewCustomLateFee(
+    chapterId: string,
+    targetBalances?: number[],
+    excludePartial: boolean = true
+  ): Promise<{ id: string; email: string; member_name: string; current_balance: number; status: string }[]> {
+    try {
+      const { data, error } = await supabase.rpc('preview_custom_late_fee', {
+        p_chapter_id: chapterId,
+        p_target_balances: targetBalances || null,
+        p_exclude_partial: excludePartial
+      });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error previewing custom late fee:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Apply custom late fee to members matching criteria
+   */
+  static async applyCustomLateFee(
+    chapterId: string,
+    lateFeeAmount: number,
+    targetBalances?: number[],
+    excludePartial: boolean = true
+  ): Promise<{ success: boolean; applied: number }> {
+    try {
+      const { data, error } = await supabase.rpc('apply_custom_late_fee', {
+        p_chapter_id: chapterId,
+        p_late_fee_amount: lateFeeAmount,
+        p_target_balances: targetBalances || null,
+        p_exclude_partial: excludePartial
+      });
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error applying custom late fee:', error);
+      throw error;
+    }
+  }
+
   // ============================================================================
   // PAYMENT MANAGEMENT
   // ============================================================================
