@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import {
   Elements,
@@ -220,6 +220,11 @@ const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
   const [installmentCheckoutMode, setInstallmentCheckoutMode] = useState(false);
   const [deadlineInfo, setDeadlineInfo] = useState<DeadlineEligibility | null>(null);
 
+  // Refs for debouncing and preventing duplicate requests
+  const createIntentTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isCreatingIntentRef = useRef(false);
+  const lastIntentParamsRef = useRef<string>('');
+
   useEffect(() => {
     if (isOpen && memberDues.balance > 0) {
       loadSavedPaymentMethods();
@@ -231,6 +236,9 @@ const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
       setSelectedInstallmentPlan(null);
       setSelectedInstallmentMethod('');
       setInstallmentCheckoutMode(false);
+      // Reset client secret and params ref when modal opens fresh
+      setClientSecret('');
+      lastIntentParamsRef.current = '';
     }
   }, [isOpen, memberDues.id]);
 
@@ -239,8 +247,22 @@ const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
     // Also recreate when payment method type changes (fees are different for card vs ACH)
     // Also recreate when entering installment checkout mode (different amount)
     if (isOpen && memberDues.balance > 0 && !usingSavedMethod) {
-      createPaymentIntent();
+      // Debounce: wait 300ms before creating intent to prevent rapid successive calls
+      // This prevents double charges when user quickly toggles payment method type
+      if (createIntentTimeoutRef.current) {
+        clearTimeout(createIntentTimeoutRef.current);
+      }
+      createIntentTimeoutRef.current = setTimeout(() => {
+        createPaymentIntent();
+      }, 300);
     }
+
+    // Cleanup timeout on unmount or when dependencies change
+    return () => {
+      if (createIntentTimeoutRef.current) {
+        clearTimeout(createIntentTimeoutRef.current);
+      }
+    };
   }, [isOpen, memberDues.id, usingSavedMethod, savePaymentMethod, paymentMethodType, installmentCheckoutMode, selectedInstallmentPlan]);
 
   const loadSavedPaymentMethods = async () => {
@@ -332,16 +354,30 @@ const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
     }
   };
 
-  const createPaymentIntent = async () => {
+  const createPaymentIntent = useCallback(async () => {
+    // Prevent duplicate simultaneous calls
+    if (isCreatingIntentRef.current) {
+      console.log('Payment intent creation already in progress, skipping');
+      return;
+    }
+
+    // Create a unique key for this request's parameters
+    const paymentAmount = installmentCheckoutMode && selectedInstallmentPlan
+      ? Math.round((memberDues.balance / selectedInstallmentPlan) * 100) / 100
+      : memberDues.balance;
+    const requestParams = `${memberDues.id}-${paymentMethodType}-${paymentAmount}-${savePaymentMethod}`;
+
+    // If we already have a client secret for these exact params, don't recreate
+    if (clientSecret && lastIntentParamsRef.current === requestParams) {
+      console.log('Reusing existing payment intent for same parameters');
+      return;
+    }
+
+    isCreatingIntentRef.current = true;
     setIsLoading(true);
     setError('');
 
     try {
-      // Calculate payment amount - use first installment amount if in installment mode
-      const paymentAmount = installmentCheckoutMode && selectedInstallmentPlan
-        ? Math.round((memberDues.balance / selectedInstallmentPlan) * 100) / 100
-        : memberDues.balance;
-
       const response = await PaymentService.createPaymentIntent(
         memberDues.id,
         paymentMethodType,
@@ -351,6 +387,7 @@ const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
 
       if (response.client_secret) {
         setClientSecret(response.client_secret);
+        lastIntentParamsRef.current = requestParams;
       } else {
         throw new Error('Failed to create payment intent');
       }
@@ -360,8 +397,9 @@ const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
       toast.error('Failed to initialize payment');
     } finally {
       setIsLoading(false);
+      isCreatingIntentRef.current = false;
     }
-  };
+  }, [memberDues.id, memberDues.balance, paymentMethodType, savePaymentMethod, installmentCheckoutMode, selectedInstallmentPlan, clientSecret]);
 
   const handleUseSavedMethod = async (methodId: string) => {
     setIsLoading(true);

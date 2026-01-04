@@ -361,14 +361,18 @@ export class PaymentService {
     try {
       // Pending intents expire after 30 minutes
       const pendingCutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
-      // Processing intents (ACH) can take up to 7 days
+      // Processing/requires_action intents (ACH) can take up to 7 days
       const processingCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
+      // Check for active payment intents:
+      // - pending: User hasn't completed payment yet (30 min cutoff)
+      // - processing: ACH payment is being processed (7 day cutoff)
+      // - requires_action: User needs to verify bank account (7 day cutoff)
       const { data, error } = await supabase
         .from('payment_intents')
         .select('*')
         .eq('member_dues_id', memberDuesId)
-        .or(`and(status.eq.pending,created_at.gte.${pendingCutoff}),and(status.eq.processing,created_at.gte.${processingCutoff})`)
+        .or(`and(status.eq.pending,created_at.gte.${pendingCutoff}),and(status.eq.processing,created_at.gte.${processingCutoff}),and(status.eq.requires_action,created_at.gte.${processingCutoff})`)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();

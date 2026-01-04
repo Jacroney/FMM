@@ -145,7 +145,7 @@ serve(async (req) => {
             </p>
 
             <p style="font-size: 14px; color: #999; margin-top: 30px;">
-              This invitation link is unique to you and will expire in 7 days.
+              This invitation link is unique to you and will expire in 30 days.
             </p>
           </div>
 
@@ -175,7 +175,7 @@ Create your account to access the member dashboard where you can:
 Create your account here:
 ${invitationUrl}
 
-This invitation link is unique to you and will expire in 7 days.
+This invitation link is unique to you and will expire in 30 days.
 
 ---
 (c) ${new Date().getFullYear()} GreekPay

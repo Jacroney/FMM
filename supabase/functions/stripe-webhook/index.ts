@@ -6,8 +6,11 @@
  *
  * Handled events:
  * - payment_intent.succeeded: Payment completed successfully
+ * - payment_intent.processing: ACH payment is processing (3-5 days)
  * - payment_intent.payment_failed: Payment failed
  * - payment_intent.canceled: Payment canceled
+ * - payment_intent.requires_action: User needs to verify bank or complete 3D Secure
+ * - payment_intent.requires_payment_method: Payment method failed/abandoned
  * - account.updated: Connected account status changed
  *
  * IMPORTANT: Set STRIPE_WEBHOOK_SECRET in Supabase secrets
@@ -22,6 +25,138 @@ const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
 })
 
 const webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET') || ''
+
+/**
+ * SECURITY: HTML escape function to prevent XSS attacks
+ */
+function escapeHtml(unsafe: string | null | undefined): string {
+  if (!unsafe) return ''
+  return String(unsafe)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;")
+}
+
+/**
+ * Build HTML email for bank verification (microdeposits)
+ */
+function buildBankVerificationEmailHtml(
+  firstName: string,
+  chapterName: string,
+  amount: number,
+  verificationUrl: string
+): string {
+  const displayName = escapeHtml(firstName)
+  const displayChapter = escapeHtml(chapterName)
+  const formattedAmount = (amount / 100).toFixed(2) // Convert cents to dollars
+
+  return `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Verify Your Bank Account - GreekPay</title>
+      </head>
+      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
+          <h1 style="color: white; margin: 0; font-size: 28px;">GreekPay</h1>
+          <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 16px;">${displayChapter}</p>
+        </div>
+
+        <div style="background: white; padding: 40px; border: 1px solid #e1e4e8; border-top: none; border-radius: 0 0 10px 10px;">
+          <h2 style="color: #333; margin-top: 0; font-size: 24px;">Bank Verification Required</h2>
+
+          <p style="font-size: 16px; color: #555;">
+            Hi ${displayName},
+          </p>
+
+          <p style="font-size: 16px; color: #555;">
+            To complete your dues payment of <strong>$${formattedAmount}</strong>, we need to verify your bank account.
+          </p>
+
+          <p style="font-size: 16px; color: #555; font-weight: 600;">
+            Here's what to do:
+          </p>
+
+          <ol style="font-size: 15px; color: #555; line-height: 1.8;">
+            <li>Check your bank statement for a small deposit from Stripe (usually arrives within 1-2 business days)</li>
+            <li>Look for a <strong>6-digit code</strong> in the deposit description (format: SM####)</li>
+            <li>Click the button below and enter the code to complete verification</li>
+          </ol>
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${verificationUrl}"
+               style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                      color: white;
+                      padding: 16px 32px;
+                      text-decoration: none;
+                      border-radius: 8px;
+                      font-weight: 600;
+                      font-size: 16px;
+                      display: inline-block;
+                      box-shadow: 0 4px 6px rgba(102, 126, 234, 0.25);">
+              Verify Bank Account
+            </a>
+          </div>
+
+          <p style="font-size: 14px; color: #999; border-top: 1px solid #e1e4e8; padding-top: 20px; margin-top: 40px;">
+            Or copy and paste this link into your browser:<br>
+            <a href="${verificationUrl}" style="color: #667eea; word-break: break-all;">${verificationUrl}</a>
+          </p>
+
+          <p style="font-size: 14px; color: #999; margin-top: 30px;">
+            If you didn't initiate this payment, please contact your chapter treasurer.
+          </p>
+        </div>
+
+        <div style="text-align: center; padding: 20px; color: #999; font-size: 12px;">
+          <p>&copy; ${new Date().getFullYear()} GreekPay. All rights reserved.</p>
+          <p style="margin-top: 10px;">
+            ${displayChapter}
+          </p>
+        </div>
+      </body>
+    </html>
+  `
+}
+
+/**
+ * Build plain text email for bank verification (microdeposits)
+ */
+function buildBankVerificationEmailText(
+  firstName: string,
+  chapterName: string,
+  amount: number,
+  verificationUrl: string
+): string {
+  const formattedAmount = (amount / 100).toFixed(2)
+
+  return `
+Bank Verification Required - GreekPay
+
+Hi ${firstName},
+
+To complete your dues payment of $${formattedAmount}, we need to verify your bank account.
+
+Here's what to do:
+
+1. Check your bank statement for a small deposit from Stripe (usually arrives within 1-2 business days)
+2. Look for a 6-digit code in the deposit description (format: SM####)
+3. Visit the link below and enter the code to complete verification
+
+Verify your bank account here:
+${verificationUrl}
+
+If you didn't initiate this payment, please contact your chapter treasurer.
+
+---
+(c) ${new Date().getFullYear()} GreekPay
+${chapterName}
+  `.trim()
+}
 
 // Manual signature verification to avoid Deno compatibility issues
 async function verifyStripeSignature(payload: string, signature: string, secret: string): Promise<boolean> {
@@ -548,6 +683,133 @@ Deno.serve(async (req) => {
         .update({
           status: 'processing',
           processing_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('stripe_payment_intent_id', paymentIntent.id)
+
+      return new Response(
+        JSON.stringify({ received: true }),
+        { status: 200 }
+      )
+    }
+
+    // ================================================
+    // EVENT: payment_intent.requires_action
+    // ================================================
+    if (event.type === 'payment_intent.requires_action') {
+      const paymentIntent = event.data.object as Stripe.PaymentIntent
+      const nextAction = paymentIntent.next_action
+
+      console.log('Payment requires action:', paymentIntent.id, 'type:', nextAction?.type)
+
+      // Update payment intent status
+      await supabase
+        .from('payment_intents')
+        .update({
+          status: 'requires_action',
+          updated_at: new Date().toISOString()
+        })
+        .eq('stripe_payment_intent_id', paymentIntent.id)
+
+      // Send bank verification email for microdeposit verification
+      if (nextAction?.type === 'verify_with_microdeposits') {
+        const verificationUrl = (nextAction as any).verify_with_microdeposits?.hosted_verification_url
+
+        if (verificationUrl) {
+          try {
+            // Get payment intent info from our database
+            const { data: pi, error: piError } = await supabase
+              .from('payment_intents')
+              .select('member_dues_id, member_id, amount')
+              .eq('stripe_payment_intent_id', paymentIntent.id)
+              .single()
+
+            if (piError || !pi) {
+              console.error('Error fetching payment intent:', piError)
+            } else {
+              // Get member dues info (for email)
+              const { data: dues, error: duesError } = await supabase
+                .from('member_dues')
+                .select('email, chapter_id')
+                .eq('id', pi.member_dues_id)
+                .single()
+
+              if (duesError || !dues) {
+                console.error('Error fetching member dues:', duesError)
+              } else {
+                // Get member name
+                const { data: member } = await supabase
+                  .from('user_profiles')
+                  .select('full_name')
+                  .eq('id', pi.member_id)
+                  .single()
+
+                // Get chapter name
+                const { data: chapter } = await supabase
+                  .from('chapters')
+                  .select('name')
+                  .eq('id', dues.chapter_id)
+                  .single()
+
+                const firstName = member?.full_name?.split(' ')[0] || 'Member'
+                const chapterName = chapter?.name || 'Your Chapter'
+                const amount = pi.amount * 100 // Convert to cents for email function
+
+                // Send email via Resend
+                const resendApiKey = Deno.env.get('RESEND_API_KEY')
+                if (resendApiKey) {
+                  const emailResponse = await fetch('https://api.resend.com/emails', {
+                    method: 'POST',
+                    headers: {
+                      'Authorization': `Bearer ${resendApiKey}`,
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                      from: 'GreekPay <noreply@greekpay.org>',
+                      to: [dues.email],
+                      subject: 'Action Required: Verify Your Bank Account - GreekPay',
+                      html: buildBankVerificationEmailHtml(firstName, chapterName, amount, verificationUrl),
+                      text: buildBankVerificationEmailText(firstName, chapterName, amount, verificationUrl),
+                    }),
+                  })
+
+                  if (emailResponse.ok) {
+                    console.log('Bank verification email sent to:', dues.email)
+                  } else {
+                    const errorData = await emailResponse.json()
+                    console.error('Failed to send bank verification email:', errorData)
+                  }
+                } else {
+                  console.error('RESEND_API_KEY not configured - cannot send verification email')
+                }
+              }
+            }
+          } catch (emailError) {
+            console.error('Error sending bank verification email:', emailError)
+            // Don't fail the webhook - email sending is best-effort
+          }
+        }
+      }
+
+      return new Response(
+        JSON.stringify({ received: true }),
+        { status: 200 }
+      )
+    }
+
+    // ================================================
+    // EVENT: payment_intent.requires_payment_method
+    // ================================================
+    if (event.type === 'payment_intent.requires_payment_method') {
+      const paymentIntent = event.data.object as Stripe.PaymentIntent
+
+      console.log('Payment requires payment method (failed/abandoned):', paymentIntent.id)
+
+      await supabase
+        .from('payment_intents')
+        .update({
+          status: 'requires_payment_method',
+          failure_message: paymentIntent.last_payment_error?.message || 'Payment method required',
           updated_at: new Date().toISOString()
         })
         .eq('stripe_payment_intent_id', paymentIntent.id)

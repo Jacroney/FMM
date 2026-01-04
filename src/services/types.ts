@@ -492,8 +492,8 @@ export interface PaymentIntent {
   payment_method_brand: string | null;
   payment_method_last4: string | null;
 
-  // Payment status
-  status: 'pending' | 'processing' | 'succeeded' | 'failed' | 'canceled';
+  // Payment status (matches Stripe's PaymentIntent status values)
+  status: 'pending' | 'processing' | 'requires_action' | 'requires_payment_method' | 'succeeded' | 'failed' | 'canceled';
 
   // Error handling
   failure_code: string | null;

@@ -145,30 +145,71 @@ const PayDuesButton: React.FC<PayDuesButtonProps> = ({
   }
 
   // Show pending payment state if a payment is already in progress
-  if (pendingPayment) {
-    const isProcessing = pendingPayment.status === 'processing';
+  // Only show for statuses that indicate an active/valid payment attempt
+  if (pendingPayment && ['pending', 'processing', 'requires_action'].includes(pendingPayment.status)) {
+    const status = pendingPayment.status;
     const paymentType = pendingPayment.payment_method_type === 'us_bank_account' ? 'Bank transfer' : 'Card payment';
+
+    // Determine display based on status
+    const getStatusDisplay = () => {
+      switch (status) {
+        case 'processing':
+          return {
+            buttonText: variant === 'small' ? 'Processing' : 'Payment Processing',
+            buttonClass: 'from-green-500 to-emerald-500 shadow-green-500/25',
+            title: `${paymentType} is processing`,
+            message: 'Bank transfers typically take 3-5 business days to complete.',
+            bgClass: 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700',
+            iconBgClass: 'bg-green-100 dark:bg-green-900/50',
+            iconClass: 'text-green-600 dark:text-green-400',
+            textClass: 'text-green-800 dark:text-green-200',
+            subtextClass: 'text-green-700 dark:text-green-300',
+          };
+        case 'requires_action':
+          return {
+            buttonText: variant === 'small' ? 'Action Needed' : 'Action Needed',
+            buttonClass: 'from-yellow-500 to-amber-500 shadow-yellow-500/25',
+            title: 'Bank verification needed',
+            message: 'Check your email for bank verification instructions. You\'ll need to enter a code from your bank statement to complete payment.',
+            bgClass: 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-700',
+            iconBgClass: 'bg-yellow-100 dark:bg-yellow-900/50',
+            iconClass: 'text-yellow-600 dark:text-yellow-400',
+            textClass: 'text-yellow-800 dark:text-yellow-200',
+            subtextClass: 'text-yellow-700 dark:text-yellow-300',
+          };
+        default: // 'pending'
+          return {
+            buttonText: variant === 'small' ? 'Pending' : 'Payment Pending',
+            buttonClass: 'from-amber-500 to-orange-500 shadow-amber-500/25',
+            title: `${paymentType} is pending`,
+            message: 'Your payment is being processed.',
+            bgClass: 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-700',
+            iconBgClass: 'bg-amber-100 dark:bg-amber-900/50',
+            iconClass: 'text-amber-600 dark:text-amber-400',
+            textClass: 'text-amber-800 dark:text-amber-200',
+            subtextClass: 'text-amber-700 dark:text-amber-300',
+          };
+      }
+    };
+
+    const display = getStatusDisplay();
 
     return (
       <div className="space-y-3">
         <div
-          className={`font-semibold transition-all duration-200 flex items-center justify-center px-6 py-3.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl shadow-lg shadow-amber-500/25 cursor-default ${className}`}
+          className={`font-semibold transition-all duration-200 flex items-center justify-center px-6 py-3.5 bg-gradient-to-r ${display.buttonClass} text-white rounded-xl shadow-lg cursor-default ${className}`}
         >
           <Clock className={`mr-2 ${getIconSize()} animate-pulse`} />
-          {variant === 'small' ? 'Processing' : 'Payment Processing'}
+          {display.buttonText}
         </div>
         {variant !== 'small' && (
-          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl p-4 flex items-start gap-3">
-            <div className="flex-shrink-0 flex h-9 w-9 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/50">
-              <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+          <div className={`${display.bgClass} border rounded-xl p-4 flex items-start gap-3`}>
+            <div className={`flex-shrink-0 flex h-9 w-9 items-center justify-center rounded-lg ${display.iconBgClass}`}>
+              <Clock className={`w-4 h-4 ${display.iconClass}`} />
             </div>
-            <div className="text-sm text-amber-800 dark:text-amber-200">
-              <p className="font-semibold">{paymentType} {isProcessing ? 'is processing' : 'is pending'}</p>
-              <p className="text-amber-700 dark:text-amber-300 mt-1">
-                {pendingPayment.payment_method_type === 'us_bank_account'
-                  ? 'Bank transfers typically take 3-5 business days to complete.'
-                  : 'Your payment is being processed.'}
-              </p>
+            <div className={`text-sm ${display.textClass}`}>
+              <p className="font-semibold">{display.title}</p>
+              <p className={`${display.subtextClass} mt-1`}>{display.message}</p>
             </div>
           </div>
         )}

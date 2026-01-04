@@ -452,13 +452,11 @@ const Members = () => {
     (inv.email || '').toLowerCase().includes(sanitizeInput(searchTerm.toLowerCase()))
   );
 
-  // Calculate payment statistics (includes pending invitations in total)
-  const paymentStats = {
+  // Calculate member statistics (includes pending invitations in total)
+  const memberStats = {
     total: members.length + pendingInvitations.length,
     active: members.length,
-    pending: pendingInvitations.length,
-    paid: members.filter(m => m.duesPaid).length,
-    unpaid: members.filter(m => !m.duesPaid).length
+    pending: pendingInvitations.length
   };
 
   return (
@@ -467,7 +465,7 @@ const Members = () => {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Members</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage member roster and track dues payments</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage member roster and invitations</p>
         </div>
         {activeTab === 'roster' && (
         <div className="flex space-x-4">
@@ -570,26 +568,16 @@ const Members = () => {
       )}
 
       {/* Member Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transform hover:scale-105 transition-transform">
           <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200">Total Members</h3>
-          <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{paymentStats.total}</p>
+          <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{memberStats.total}</p>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Active + invited members</p>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transform hover:scale-105 transition-transform">
           <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200">Pending Invites</h3>
-          <p className="text-3xl font-bold text-amber-600 dark:text-amber-400">{paymentStats.pending}</p>
+          <p className="text-3xl font-bold text-amber-600 dark:text-amber-400">{memberStats.pending}</p>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Awaiting account creation</p>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transform hover:scale-105 transition-transform">
-          <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200">Dues Paid</h3>
-          <p className="text-3xl font-bold text-green-600 dark:text-green-400">{paymentStats.paid}</p>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Members with paid dues</p>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transform hover:scale-105 transition-transform">
-          <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200">Dues Unpaid</h3>
-          <p className="text-3xl font-bold text-red-600 dark:text-red-400">{paymentStats.unpaid}</p>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Members with pending dues</p>
         </div>
       </div>
 

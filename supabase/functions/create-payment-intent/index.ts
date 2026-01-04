@@ -148,21 +148,40 @@ serve(async (req) => {
       throw new Error('No outstanding balance to pay')
     }
 
-    // Check for existing pending/processing payment intent
+    // SECURITY: Check for recently succeeded payment intent (prevents double charging)
+    // If a payment succeeded in the last 5 minutes, block new intent creation
+    // This catches race conditions where webhook hasn't updated dues.balance yet
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
+    const { data: recentSucceeded } = await supabaseAdmin
+      .from('payment_intents')
+      .select('id, stripe_payment_intent_id, succeeded_at')
+      .eq('member_dues_id', member_dues_id)
+      .eq('status', 'succeeded')
+      .gte('succeeded_at', fiveMinutesAgo)
+      .limit(1)
+      .maybeSingle()
+
+    if (recentSucceeded) {
+      console.log('Blocking duplicate: payment succeeded recently:', recentSucceeded.stripe_payment_intent_id)
+      throw new Error('A payment for these dues was just completed. Please refresh the page to see your updated balance.')
+    }
+
+    // Check for existing in-progress payment intent
+    // Statuses that indicate an active payment: pending, processing, requires_action
     // This handles reuse (same payment type) or cancel+recreate (different payment type)
     const { data: existingIntent } = await supabaseAdmin
       .from('payment_intents')
       .select('id, status, created_at, payment_method_type, stripe_payment_intent_id, stripe_client_secret')
       .eq('member_dues_id', member_dues_id)
-      .in('status', ['pending', 'processing'])
+      .in('status', ['pending', 'processing', 'requires_action'])
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
 
     if (existingIntent) {
-      // If same payment method type and still pending, reuse the existing intent
+      // If same payment method type and still pending/requires_action, reuse the existing intent
       if (existingIntent.payment_method_type === payment_method_type &&
-          existingIntent.status === 'pending' &&
+          ['pending', 'requires_action'].includes(existingIntent.status) &&
           existingIntent.stripe_client_secret) {
         console.log('Reusing existing payment intent:', existingIntent.stripe_payment_intent_id)
         return new Response(
@@ -171,6 +190,7 @@ serve(async (req) => {
             client_secret: existingIntent.stripe_client_secret,
             payment_intent_id: existingIntent.stripe_payment_intent_id,
             amount: memberDues.balance,
+            status: existingIntent.status,
             reused: true
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -373,7 +393,29 @@ serve(async (req) => {
 
     const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams)
 
-    // Store payment intent in database
+    // Map Stripe status to our database status
+    // Stripe statuses: requires_payment_method, requires_confirmation, requires_action, processing,
+    //                  requires_capture, canceled, succeeded
+    // Our statuses: pending, processing, requires_action, requires_payment_method, succeeded, failed, canceled
+    const mapStripeStatus = (stripeStatus: string): string => {
+      switch (stripeStatus) {
+        case 'requires_action':
+          return 'requires_action'
+        case 'requires_payment_method':
+          return 'requires_payment_method'
+        case 'processing':
+          return 'processing'
+        case 'succeeded':
+          return 'succeeded'
+        case 'canceled':
+          return 'canceled'
+        default:
+          // requires_confirmation, requires_capture, etc. map to pending
+          return 'pending'
+      }
+    }
+
+    // Store payment intent in database with actual Stripe status
     const { error: insertError } = await supabaseAdmin
       .from('payment_intents')
       .insert({
@@ -387,7 +429,7 @@ serve(async (req) => {
         net_amount: transferAmountCents / 100, // What chapter receives after all fees
         currency: 'usd',
         payment_method_type: effectivePaymentMethodType,
-        status: 'pending',
+        status: mapStripeStatus(paymentIntent.status),
       })
 
     if (insertError) {
