@@ -264,7 +264,7 @@ export const MemberDashboard: React.FC = () => {
                       </li>
                       <li className="flex items-start gap-3">
                         <span className="h-1.5 w-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
-                        <span>Contact treasurer for Venmo, Zelle, or cash</span>
+                        <span></span>
                       </li>
                       <li className="flex items-start gap-3">
                         <span className="h-1.5 w-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
