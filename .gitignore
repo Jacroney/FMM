@@ -46,3 +46,4 @@ CLAUDE.md
 !supabase/migrations/20250116000002_stripe_payments.sql
 !supabase/migrations/20250116000001_chapter_dues_stats.sql
 !supabase/migrations/20250115000002_seed_calpoly_chapters.sql
+!supabase/migrations/20260105100000_exclude_processing_payments_from_late_fees.sql
