@@ -13,7 +13,7 @@ interface InstallmentEligibilityModalProps {
   onUpdate?: () => void;
 }
 
-const PLAN_OPTIONS = [2, 3, 4];
+const PLAN_OPTIONS = [2, 3, 4, 6, 8];
 
 const InstallmentEligibilityModal: React.FC<InstallmentEligibilityModalProps> = ({
   isOpen,
