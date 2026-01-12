@@ -250,6 +250,46 @@ export const MemberDashboard: React.FC = () => {
                 {isOwed ? 'Amount owed for the current term' : duesBalance === 0 ? 'Your balance is paid in full - thank you!' : 'You have a credit balance'}
               </p>
 
+              {/* Flexible Payment Plan Info */}
+              {memberDuesSummary.some(dues => dues.flexible_plan_deadline) && (
+                <div className="mt-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-xl p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100 dark:bg-purple-900/50">
+                      <Calendar className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-purple-900 dark:text-purple-100">Flexible Payment Plan</h4>
+                      {memberDuesSummary.filter(dues => dues.flexible_plan_deadline).map(dues => {
+                        const deadline = new Date(dues.flexible_plan_deadline!);
+                        const today = new Date();
+                        const daysRemaining = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                        const weeksRemaining = Math.max(1, Math.ceil(daysRemaining / 7));
+                        const suggestedWeekly = dues.balance / weeksRemaining;
+
+                        return (
+                          <div key={dues.id} className="text-sm text-purple-700 dark:text-purple-300 mt-1">
+                            <p>
+                              Deadline: {deadline.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                              {daysRemaining > 0 && (
+                                <span className="ml-2 text-purple-500">({daysRemaining} days remaining)</span>
+                              )}
+                            </p>
+                            {daysRemaining > 0 && dues.balance > 0 && (
+                              <p className="mt-1 text-xs text-purple-600 dark:text-purple-400">
+                                Suggested: ~{formatCurrency(suggestedWeekly)}/week to pay off on time
+                              </p>
+                            )}
+                            {dues.flexible_plan_notes && (
+                              <p className="mt-1 text-xs italic">{dues.flexible_plan_notes}</p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {isOwed && (
                 <div className="mt-6 pt-6 border-t border-[var(--brand-border)] space-y-4">
                   <div className="rounded-xl bg-slate-50 dark:bg-gray-700/50 p-4">

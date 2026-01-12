@@ -221,40 +221,20 @@ async function sendPaymentConfirmation(item: any, supabaseAdmin: any): Promise<b
     payment_method,
     remaining_balance,
     total_paid,
-    reference_number
+    reference_number,
+    member_name,
+    chapter_name
   } = item.template_data
 
   console.log(`Sending payment confirmation email for payment ${payment_id}`)
 
-  // Get member info
-  const { data: userProfile, error: userError } = await supabaseAdmin
-    .from('user_profiles')
-    .select('full_name, chapter_id')
-    .eq('id', item.to_user_id)
-    .single()
-
-  if (userError || !userProfile) {
-    console.error('Error fetching user profile:', userError)
-    throw new Error('Failed to fetch user profile')
-  }
-
-  // Get chapter info
-  const { data: chapter, error: chapterError } = await supabaseAdmin
-    .from('chapters')
-    .select('name')
-    .eq('id', userProfile.chapter_id)
-    .single()
-
-  if (chapterError || !chapter) {
-    console.error('Error fetching chapter:', chapterError)
-    throw new Error('Failed to fetch chapter')
-  }
-
-  const memberName = userProfile.full_name || 'Member'
-  const chapterName = chapter.name || 'Your Chapter'
-  const formattedAmount = `$${(amount_paid / 100).toFixed(2)}`
-  const formattedRemaining = `$${(remaining_balance / 100).toFixed(2)}`
-  const formattedTotalPaid = `$${(total_paid / 100).toFixed(2)}`
+  // Use member_name and chapter_name from template_data (included when email was queued)
+  const memberName = member_name || 'Member'
+  const chapterName = chapter_name || 'Your Chapter'
+  // Note: amounts from payment_intents table are already in dollars (not cents)
+  const formattedAmount = `$${Number(amount_paid).toFixed(2)}`
+  const formattedRemaining = `$${Number(remaining_balance).toFixed(2)}`
+  const formattedTotalPaid = `$${Number(total_paid).toFixed(2)}`
   const isPaidInFull = remaining_balance <= 0
 
   const emailHtml = `

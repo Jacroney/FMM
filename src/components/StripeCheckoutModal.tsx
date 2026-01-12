@@ -22,6 +22,7 @@ interface StripeCheckoutModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  customAmount?: number; // Optional partial payment amount
 }
 
 interface CheckoutFormProps {
@@ -197,7 +198,11 @@ const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
+  customAmount,
 }) => {
+  // Determine the payment amount - use customAmount if provided, otherwise full balance
+  const paymentAmount = customAmount ?? memberDues.balance;
+  const isPartialPayment = customAmount !== undefined && customAmount < memberDues.balance;
   const [clientSecret, setClientSecret] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>('');
@@ -362,10 +367,10 @@ const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
     }
 
     // Create a unique key for this request's parameters
-    const paymentAmount = installmentCheckoutMode && selectedInstallmentPlan
-      ? Math.round((memberDues.balance / selectedInstallmentPlan) * 100) / 100
-      : memberDues.balance;
-    const requestParams = `${memberDues.id}-${paymentMethodType}-${paymentAmount}-${savePaymentMethod}`;
+    const intentAmount = installmentCheckoutMode && selectedInstallmentPlan
+      ? Math.round((paymentAmount / selectedInstallmentPlan) * 100) / 100
+      : paymentAmount;
+    const requestParams = `${memberDues.id}-${paymentMethodType}-${intentAmount}-${savePaymentMethod}`;
 
     // If we already have a client secret for these exact params, don't recreate
     if (clientSecret && lastIntentParamsRef.current === requestParams) {
@@ -381,7 +386,7 @@ const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
       const response = await PaymentService.createPaymentIntent(
         memberDues.id,
         paymentMethodType,
-        paymentAmount,
+        intentAmount,
         installmentCheckoutMode ? true : savePaymentMethod // Always save in installment mode
       );
 
@@ -399,7 +404,7 @@ const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
       setIsLoading(false);
       isCreatingIntentRef.current = false;
     }
-  }, [memberDues.id, memberDues.balance, paymentMethodType, savePaymentMethod, installmentCheckoutMode, selectedInstallmentPlan, clientSecret]);
+  }, [memberDues.id, paymentAmount, paymentMethodType, savePaymentMethod, installmentCheckoutMode, selectedInstallmentPlan, clientSecret]);
 
   const handleUseSavedMethod = async (methodId: string) => {
     setIsLoading(true);
@@ -411,7 +416,7 @@ const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
       const response = await PaymentService.createPaymentIntent(
         memberDues.id,
         'card', // Type doesn't matter for saved methods
-        memberDues.balance,
+        paymentAmount,
         false,
         methodId
       );
@@ -563,11 +568,21 @@ const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
                   </div>
                 )}
                 <div className="pt-3 mt-3 border-t border-[var(--brand-border)] flex justify-between">
-                  <span className="font-semibold text-gray-900 dark:text-white">Dues Amount:</span>
+                  <span className="font-semibold text-gray-900 dark:text-white">
+                    {isPartialPayment ? 'Outstanding Balance:' : 'Dues Amount:'}
+                  </span>
                   <span className="font-bold text-gray-900 dark:text-white">
                     {formatCurrency(memberDues.balance)}
                   </span>
                 </div>
+                {isPartialPayment && (
+                  <div className="pt-2 flex justify-between">
+                    <span className="font-semibold text-blue-600 dark:text-blue-400">Payment Amount:</span>
+                    <span className="font-bold text-blue-600 dark:text-blue-400">
+                      {formatCurrency(paymentAmount)}
+                    </span>
+                  </div>
+                )}
                 {/* Fee Breakdown */}
                 <div className="pt-3 mt-1">
                   {paymentMethodType === 'us_bank_account' ? (
@@ -589,8 +604,8 @@ const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
                         <span className="text-gray-900 dark:text-white font-medium">
                           {formatCurrency(PaymentService.calculateStripeFee(
                             installmentCheckoutMode && selectedInstallmentPlan
-                              ? Math.round((memberDues.balance / selectedInstallmentPlan) * 100) / 100
-                              : memberDues.balance,
+                              ? Math.round((paymentAmount / selectedInstallmentPlan) * 100) / 100
+                              : paymentAmount,
                             paymentMethodType
                           ))}
                         </span>
@@ -609,23 +624,28 @@ const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
                   <span className="font-bold text-2xl text-blue-600 dark:text-blue-400">
                     {formatCurrency(PaymentService.calculateTotalCharge(
                       installmentCheckoutMode && selectedInstallmentPlan
-                        ? Math.round((memberDues.balance / selectedInstallmentPlan) * 100) / 100
-                        : memberDues.balance,
+                        ? Math.round((paymentAmount / selectedInstallmentPlan) * 100) / 100
+                        : paymentAmount,
                       paymentMethodType
                     ))}
                   </span>
                 </div>
                 {installmentCheckoutMode && selectedInstallmentPlan && (
                   <div className="mt-2 text-xs text-purple-600 dark:text-purple-400 text-center font-medium">
-                    {selectedInstallmentPlan - 1} additional payments of {formatCurrency(memberDues.balance / selectedInstallmentPlan)} scheduled before deadline
+                    {selectedInstallmentPlan - 1} additional payments of {formatCurrency(paymentAmount / selectedInstallmentPlan)} scheduled before deadline
+                  </div>
+                )}
+                {isPartialPayment && !installmentCheckoutMode && (
+                  <div className="mt-2 text-xs text-blue-600 dark:text-blue-400 text-center font-medium">
+                    Remaining balance after payment: {formatCurrency(memberDues.balance - paymentAmount)}
                   </div>
                 )}
               </div>
             </div>
           </div>
 
-          {/* Installment Plan Option */}
-          {installmentEligibility?.is_eligible && !paymentComplete && !activePlan && (
+          {/* Installment Plan Option - disabled for partial payments */}
+          {installmentEligibility?.is_eligible && !paymentComplete && !activePlan && !isPartialPayment && (
             <div className="mb-6">
               {!showInstallmentOption ? (
                 <button
@@ -908,7 +928,7 @@ const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
                       <h4 className="font-semibold text-gray-900 dark:text-white">Credit/Debit Card</h4>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Instant processing</p>
                       <p className="text-xs text-gray-600 dark:text-gray-300 mt-1 font-medium">
-                        Fee: {formatCurrency(PaymentService.calculateStripeFee(memberDues.balance, 'card'))}
+                        Fee: {formatCurrency(PaymentService.calculateStripeFee(paymentAmount, 'card'))}
                       </p>
                     </div>
                   </div>
@@ -1041,8 +1061,8 @@ const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
                       onSaveToggle={installmentCheckoutMode ? () => {} : setSavePaymentMethod}
                       totalCharge={PaymentService.calculateTotalCharge(
                         installmentCheckoutMode && selectedInstallmentPlan
-                          ? Math.round((memberDues.balance / selectedInstallmentPlan) * 100) / 100
-                          : memberDues.balance,
+                          ? Math.round((paymentAmount / selectedInstallmentPlan) * 100) / 100
+                          : paymentAmount,
                         paymentMethodType
                       )}
                       paymentMethodType={paymentMethodType}

@@ -172,7 +172,8 @@ serve(async (req) => {
     }
 
     // Validate deadline exists for deadline-based scheduling
-    const deadline = memberDues.due_date || memberDues.dues_configuration?.due_date
+    // Check flexible_plan_deadline first (for custom payment plans), then fall back to due_date
+    const deadline = memberDues.flexible_plan_deadline || memberDues.due_date || memberDues.dues_configuration?.due_date
     if (!deadline) {
       throw new Error('Cannot create installment plan: no deadline configured for this dues period')
     }

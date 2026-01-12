@@ -517,8 +517,10 @@ export class InstallmentService {
         .select(`
           id,
           due_date,
+          flexible_plan_deadline,
           dues_configuration!inner (
-            due_date
+            due_date,
+            period_end_date
           )
         `)
         .eq('id', memberDuesId)
@@ -526,7 +528,8 @@ export class InstallmentService {
 
       if (error) throw error;
 
-      const deadline = data.due_date || (data.dues_configuration as { due_date: string | null })?.due_date;
+      // Check flexible_plan_deadline first (for custom payment plans), then period_end_date (end of quarter), then fall back to due_date
+      const deadline = data.flexible_plan_deadline || (data.dues_configuration as { period_end_date: string | null })?.period_end_date || data.due_date;
 
       if (!deadline) {
         return {

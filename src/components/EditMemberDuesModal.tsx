@@ -26,6 +26,10 @@ const EditMemberDuesModal: React.FC<EditMemberDuesModalProps> = ({
   const [status, setStatus] = useState<string>('');
   const [loading, setLoading] = useState(false);
 
+  // Flexible payment plan fields
+  const [flexiblePlanDeadline, setFlexiblePlanDeadline] = useState('');
+  const [flexiblePlanNotes, setFlexiblePlanNotes] = useState('');
+
   // Initialize form with current values
   useEffect(() => {
     if (isOpen && memberDues) {
@@ -35,6 +39,8 @@ const EditMemberDuesModal: React.FC<EditMemberDuesModalProps> = ({
       setAdjustmentReason(memberDues.adjustment_reason || '');
       setNotes(memberDues.notes || '');
       setStatus(memberDues.status);
+      setFlexiblePlanDeadline(memberDues.flexible_plan_deadline || '');
+      setFlexiblePlanNotes(memberDues.flexible_plan_notes || '');
     }
   }, [isOpen, memberDues]);
 
@@ -90,7 +96,9 @@ const EditMemberDuesModal: React.FC<EditMemberDuesModalProps> = ({
         adjustment_reason: adj !== 0 ? adjustmentReason : null,
         notes: notes || null,
         status: newStatus as 'pending' | 'partial' | 'paid' | 'overdue' | 'waived',
-        paid_date: balance <= 0 && !memberDues.paid_date ? new Date().toISOString().split('T')[0] : memberDues.paid_date
+        paid_date: balance <= 0 && !memberDues.paid_date ? new Date().toISOString().split('T')[0] : memberDues.paid_date,
+        flexible_plan_deadline: flexiblePlanDeadline || null,
+        flexible_plan_notes: flexiblePlanNotes || null
       });
 
       toast.success('Dues updated successfully');
@@ -283,6 +291,64 @@ const EditMemberDuesModal: React.FC<EditMemberDuesModalProps> = ({
                          bg-white dark:bg-gray-700 text-gray-900 dark:text-white
                          focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
+            </div>
+
+            {/* Flexible Payment Plan Section */}
+            <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+              <h4 className="text-sm font-medium text-purple-700 dark:text-purple-300 mb-3 flex items-center gap-2">
+                <Calendar className="w-4 h-4" />
+                Flexible Payment Plan (Optional)
+              </h4>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                Set a deadline for members who need flexible payment arrangements. They can pay any amount until the deadline.
+              </p>
+
+              {/* Flexible Plan Deadline */}
+              <div className="mb-3">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Payment Deadline
+                </label>
+                <input
+                  type="date"
+                  value={flexiblePlanDeadline}
+                  onChange={(e) => setFlexiblePlanDeadline(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
+                           bg-white dark:bg-gray-700 text-gray-900 dark:text-white
+                           focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
+              </div>
+
+              {/* Flexible Plan Notes */}
+              {flexiblePlanDeadline && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Plan Notes (visible to member)
+                  </label>
+                  <input
+                    type="text"
+                    value={flexiblePlanNotes}
+                    onChange={(e) => setFlexiblePlanNotes(e.target.value)}
+                    placeholder="e.g., $100-200/week flexible payments"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
+                             bg-white dark:bg-gray-700 text-gray-900 dark:text-white
+                             focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  />
+                </div>
+              )}
+
+              {/* Clear Flexible Plan Button */}
+              {flexiblePlanDeadline && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFlexiblePlanDeadline('');
+                    setFlexiblePlanNotes('');
+                  }}
+                  className="mt-2 text-xs text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                >
+                  Remove flexible plan
+                </button>
+              )}
             </div>
           </div>
 

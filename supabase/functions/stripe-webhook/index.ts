@@ -431,11 +431,18 @@ Deno.serve(async (req) => {
 
       // Queue payment confirmation email
       try {
-        // Get user email from user_profiles (member_dues doesn't have email column)
+        // Get user email and name from user_profiles
         const { data: userProfile } = await supabase
           .from('user_profiles')
-          .select('email')
+          .select('email, full_name')
           .eq('id', intent.member_id)
+          .single()
+
+        // Get chapter name
+        const { data: chapter } = await supabase
+          .from('chapters')
+          .select('name')
+          .eq('id', intent.chapter_id)
           .single()
 
         if (userProfile && userProfile.email) {
@@ -451,7 +458,9 @@ Deno.serve(async (req) => {
                 payment_method: `${paymentMethodBrand} ending in ${paymentMethodLast4}`,
                 remaining_balance: paymentResult.new_balance,
                 total_paid: paymentResult.new_amount_paid,
-                reference_number: paymentIntent.id
+                reference_number: paymentIntent.id,
+                member_name: userProfile.full_name || 'Member',
+                chapter_name: chapter?.name || 'Your Chapter'
               },
               status: 'pending'
             })

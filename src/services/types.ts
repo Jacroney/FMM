@@ -249,6 +249,10 @@ export interface MemberDues {
   notes: string | null;
   adjustment_reason: string | null;
 
+  // Flexible payment plan
+  flexible_plan_deadline: string | null;
+  flexible_plan_notes: string | null;
+
   // Timestamps
   created_at?: string;
   updated_at?: string;

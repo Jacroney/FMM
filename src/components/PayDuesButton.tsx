@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CreditCard, AlertCircle, Lock, Clock } from 'lucide-react';
+import { CreditCard, AlertCircle, Lock, Clock, DollarSign, ChevronDown } from 'lucide-react';
 import { PaymentService } from '../services/paymentService';
 import { MemberDuesSummary, PaymentIntent } from '../services/types';
 import StripeCheckoutModal from './StripeCheckoutModal';
@@ -11,6 +11,7 @@ interface PayDuesButtonProps {
   refreshKey?: number;
   variant?: 'primary' | 'secondary' | 'small';
   className?: string;
+  allowPartialPayment?: boolean; // Enable partial payment option
 }
 
 const PayDuesButton: React.FC<PayDuesButtonProps> = ({
@@ -19,6 +20,7 @@ const PayDuesButton: React.FC<PayDuesButtonProps> = ({
   refreshKey = 0,
   variant = 'primary',
   className = '',
+  allowPartialPayment = false,
 }) => {
   const [showCheckout, setShowCheckout] = useState(false);
   const [isCheckingAccount, setIsCheckingAccount] = useState(true);
@@ -29,6 +31,15 @@ const PayDuesButton: React.FC<PayDuesButtonProps> = ({
   } | null>(null);
   const [error, setError] = useState<string>('');
   const [pendingPayment, setPendingPayment] = useState<PaymentIntent | null>(null);
+
+  // Partial payment state
+  const [showPaymentOptions, setShowPaymentOptions] = useState(false);
+  const [paymentMode, setPaymentMode] = useState<'full' | 'custom'>('full');
+  const [customAmount, setCustomAmount] = useState<string>('');
+
+  // Auto-enable partial payment for members with flexible plans
+  const hasFlexiblePlan = !!memberDues.flexible_plan_deadline;
+  const showPartialOption = allowPartialPayment || hasFlexiblePlan;
 
   // Re-check when dues data changes (e.g., after payment modal closes and parent refreshes)
   useEffect(() => {
@@ -95,15 +106,58 @@ const PayDuesButton: React.FC<PayDuesButtonProps> = ({
       return;
     }
 
+    // Show payment options if partial payment is enabled
+    if (showPartialOption && !showPaymentOptions) {
+      setShowPaymentOptions(true);
+      return;
+    }
+
+    // Validate custom amount if in custom mode
+    if (paymentMode === 'custom') {
+      const amount = parseFloat(customAmount);
+      if (isNaN(amount) || amount <= 0) {
+        toast.error('Please enter a valid payment amount');
+        return;
+      }
+      if (amount > memberDues.balance) {
+        toast.error('Payment amount cannot exceed balance');
+        return;
+      }
+      if (amount < 1) {
+        toast.error('Minimum payment amount is $1.00');
+        return;
+      }
+    }
+
     setShowCheckout(true);
   };
 
   const handlePaymentSuccess = () => {
     setShowCheckout(false);
+    setShowPaymentOptions(false);
+    setPaymentMode('full');
+    setCustomAmount('');
     toast.success('Payment successful!');
     // Refresh pending payment status
     checkPendingPayment();
     onPaymentSuccess();
+  };
+
+  const handleCancelPaymentOptions = () => {
+    setShowPaymentOptions(false);
+    setPaymentMode('full');
+    setCustomAmount('');
+  };
+
+  // Get the actual payment amount based on mode
+  const getPaymentAmount = (): number | undefined => {
+    if (paymentMode === 'custom' && customAmount) {
+      const amount = parseFloat(customAmount);
+      if (!isNaN(amount) && amount > 0 && amount < memberDues.balance) {
+        return amount;
+      }
+    }
+    return undefined; // Full payment
   };
 
   // Don't show button if balance is 0
@@ -241,6 +295,124 @@ const PayDuesButton: React.FC<PayDuesButtonProps> = ({
     );
   }
 
+  // Show payment options dropdown when partial payment is available
+  if (showPaymentOptions && showPartialOption) {
+    return (
+      <div className="space-y-3">
+        <div className="surface-card overflow-hidden">
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-white text-sm">Choose Payment Amount</h3>
+              <button
+                onClick={handleCancelPaymentOptions}
+                className="text-white/70 hover:text-white text-sm"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+          <div className="p-4 space-y-3">
+            {/* Full Payment Option */}
+            <button
+              onClick={() => setPaymentMode('full')}
+              className={`w-full p-3 rounded-lg border-2 transition-all duration-200 text-left ${
+                paymentMode === 'full'
+                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30'
+                  : 'border-gray-200 dark:border-gray-700 hover:border-blue-300'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-medium text-gray-900 dark:text-white">Pay Full Balance</span>
+                <span className="font-bold text-blue-600 dark:text-blue-400">
+                  ${memberDues.balance.toFixed(2)}
+                </span>
+              </div>
+            </button>
+
+            {/* Custom Amount Option */}
+            <button
+              onClick={() => setPaymentMode('custom')}
+              className={`w-full p-3 rounded-lg border-2 transition-all duration-200 text-left ${
+                paymentMode === 'custom'
+                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30'
+                  : 'border-gray-200 dark:border-gray-700 hover:border-blue-300'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <DollarSign className="w-4 h-4 text-gray-500" />
+                <span className="font-medium text-gray-900 dark:text-white">Pay Custom Amount</span>
+              </div>
+            </button>
+
+            {/* Custom Amount Input */}
+            {paymentMode === 'custom' && (
+              <div className="pt-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Enter amount ($1.00 - ${memberDues.balance.toFixed(2)})
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                  <input
+                    type="number"
+                    min="1"
+                    max={memberDues.balance}
+                    step="0.01"
+                    value={customAmount}
+                    onChange={(e) => setCustomAmount(e.target.value)}
+                    placeholder="0.00"
+                    className="w-full pl-7 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                {customAmount && parseFloat(customAmount) > 0 && parseFloat(customAmount) < memberDues.balance && (
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Remaining after payment: ${(memberDues.balance - parseFloat(customAmount)).toFixed(2)}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Flexible Plan Deadline Info */}
+            {hasFlexiblePlan && memberDues.flexible_plan_deadline && (
+              <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-3">
+                <p className="text-xs text-purple-800 dark:text-purple-200">
+                  <span className="font-semibold">Flexible Payment Plan</span> - Pay any amount until{' '}
+                  {new Date(memberDues.flexible_plan_deadline).toLocaleDateString('en-US', {
+                    month: 'long',
+                    day: 'numeric',
+                    year: 'numeric',
+                  })}
+                </p>
+              </div>
+            )}
+
+            {/* Pay Button */}
+            <button
+              onClick={handlePayClick}
+              disabled={paymentMode === 'custom' && (!customAmount || parseFloat(customAmount) <= 0)}
+              className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg font-semibold shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none flex items-center justify-center"
+            >
+              <CreditCard className="w-5 h-5 mr-2" />
+              {paymentMode === 'custom' && customAmount
+                ? `Pay $${parseFloat(customAmount).toFixed(2)}`
+                : `Pay $${memberDues.balance.toFixed(2)}`}
+            </button>
+          </div>
+        </div>
+
+        {/* Checkout Modal */}
+        <StripeCheckoutModal
+          memberDues={memberDues}
+          isOpen={showCheckout}
+          onClose={() => {
+            setShowCheckout(false);
+          }}
+          onSuccess={handlePaymentSuccess}
+          customAmount={getPaymentAmount()}
+        />
+      </div>
+    );
+  }
+
   return (
     <>
       <button
@@ -250,6 +422,9 @@ const PayDuesButton: React.FC<PayDuesButtonProps> = ({
       >
         <CreditCard className={`mr-2 ${getIconSize()}`} />
         {variant === 'small' ? 'Pay' : `Pay $${memberDues.balance.toFixed(2)}`}
+        {showPartialOption && variant !== 'small' && (
+          <ChevronDown className="ml-1 w-4 h-4" />
+        )}
       </button>
 
       {/* Checkout Modal */}
@@ -258,6 +433,7 @@ const PayDuesButton: React.FC<PayDuesButtonProps> = ({
         isOpen={showCheckout}
         onClose={() => setShowCheckout(false)}
         onSuccess={handlePaymentSuccess}
+        customAmount={getPaymentAmount()}
       />
     </>
   );
