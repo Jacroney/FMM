@@ -324,20 +324,16 @@ export class AuthService {
 
       if (profileError) throw profileError;
 
-      // Calculate total dues balance using the member_dues_summary view (by email)
-      // Note: member_dues.member_id references members.id, NOT auth.users.id
-      // We must query by email to correctly link the tables
-      const { data: duesData, error: duesError } = await supabase
-        .from('member_dues_summary')
-        .select('balance')
-        .eq('member_email', profileData.email);
+      // Calculate total dues balance using secured RPC function
+      // This ensures users can only see their own dues data
+      const { data: duesData, error: duesError } = await supabase.rpc('get_my_dues_summary');
 
       if (duesError) {
         console.error('Error fetching dues:', duesError);
       }
 
       // Sum up all balances
-      const totalBalance = duesData?.reduce((sum, dues) => sum + (dues.balance || 0), 0) || 0;
+      const totalBalance = duesData?.reduce((sum: number, dues: { balance: number }) => sum + (dues.balance || 0), 0) || 0;
 
       return {
         user_id: profileData.id,

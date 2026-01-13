@@ -133,27 +133,33 @@ export class DuesService {
   // ============================================================================
 
   /**
-   * Get all member dues for a chapter
+   * Get all member dues for a chapter (uses secured RPC function)
    */
   static async getMemberDues(
     chapterId: string,
     configId?: string
   ): Promise<MemberDuesSummary[]> {
     try {
-      let query = supabase
-        .from('member_dues_summary')
-        .select('*')
-        .eq('chapter_id', chapterId)
-        .order('member_name');
-
-      if (configId) {
-        query = query.eq('config_id', configId);
-      }
-
-      const { data, error } = await query;
+      const { data, error } = await supabase.rpc('get_member_dues_summary', {
+        p_chapter_id: chapterId,
+        p_status: null,
+        p_is_overdue: null
+      });
 
       if (error) throw error;
-      return data || [];
+
+      // Filter by configId if provided (client-side since RPC doesn't support it)
+      let result = data || [];
+      if (configId) {
+        result = result.filter((d: MemberDuesSummary) => d.config_id === configId);
+      }
+
+      // Sort by member_name
+      result.sort((a: MemberDuesSummary, b: MemberDuesSummary) =>
+        (a.member_name || '').localeCompare(b.member_name || '')
+      );
+
+      return result;
     } catch (error) {
       console.error('Error fetching member dues:', error);
       return [];
@@ -162,20 +168,21 @@ export class DuesService {
 
   /**
    * Get member dues summary by email (for member dashboard)
+   * Uses secured RPC function that validates user owns the data
    */
   static async getMemberDuesSummaryByEmail(
     email: string
   ): Promise<MemberDuesSummary[]> {
     try {
-      const { data, error } = await supabase
-        .from('member_dues_summary')
-        .select('*')
-        .eq('member_email', email)
-        .gt('balance', 0)
-        .order('fiscal_year', { ascending: false });
+      // Use the secured RPC function that returns only the authenticated user's dues
+      const { data, error } = await supabase.rpc('get_my_dues_summary');
 
       if (error) throw error;
-      return data || [];
+
+      // Filter to only show outstanding balances
+      const result = (data || []).filter((d: MemberDuesSummary) => d.balance > 0);
+
+      return result;
     } catch (error) {
       console.error('Error fetching member dues summary by email:', error);
       return [];
@@ -524,29 +531,27 @@ export class DuesService {
   // ============================================================================
 
   /**
-   * Get dues statistics for a chapter
+   * Get dues statistics for a chapter (uses secured RPC function)
    */
   static async getChapterStats(
     chapterId: string,
     periodName?: string
   ): Promise<ChapterDuesStats | null> {
     try {
-      let query = supabase
-        .from('chapter_dues_stats')
-        .select('*')
-        .eq('chapter_id', chapterId);
-
-      if (periodName) {
-        query = query.eq('period_name', periodName);
-      }
-
-      const { data, error } = await query.single();
+      const { data, error } = await supabase.rpc('get_chapter_dues_stats', {
+        p_chapter_id: chapterId,
+        p_period_name: periodName || null
+      });
 
       if (error) {
-        if (error.code === 'PGRST116') return null;
+        // Handle "no rows" case
+        if (error.message?.includes('No rows')) return null;
         throw error;
       }
-      return data;
+
+      // RPC returns an array, get first result
+      if (!data || data.length === 0) return null;
+      return data[0];
     } catch (error) {
       console.error('Error fetching chapter stats:', error);
       return null;
@@ -554,17 +559,13 @@ export class DuesService {
   }
 
   /**
-   * Get overdue members
+   * Get overdue members (uses secured RPC function)
    */
   static async getOverdueMembers(chapterId: string): Promise<MemberDuesSummary[]> {
     try {
-      const { data, error } = await supabase
-        .from('member_dues_summary')
-        .select('*')
-        .eq('chapter_id', chapterId)
-        .eq('is_overdue', true)
-        .gt('balance', 0)
-        .order('days_overdue', { ascending: false });
+      const { data, error } = await supabase.rpc('get_overdue_members', {
+        p_chapter_id: chapterId
+      });
 
       if (error) throw error;
       return data || [];
