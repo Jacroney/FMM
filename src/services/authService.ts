@@ -720,12 +720,10 @@ export class AuthService {
     }
 
     try {
-      const { data, error } = await supabase
-        .from('member_invitations')
-        .select('*')
-        .eq('chapter_id', chapterId)
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false });
+      // Use RPC function to bypass RLS while still enforcing authorization
+      const { data, error } = await supabase.rpc('get_pending_invitations', {
+        p_chapter_id: chapterId
+      });
 
       if (error) throw error;
 
