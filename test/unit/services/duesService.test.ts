@@ -524,38 +524,32 @@ describe('DuesService', () => {
 
   describe('getChapterStats', () => {
     it('returns chapter dues statistics', async () => {
-      const mockChain = {
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({
-          data: {
-            chapter_id: mockChapterId,
-            total_members: 50,
-            members_paid: 35,
-            payment_rate: 70
-          },
-          error: null
-        })
-      };
-      mockSupabaseClient.from.mockReturnValue(mockChain);
+      mockSupabaseClient.rpc.mockResolvedValue({
+        data: [{
+          chapter_id: mockChapterId,
+          total_members: 50,
+          members_paid: 35,
+          payment_rate: 70
+        }],
+        error: null
+      });
 
       const result = await DuesService.getChapterStats(mockChapterId);
 
       expect(result).not.toBeNull();
       expect(result?.total_members).toBe(50);
       expect(result?.payment_rate).toBe(70);
+      expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('get_chapter_dues_stats', {
+        p_chapter_id: mockChapterId,
+        p_period_name: null
+      });
     });
 
     it('returns null when no stats available', async () => {
-      const mockChain = {
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({
-          data: null,
-          error: { code: 'PGRST116' }
-        })
-      };
-      mockSupabaseClient.from.mockReturnValue(mockChain);
+      mockSupabaseClient.rpc.mockResolvedValue({
+        data: [],
+        error: null
+      });
 
       const result = await DuesService.getChapterStats(mockChapterId);
 
@@ -570,36 +564,25 @@ describe('DuesService', () => {
         { ...mockMemberDuesSummary, is_overdue: true, days_overdue: 30 }
       ];
 
-      const mockChain = {
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        gt: vi.fn().mockReturnThis(),
-        order: vi.fn().mockReturnThis(),
-        then: vi.fn((cb) => Promise.resolve(cb({
-          data: overdueMembers,
-          error: null
-        })))
-      };
-      mockSupabaseClient.from.mockReturnValue(mockChain);
+      mockSupabaseClient.rpc.mockResolvedValue({
+        data: overdueMembers,
+        error: null
+      });
 
       const result = await DuesService.getOverdueMembers(mockChapterId);
 
       expect(result).toHaveLength(2);
       expect(result[0].is_overdue).toBe(true);
+      expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('get_overdue_members', {
+        p_chapter_id: mockChapterId
+      });
     });
 
     it('returns empty array on error', async () => {
-      const mockChain = {
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        gt: vi.fn().mockReturnThis(),
-        order: vi.fn().mockReturnThis(),
-        then: vi.fn((cb) => Promise.resolve(cb({
-          data: null,
-          error: { message: 'Error' }
-        })))
-      };
-      mockSupabaseClient.from.mockReturnValue(mockChain);
+      mockSupabaseClient.rpc.mockResolvedValue({
+        data: null,
+        error: { message: 'Error' }
+      });
 
       const result = await DuesService.getOverdueMembers(mockChapterId);
 
