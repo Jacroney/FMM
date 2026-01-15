@@ -46,41 +46,31 @@ const AuthPage: React.FC = () => {
 
     const fetchInvitationData = async () => {
       try {
-        // Fetch invitation from member_invitations
-        const { data, error } = await supabase
-          .from('member_invitations')
-          .select('id, email, first_name, last_name, chapter_id, phone_number, year, status, invitation_expires_at')
-          .eq('invitation_token', invitationToken)
-          .single();
+        // Use RPC to fetch invitation (bypasses RLS for anonymous users)
+        const { data: rpcResult, error } = await supabase
+          .rpc('get_invitation_by_token', { p_invitation_token: invitationToken });
 
-        if (error || !data) {
-          setInvitationError('Invalid invitation link');
+        if (error) {
+          console.error('Error fetching invitation:', error);
+          setInvitationError('Failed to load invitation');
           setInvitationLoading(false);
           return;
         }
 
-        // Check if already used
-        if (data.status !== 'pending') {
-          setInvitationError('This invitation has already been used. Please sign in if you have an account.');
+        if (!rpcResult?.success) {
+          const errorType = rpcResult?.error || 'invalid_token';
+          const errorMessages: Record<string, string> = {
+            invalid_token: 'Invalid invitation link',
+            already_used: 'This invitation has already been used. Please sign in if you have an account.',
+            expired: 'This invitation has expired. Please contact your chapter administrator.',
+          };
+          setInvitationError(errorMessages[errorType] || 'Invalid invitation link');
           setInvitationLoading(false);
           return;
         }
 
-        // Check expiration
-        if (data.invitation_expires_at && new Date(data.invitation_expires_at) < new Date()) {
-          setInvitationError('This invitation has expired. Please contact your chapter administrator.');
-          setInvitationLoading(false);
-          return;
-        }
-
-        // Fetch chapter name
-        const { data: chapter } = await supabase
-          .from('chapters')
-          .select('name')
-          .eq('id', data.chapter_id)
-          .single();
-
-        setChapterName(chapter?.name);
+        const data = rpcResult.invitation;
+        setChapterName(rpcResult.chapter_name);
         setInvitationData({
           id: data.id,
           email: data.email,
