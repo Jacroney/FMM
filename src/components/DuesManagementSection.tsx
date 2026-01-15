@@ -30,7 +30,7 @@ import InstallmentEligibilityModal from './InstallmentEligibilityModal';
 import ApplyCustomLateFeeModal from './ApplyCustomLateFeeModal';
 import EditMemberDuesModal from './EditMemberDuesModal';
 import toast from 'react-hot-toast';
-import { getYearLabel } from '../utils/yearUtils';
+import { getYearLabel, YEAR_OPTIONS } from '../utils/yearUtils';
 
 const computeStatsFromSummaries = (
   summaries: MemberDuesSummary[],
@@ -122,6 +122,7 @@ const DuesManagementSection: React.FC<DuesManagementSectionProps> = ({ chapterId
   const [isProcessing, setIsProcessing] = useState(false);
 
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterYear, setFilterYear] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
 
   // Installment eligibility modal
@@ -390,10 +391,11 @@ const DuesManagementSection: React.FC<DuesManagementSectionProps> = ({ chapterId
   // Filter dues
   const filteredDues = memberDues.filter(dues => {
     const matchesStatus = filterStatus === 'all' || dues.status === filterStatus;
+    const matchesYear = filterYear === 'all' || dues.member_year === filterYear;
     const matchesSearch =
       dues.member_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       dues.member_email.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesStatus && matchesSearch;
+    return matchesStatus && matchesYear && matchesSearch;
   });
 
   const getStatusBadge = (status: string) => {
@@ -617,6 +619,16 @@ const DuesManagementSection: React.FC<DuesManagementSectionProps> = ({ chapterId
             />
           </div>
           <select
+            value={filterYear}
+            onChange={(e) => setFilterYear(e.target.value)}
+            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+          >
+            <option value="all">All Years</option>
+            {YEAR_OPTIONS.map(({ value, label }) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
+          <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
             className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
@@ -628,6 +640,18 @@ const DuesManagementSection: React.FC<DuesManagementSectionProps> = ({ chapterId
             <option value="overdue">Overdue</option>
             <option value="waived">Waived</option>
           </select>
+          {/* Clear Filters */}
+          {(filterYear !== 'all' || filterStatus !== 'all') && (
+            <button
+              onClick={() => {
+                setFilterYear('all');
+                setFilterStatus('all');
+              }}
+              className="px-3 py-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
+            >
+              Clear Filters
+            </button>
+          )}
         </div>
       </div>
 

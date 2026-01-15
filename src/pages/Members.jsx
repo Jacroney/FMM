@@ -23,6 +23,11 @@ const Members = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterYear, setFilterYear] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [filterRole, setFilterRole] = useState('all');
+  const [filterPaymentPlan, setFilterPaymentPlan] = useState('all');
+  const [filterDuesBalance, setFilterDuesBalance] = useState('all');
   const [selectedSemester, setSelectedSemester] = useState('Winter 2025');
   const [showImportModal, setShowImportModal] = useState(false);
   const [importData, setImportData] = useState('');
@@ -440,17 +445,62 @@ const Members = () => {
     }
   };
 
-  // Filter members based on search term with sanitization
-  const filteredMembers = members.filter(member =>
-    (member.full_name || '').toLowerCase().includes(sanitizeInput(searchTerm.toLowerCase())) ||
-    (member.email || '').toLowerCase().includes(sanitizeInput(searchTerm.toLowerCase()))
-  );
+  // Filter members based on search term and filters
+  const filteredMembers = members.filter(member => {
+    // Search filter
+    const searchLower = sanitizeInput(searchTerm.toLowerCase());
+    const matchesSearch = !searchTerm ||
+      (member.full_name || '').toLowerCase().includes(searchLower) ||
+      (member.email || '').toLowerCase().includes(searchLower);
+    if (!matchesSearch) return false;
 
-  // Filter pending invitations based on search term
-  const filteredInvitations = pendingInvitations.filter(inv =>
-    (inv.full_name || '').toLowerCase().includes(sanitizeInput(searchTerm.toLowerCase())) ||
-    (inv.email || '').toLowerCase().includes(sanitizeInput(searchTerm.toLowerCase()))
-  );
+    // Year filter
+    if (filterYear !== 'all' && member.year !== filterYear) return false;
+
+    // Status filter
+    if (filterStatus !== 'all' && member.status !== filterStatus) return false;
+
+    // Role filter
+    if (filterRole !== 'all' && member.role !== filterRole) return false;
+
+    // Payment plan eligibility filter
+    if (filterPaymentPlan !== 'all') {
+      const isEligible = member.installment_eligible === true;
+      if (filterPaymentPlan === 'eligible' && !isEligible) return false;
+      if (filterPaymentPlan === 'not_eligible' && isEligible) return false;
+    }
+
+    // Dues balance filter
+    if (filterDuesBalance !== 'all') {
+      const hasDues = (member.dues_balance || 0) > 0;
+      if (filterDuesBalance === 'paid' && hasDues) return false;
+      if (filterDuesBalance === 'unpaid' && !hasDues) return false;
+    }
+
+    return true;
+  });
+
+  // Filter pending invitations based on search term and filters
+  const filteredInvitations = pendingInvitations.filter(inv => {
+    // Search filter
+    const searchLower = sanitizeInput(searchTerm.toLowerCase());
+    const matchesSearch = !searchTerm ||
+      (inv.full_name || '').toLowerCase().includes(searchLower) ||
+      (inv.email || '').toLowerCase().includes(searchLower);
+    if (!matchesSearch) return false;
+
+    // Year filter (invitations have year field)
+    if (filterYear !== 'all' && inv.year !== filterYear) return false;
+
+    // Status filter - invitations are always "invited", so only show if status filter is 'all'
+    if (filterStatus !== 'all') return false;
+
+    // Role/Payment Plan/Dues Balance filters don't apply to invitations
+    // Only filter them out if these filters are set
+    if (filterRole !== 'all' || filterPaymentPlan !== 'all' || filterDuesBalance !== 'all') return false;
+
+    return true;
+  });
 
   // Calculate member statistics (includes pending invitations in total)
   const memberStats = {
@@ -581,17 +631,99 @@ const Members = () => {
         </div>
       </div>
 
-      {/* Search Bar */}
+      {/* Search and Filters */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-        <div className="relative">
-          <input
-            type="text"
-            placeholder="Search members by name or email..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 pl-10 pr-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
-          />
-          <span className="absolute left-3 top-2.5 text-gray-400 dark:text-gray-500">🔍</span>
+        <div className="flex flex-col gap-4">
+          {/* Search Bar */}
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Search members by name or email..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 pl-10 pr-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+            />
+            <span className="absolute left-3 top-2.5 text-gray-400 dark:text-gray-500">🔍</span>
+          </div>
+
+          {/* Filter Dropdowns */}
+          <div className="flex flex-wrap gap-3">
+            {/* Year Filter */}
+            <select
+              value={filterYear}
+              onChange={(e) => setFilterYear(e.target.value)}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">All Years</option>
+              {YEAR_OPTIONS.map(({ value, label }) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+
+            {/* Status Filter */}
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">All Status</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+              <option value="pledge">Pledge</option>
+              <option value="alumni">Alumni</option>
+            </select>
+
+            {/* Role Filter */}
+            <select
+              value={filterRole}
+              onChange={(e) => setFilterRole(e.target.value)}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">All Roles</option>
+              <option value="admin">Admin</option>
+              <option value="exec">Executive</option>
+              <option value="treasurer">Treasurer</option>
+              <option value="member">Member</option>
+            </select>
+
+            {/* Payment Plan Filter */}
+            <select
+              value={filterPaymentPlan}
+              onChange={(e) => setFilterPaymentPlan(e.target.value)}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">Payment Plan</option>
+              <option value="eligible">Eligible</option>
+              <option value="not_eligible">Not Eligible</option>
+            </select>
+
+            {/* Dues Balance Filter */}
+            <select
+              value={filterDuesBalance}
+              onChange={(e) => setFilterDuesBalance(e.target.value)}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">Dues Balance</option>
+              <option value="paid">Paid (Zero Balance)</option>
+              <option value="unpaid">Unpaid (Has Balance)</option>
+            </select>
+
+            {/* Clear Filters Button */}
+            {(filterYear !== 'all' || filterStatus !== 'all' || filterRole !== 'all' || filterPaymentPlan !== 'all' || filterDuesBalance !== 'all') && (
+              <button
+                onClick={() => {
+                  setFilterYear('all');
+                  setFilterStatus('all');
+                  setFilterRole('all');
+                  setFilterPaymentPlan('all');
+                  setFilterDuesBalance('all');
+                }}
+                className="px-3 py-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
+              >
+                Clear Filters
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
