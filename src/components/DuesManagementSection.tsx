@@ -26,6 +26,7 @@ import DuesConfigurationModal from './DuesConfigurationModal';
 import PayDuesButton from './PayDuesButton';
 import StripeConnectSetup from './StripeConnectSetup';
 import AssignDuesModal from './AssignDuesModal';
+import BulkAssignDuesModal from './BulkAssignDuesModal';
 import InstallmentEligibilityModal from './InstallmentEligibilityModal';
 import ApplyCustomLateFeeModal from './ApplyCustomLateFeeModal';
 import EditMemberDuesModal from './EditMemberDuesModal';
@@ -113,6 +114,7 @@ const DuesManagementSection: React.FC<DuesManagementSectionProps> = ({ chapterId
   const [editingConfig, setEditingConfig] = useState<DuesConfiguration | undefined>();
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showEmailAssignModal, setShowEmailAssignModal] = useState(false);
+  const [showBulkAssignModal, setShowBulkAssignModal] = useState(false);
   const [selectedMemberDues, setSelectedMemberDues] = useState<MemberDuesSummary | null>(null);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<string>('Cash');
@@ -563,12 +565,12 @@ const DuesManagementSection: React.FC<DuesManagementSectionProps> = ({ chapterId
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
           <div className="flex flex-wrap gap-3">
             <button
-              onClick={handleAutoAssignDues}
+              onClick={() => setShowBulkAssignModal(true)}
               disabled={isProcessing}
               className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Users className="w-4 h-4" />
-              Auto-Assign Dues to All Members
+              Bulk Assign Dues
             </button>
             <button
               onClick={() => setShowEmailAssignModal(true)}
@@ -791,6 +793,15 @@ const DuesManagementSection: React.FC<DuesManagementSectionProps> = ({ chapterId
       <AssignDuesModal
         isOpen={showEmailAssignModal}
         onClose={() => setShowEmailAssignModal(false)}
+        chapterId={chapterId}
+        config={currentConfig}
+        onSuccess={loadData}
+      />
+
+      {/* Bulk Assign Dues Modal */}
+      <BulkAssignDuesModal
+        isOpen={showBulkAssignModal}
+        onClose={() => setShowBulkAssignModal(false)}
         chapterId={chapterId}
         config={currentConfig}
         onSuccess={loadData}
