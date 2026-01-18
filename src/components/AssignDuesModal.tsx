@@ -1,8 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, DollarSign, Calendar, FileText, Search, User, Mail, ChevronDown } from 'lucide-react';
+import { X, DollarSign, Calendar, FileText, Search, User, Mail, ChevronDown, GraduationCap } from 'lucide-react';
 import { supabase } from '../services/supabaseClient';
 import toast from 'react-hot-toast';
 import { DuesConfiguration } from '../services/types';
+import { YEAR_OPTIONS, DUES_FIELD_BY_YEAR, YearValue } from '../utils/yearUtils';
+
+// Extended year options including Pledge
+const ASSIGN_YEAR_OPTIONS = [
+  { value: 'default', label: 'Default' },
+  ...YEAR_OPTIONS,
+  { value: 'pledge', label: 'Pledge' },
+];
 
 interface MemberOption {
   id: string;
@@ -27,10 +35,25 @@ const AssignDuesModal: React.FC<AssignDuesModalProps> = ({
   onSuccess
 }) => {
   const [selectedMember, setSelectedMember] = useState<MemberOption | null>(null);
+  const [selectedYear, setSelectedYear] = useState<string>('default');
   const [amount, setAmount] = useState(config?.default_dues?.toString() || '');
   const [dueDate, setDueDate] = useState(config?.due_date || '');
   const [notes, setNotes] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // Get amount for selected year from config
+  const getAmountForYear = (year: string): number => {
+    if (!config) return 0;
+    const field = DUES_FIELD_BY_YEAR[year as YearValue | 'pledge' | 'default'] || 'default_dues';
+    return (config as any)[field] || config.default_dues || 0;
+  };
+
+  // Update amount when year changes
+  const handleYearChange = (year: string) => {
+    setSelectedYear(year);
+    const yearAmount = getAmountForYear(year);
+    setAmount(yearAmount.toString());
+  };
 
   // Dropdown state
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -187,6 +210,7 @@ const AssignDuesModal: React.FC<AssignDuesModalProps> = ({
 
   const resetForm = () => {
     setSelectedMember(null);
+    setSelectedYear('default');
     setAmount(config?.default_dues?.toString() || '');
     setDueDate(config?.due_date || '');
     setNotes('');
@@ -349,6 +373,31 @@ const AssignDuesModal: React.FC<AssignDuesModalProps> = ({
               )}
             </div>
 
+            {/* Year Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <GraduationCap className="inline w-4 h-4 mr-1" />
+                Member Year *
+              </label>
+              <select
+                value={selectedYear}
+                onChange={(e) => handleYearChange(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-gray-900 dark:text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+              >
+                {ASSIGN_YEAR_OPTIONS.map((option) => {
+                  const yearAmount = getAmountForYear(option.value);
+                  return (
+                    <option key={option.value} value={option.value}>
+                      {option.label} {yearAmount > 0 ? `($${yearAmount.toFixed(2)})` : ''}
+                    </option>
+                  );
+                })}
+              </select>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Selecting a year will auto-fill the amount from your dues configuration
+              </p>
+            </div>
+
             {/* Amount */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -365,6 +414,9 @@ const AssignDuesModal: React.FC<AssignDuesModalProps> = ({
                 placeholder="0.00"
                 className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-gray-900 dark:text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
               />
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                You can adjust the amount manually if needed
+              </p>
             </div>
 
             {/* Due Date */}
