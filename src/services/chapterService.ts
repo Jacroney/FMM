@@ -10,6 +10,26 @@ export class ChapterService {
     }
 
     try {
+      // Use RPC function that handles super admin logic server-side
+      const { data: rpcData, error: rpcError } = await supabase
+        .rpc('get_all_chapters_for_user');
+
+      if (!rpcError && rpcData && rpcData.length > 0) {
+        // RPC worked, now fetch fraternity data for each chapter
+        const chapterIds = rpcData.map((c: { id: string }) => c.id);
+        const { data: chaptersWithFraternity } = await supabase
+          .from('chapters')
+          .select(`
+            *,
+            fraternity:fraternities(*)
+          `)
+          .in('id', chapterIds)
+          .order('name', { ascending: true });
+
+        return chaptersWithFraternity || rpcData;
+      }
+
+      // Fallback to direct query
       const { data, error } = await supabase
         .from('chapters')
         .select(`
@@ -19,12 +39,13 @@ export class ChapterService {
         .order('name', { ascending: true });
 
       if (error) {
-        // Return empty array if there's an error - the actual chapter should exist in DB
+        console.error('Error fetching chapters:', error);
         return [];
       }
 
       return data || [];
     } catch (error) {
+      console.error('Error in getAllChapters:', error);
       return [];
     }
   }

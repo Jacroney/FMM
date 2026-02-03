@@ -19,6 +19,7 @@ export interface AuthContextType {
   isMember: boolean;
   hasAdminAccess: boolean;
   isDeveloper: boolean;
+  isSuperAdmin: boolean;
 
   // Auth actions
   signUp: (data: SignUpData) => Promise<boolean>;
@@ -63,6 +64,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const isExec = profile?.role === 'exec';
   const isMember = profile?.role === 'member';
   const hasAdminAccess = isAdmin || isExec;
+  const isSuperAdmin = profile?.is_super_admin === true;
 
   // Check if user is a developer (based on email whitelist)
   const isDeveloper = React.useMemo(() => {
@@ -377,6 +379,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     isMember,
     hasAdminAccess,
     isDeveloper,
+    isSuperAdmin,
 
     // Auth actions
     signUp,

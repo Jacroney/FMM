@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useChapter } from '../context/ChapterContext';
+import { useAuth } from '../context/AuthContext';
 import { isDemoModeEnabled } from '../utils/env';
 import { ChapterService } from '../services/chapterService';
 import { FraternityService } from '../services/fraternityService';
@@ -15,6 +16,7 @@ import {
 
 export const ChapterSelector: React.FC = () => {
   const { chapters, currentChapter, setCurrentChapter, refreshChapters } = useChapter();
+  const { isSuperAdmin } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [fraternities, setFraternities] = useState<Fraternity[]>([]);
@@ -212,7 +214,7 @@ export const ChapterSelector: React.FC = () => {
               )}
             </div>
           ))}
-          {!isDemoModeEnabled() && (
+          {!isDemoModeEnabled() && isSuperAdmin && (
             <div
               className="relative cursor-default select-none py-2 pl-10 pr-4 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-gray-600"
               onClick={() => {

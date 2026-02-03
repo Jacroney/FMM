@@ -18,6 +18,7 @@ export interface UserProfile {
   dues_balance: number;
   status?: 'active' | 'inactive' | 'alumni' | 'pledge'; // New unified status field
   is_active: boolean;
+  is_super_admin?: boolean; // Can access all chapters
   installment_eligible?: boolean; // Global eligibility for payment plans
   created_at: string;
   updated_at: string;
