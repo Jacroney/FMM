@@ -52,7 +52,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   const navigate = useNavigate();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const { signOut } = useAuth();
+  const { signOut, isSuperAdmin } = useAuth();
 
   const defaultTitles = useMemo(() => createPageTitles(basePath), [basePath]);
   const mergedTitles = useMemo(
@@ -150,7 +150,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                   <span className="ml-2 hidden rounded-md border border-slate-200 px-1.5 py-0.5 text-xs text-slate-400 sm:block">⌘K</span>
                 </button>
               )}
-              {showChapterSelector && <ChapterSelector />}
+              {showChapterSelector && isSuperAdmin && <ChapterSelector />}
               {headerActions}
               {showSignOut && (
                 <button
