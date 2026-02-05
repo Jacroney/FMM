@@ -180,7 +180,10 @@ serve(async (req) => {
 
     if (existingIntent) {
       // If same payment method type and still pending/requires_action, reuse the existing intent
-      if (existingIntent.payment_method_type === payment_method_type &&
+      // BUT: never reuse when a saved payment method is specified — we need a fresh intent
+      // that's confirmed with the saved method attached
+      if (!payment_method_id &&
+          existingIntent.payment_method_type === payment_method_type &&
           ['pending', 'requires_action'].includes(existingIntent.status) &&
           existingIntent.stripe_client_secret) {
         console.log('Reusing existing payment intent:', existingIntent.stripe_payment_intent_id)
@@ -203,8 +206,8 @@ serve(async (req) => {
         throw new Error(`A ${paymentType} is already processing for these dues. Please wait for it to complete.`)
       }
 
-      // Different payment method type - cancel the old intent and create new
-      console.log('Canceling existing intent for new payment method type:', existingIntent.stripe_payment_intent_id)
+      // Cancel old intent: either different payment method type or using a saved payment method
+      console.log('Canceling existing intent:', existingIntent.stripe_payment_intent_id, payment_method_id ? '(using saved method)' : '(switching payment type)')
       try {
         await stripe.paymentIntents.cancel(existingIntent.stripe_payment_intent_id)
       } catch (cancelErr) {

@@ -453,6 +453,18 @@ const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
     }
   };
 
+  const handleDeleteSavedMethod = async (e: React.MouseEvent, methodId: string) => {
+    e.stopPropagation(); // Prevent triggering the parent button's onClick
+    try {
+      await PaymentService.deleteSavedPaymentMethod(methodId, memberDues.member_id);
+      setSavedMethods(prev => prev.filter(m => m.stripe_payment_method_id !== methodId));
+      toast.success('Payment method removed');
+    } catch (err) {
+      console.error('Error deleting payment method:', err);
+      toast.error('Failed to remove payment method');
+    }
+  };
+
   const handleUseNewMethod = () => {
     setUsingSavedMethod(false);
     setSelectedSavedMethod(null);
@@ -877,11 +889,20 @@ const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
                         </p>
                       </div>
                     </div>
-                    {method.is_default && (
-                      <span className="text-xs bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-2.5 py-1 rounded-full font-medium">
-                        Default
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {method.is_default && (
+                        <span className="text-xs bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-2.5 py-1 rounded-full font-medium">
+                          Default
+                        </span>
+                      )}
+                      <button
+                        onClick={(e) => handleDeleteSavedMethod(e, method.stripe_payment_method_id)}
+                        className="p-1.5 text-gray-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                        title="Remove payment method"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </button>
                 ))}
                 <button

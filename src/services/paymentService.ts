@@ -526,6 +526,26 @@ export class PaymentService {
   }
 
   /**
+   * Delete a saved payment method
+   */
+  static async deleteSavedPaymentMethod(paymentMethodId: string, userId: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('saved_payment_methods')
+        .delete()
+        .eq('stripe_payment_method_id', paymentMethodId)
+        .eq('user_id', userId);
+
+      if (error) {
+        throw error;
+      }
+    } catch (error) {
+      console.error('Error deleting saved payment method:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Set a payment method as default
    */
   static async setDefaultPaymentMethod(paymentMethodId: string, userId: string): Promise<void> {
