@@ -25,6 +25,7 @@ import Home from './pages/Home';
 import Demo from './pages/Demo';
 import Contact from './pages/Contact';
 import Pricing from './pages/Pricing';
+import Features from './pages/Features';
 import AuthPage from './pages/AuthPage';
 import PaymentSuccess from './pages/PaymentSuccess';
 import PaymentFailure from './pages/PaymentFailure';
@@ -44,6 +45,7 @@ function App() {
                 <Route path="/demo/*" element={<DemoRoutes />} />
                 <Route path="/contact" element={<Contact />} />
                 <Route path="/pricing" element={<Pricing />} />
+                <Route path="/features" element={<Features />} />
                 <Route path="/signin" element={<AuthPage />} />
                 <Route path="/signup" element={<AuthPage />} />
                 <Route path="/invite" element={<Invite />} />
@@ -172,7 +174,7 @@ const ProtectedAppRoutes = () => {
   if (hasAdminAccess) {
     return (
       <Routes>
-        <Route path="" element={<MainLayout />}>
+        <Route path="" element={<MainLayout basePath="/demo" />}>
           <Route index element={<Dashboard />} />
           <Route path="transactions" element={<Transactions />} />
           <Route path="recurring" element={<RecurringTransactions />} />
