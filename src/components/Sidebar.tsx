@@ -26,7 +26,7 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
 
 // Demo mode menu items
 const DEMO_MENU_ITEMS: MenuItem[] = [
-  { title: 'Dashboard', slug: '', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
+  { title: 'Dashboard', slug: '/dashboard', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
   { title: 'Transactions', slug: '/transactions', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2' },
   { title: 'Budgets', slug: '/budgets', icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
   { title: 'Members', slug: '/members', icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z' },
@@ -102,16 +102,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, basePath, m
             }
 
             return (
-              <Link
+                <Link
                 key={path}
                 to={path}
                 className={`group relative flex items-center rounded-xl px-3 py-3 text-sm transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900 ${
                   isActive
-                    ? 'bg-blue-500/80 text-white shadow-md'
+                    ? 'bg-blue-600 text-white shadow-md'
                     : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white'
                 } ${collapsed ? 'justify-center' : ''}`}
                 title={collapsed ? item.title : undefined}
               >
+                  <span
+                    className={`absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-full transition-opacity ${
+                      isActive ? 'bg-[var(--brand-primary)] opacity-100' : 'opacity-0'
+                    }`}
+                    aria-hidden="true"
+                  />
                 <div
                   className={`flex h-6 w-6 items-center justify-center ${
                     isActive ? 'text-white' : 'text-gray-500 group-hover:text-gray-700 dark:text-gray-400 dark:group-hover:text-white'

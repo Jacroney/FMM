@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { EnvelopeIcon, UserGroupIcon } from '@heroicons/react/24/outline';
 
@@ -19,32 +19,51 @@ const teamMembers = [
 
 const Contact: React.FC = () => {
   const navigate = useNavigate();
+  const [isHeaderScrolled, setIsHeaderScrolled] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onScroll = () => setIsHeaderScrolled(window.scrollY > 6);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   return (
     <div className="min-h-screen bg-[var(--brand-surface)] text-slate-900">
       {/* Header */}
-      <header className="border-b border-[var(--brand-border)] bg-white/80 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-5 sm:px-6 lg:px-8">
-          <Link to="/" className="flex items-center">
-            <img
-              src="/GreekPay-logo-transparent.png"
-              alt="GreekPay Logo"
-              className="h-10 w-auto"
-            />
+      <header
+        className={`sticky top-0 z-50 transition-colors duration-200 ${
+          isHeaderScrolled
+            ? 'border-b border-[var(--brand-border)] bg-[var(--brand-surface)]'
+            : 'border-b border-transparent bg-[var(--brand-surface)]'
+        }`}
+      >
+        <div className="relative mx-auto flex max-w-6xl items-center justify-between px-4 py-5 sm:px-6 lg:px-8">
+          <Link to="/" className="-ml-36 flex items-center gap-3">
+            <span className="flex h-14 w-14 items-center justify-center rounded-xl bg-[#E2B15A] shadow-sm overflow-hidden">
+              <img
+                src="/GreekPay-logo-icon-solid-bold3.png"
+                alt="GreekPay Logo"
+                className="h-full w-full object-contain scale-[1.55] origin-center"
+                style={{ filter: 'none' }}
+              />
+            </span>
+            <span className="text-xl font-semibold tracking-tight text-white">Greek Pay</span>
           </Link>
-          <nav className="hidden items-center gap-6 text-sm font-medium text-slate-600 sm:flex">
-            <Link to="/#features" className="hover:text-[var(--brand-primary)]">Features</Link>
-            <Link to="/pricing" className="hover:text-[var(--brand-primary)]">Pricing</Link>
-            <Link to="/demo" className="hover:text-[var(--brand-primary)]">Demo</Link>
-            <Link to="/contact" className="text-[var(--brand-primary)]">Contact</Link>
+          <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-6 text-sm font-medium text-white/80 sm:flex scale-[1.3] origin-center">
+            <Link to="/features" className="transition-colors hover:text-white">Features</Link>
+            <Link to="/pricing" className="transition-colors hover:text-white">Pricing</Link>
+            <Link to="/demo" className="transition-colors hover:text-white">Demo</Link>
+            <Link to="/contact" className="text-white">Contact</Link>
           </nav>
-          <div className="flex items-center gap-3">
+          <div className="absolute -right-28 flex items-center gap-3">
             <button
               type="button"
-              onClick={() => navigate('/')}
-              className="rounded-full border border-[var(--brand-border)] px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100"
+              onClick={() => navigate('/signin')}
+              className="rounded-full bg-[var(--brand-primary)] px-5 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[var(--brand-primary-dark)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-primary)] focus-visible:ring-offset-2"
             >
-              Back to Home
+              Sign in
             </button>
           </div>
         </div>
@@ -71,7 +90,9 @@ const Contact: React.FC = () => {
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-100 text-[var(--brand-primary)]">
                 <EnvelopeIcon className="h-8 w-8" />
               </div>
-              <h2 className="mt-6 text-2xl font-semibold text-slate-900">Email Us</h2>
+              <h2 className="mt-6 text-2xl font-semibold" style={{ color: '#0b1120' }}>
+                Email Us
+              </h2>
               <p className="mt-2 text-slate-600">
                 Have questions or want to see a demo? Send us an email and we'll get back to you within 24 hours.
               </p>
@@ -137,7 +158,9 @@ const Contact: React.FC = () => {
                       {member.initials}
                     </div>
                     <div>
-                      <h3 className="font-semibold text-slate-900">{member.name}</h3>
+                      <h3 className="font-semibold" style={{ color: '#0b1120' }}>
+                        {member.name}
+                      </h3>
                       <p className="text-sm text-[var(--brand-primary)]">{member.role}</p>
                     </div>
                   </div>
